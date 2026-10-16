@@ -36,6 +36,12 @@ class DemoSeeder extends Seeder
 {
     public function run(ScreeningService $screening, TopicService $topics, QrService $qr): void
     {
+        if (Team::query()->where('code', 'KP-SI-01')->exists()) {
+            $this->command?->warn('Data demo sudah ada. Untuk mengulang: php artisan migrate:fresh --seed lalu jalankan DemoSeeder lagi.');
+
+            return;
+        }
+
         DB::transaction(function () use ($screening, $topics, $qr) {
             $period = $this->period();
             $this->rules($period);

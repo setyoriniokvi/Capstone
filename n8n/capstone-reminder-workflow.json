@@ -1,0 +1,527 @@
+{
+  "name": "Capstone — Pengingat Dosen (Email & WhatsApp)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Capstone — Pengingat dosen (F49–F57)\n\n1. Ubah **base_url** pada node *Konfigurasi* ke URL aplikasi Capstone.\n2. Buat kredensial **Header Auth** bernama `Capstone Automation Token`: Name `X-Automation-Token`, Value = isi `AUTOMATION_TOKEN` di `.env`.\n3. Buat kredensial **Header Auth** bernama `Fonnte Token`: Name `Authorization`, Value = token perangkat Fonnte.\n4. Buat kredensial **SMTP** bernama `SMTP Capstone`, lalu ubah alamat pengirim di node *Kirim email*.\n5. Isi `N8N_REMINDER_WEBHOOK_URL` di `.env` dengan Production URL node *Pemicu manual* agar reminder manual admin langsung terkirim.\n\nBackend menentukan pekerjaan yang belum selesai, ambang waktu, dan mencegah duplikat. Workflow ini hanya mengirim lalu melaporkan hasilnya.",
+        "height": 420,
+        "width": 520,
+        "color": 4
+      },
+      "id": "e62baf5e-6f8b-4244-ad62-9be12f5d6af2",
+      "name": "Catatan",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "6ce128ab-1c1f-44c6-a03e-a7b1b0c42187",
+      "name": "Setiap jam",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "capstone-reminder",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "61bfab23-cbfc-426e-9454-f3099d5a067d",
+      "name": "Pemicu manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Capstone Automation Token"
+        }
+      },
+      "webhookId": "74b5444c-d98c-420c-a8c8-ae34b6cc8275"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4501ea50-a5e0-4c27-b5be-57273425b60b",
+              "name": "base_url",
+              "value": "https://capstone.example.ac.id",
+              "type": "string"
+            },
+            {
+              "id": "limit",
+              "name": "limit",
+              "value": 50,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "343b795a-cc63-4454-9618-55776fbde9e2",
+      "name": "Konfigurasi",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.base_url }}/api/automation/reminders/claim",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limit: $json.limit }) }}",
+        "options": {}
+      },
+      "id": "6e3845df-9515-43ae-a3ba-8e33816a64b8",
+      "name": "Ambil antrean",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Capstone Automation Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "275e9916-18e6-403c-8d3c-0e48399eabf5",
+      "name": "Pecah antrean",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dfc4c765-2b8b-46c4-9887-83b79e63f61e",
+              "leftValue": "={{ $json.channel }}",
+              "rightValue": "email",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2900675f-404f-424b-9604-040064e82b84",
+      "name": "Kanal email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "Capstone FRI <capstone@example.ac.id>",
+        "toEmail": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.message }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9bd9bcfe-5c7b-44e2-afea-a5638955ca64",
+      "name": "Kirim email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        160
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "",
+          "name": "SMTP Capstone"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.fonnte.com/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "target",
+              "value": "={{ $json.recipient }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "countryCode",
+              "value": "62"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ca78f768-cc77-4c53-85b5-132a3c39f87b",
+      "name": "Kirim WhatsApp (Fonnte)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        460
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Fonnte Token"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "997e8c71-5c4b-42d4-9bb9-56abc0f36db9",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ad34dd7d-fc0b-4a7f-bf22-5e7022baf456",
+      "name": "Fonnte berhasil?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4c3d98c6-577e-461d-881a-cd0e5e1a6b89",
+              "name": "id",
+              "value": "={{ $('Pecah antrean').item.json.id }}",
+              "type": "number"
+            },
+            {
+              "id": "66ec0422-0097-4789-b6e4-72056d4257ba",
+              "name": "status",
+              "value": "terkirim",
+              "type": "string"
+            },
+            {
+              "id": "97fdf8c7-c2be-4b09-9ced-e8968e957d58",
+              "name": "error",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1e2dee3-a8be-4487-bb93-c448d5e11a24",
+      "name": "Hasil: terkirim",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "38961064-5624-4938-832e-b7765ff3027b",
+              "name": "id",
+              "value": "={{ $('Pecah antrean').item.json.id }}",
+              "type": "number"
+            },
+            {
+              "id": "da3196d9-dad9-4aeb-af63-68c7cbc7eed2",
+              "name": "status",
+              "value": "gagal",
+              "type": "string"
+            },
+            {
+              "id": "81d8a15d-e103-4aa5-b838-f6c5bb1b7817",
+              "name": "error",
+              "value": "={{ $json.reason || $json.error?.message || $json.message || 'Pengiriman gagal' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "08ebcd9f-d9e4-4a0e-8b93-8d37f8fbfaa9",
+      "name": "Hasil: gagal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Konfigurasi').first().json.base_url }}/api/automation/reminders/{{ $json.id }}/report",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $json.status, error: $json.error || null }) }}",
+        "options": {}
+      },
+      "id": "4571b180-bc10-4a9d-8474-f5ced5c75435",
+      "name": "Laporkan hasil",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        340
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Capstone Automation Token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Setiap jam": {
+      "main": [
+        [
+          {
+            "node": "Konfigurasi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pemicu manual": {
+      "main": [
+        [
+          {
+            "node": "Konfigurasi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Konfigurasi": {
+      "main": [
+        [
+          {
+            "node": "Ambil antrean",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil antrean": {
+      "main": [
+        [
+          {
+            "node": "Pecah antrean",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pecah antrean": {
+      "main": [
+        [
+          {
+            "node": "Kanal email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kanal email?": {
+      "main": [
+        [
+          {
+            "node": "Kirim email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kirim WhatsApp (Fonnte)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kirim email": {
+      "main": [
+        [
+          {
+            "node": "Hasil: terkirim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Hasil: gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kirim WhatsApp (Fonnte)": {
+      "main": [
+        [
+          {
+            "node": "Fonnte berhasil?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Hasil: gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fonnte berhasil?": {
+      "main": [
+        [
+          {
+            "node": "Hasil: terkirim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Hasil: gagal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hasil: terkirim": {
+      "main": [
+        [
+          {
+            "node": "Laporkan hasil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hasil: gagal": {
+      "main": [
+        [
+          {
+            "node": "Laporkan hasil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta"
+  },
+  "pinData": {},
+  "tags": []
+}

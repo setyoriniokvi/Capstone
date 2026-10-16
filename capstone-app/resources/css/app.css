@@ -1,0 +1,164 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html,
+    body {
+        overflow-x: clip;
+    }
+
+    html {
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-paper text-ink font-sans text-body antialiased;
+        font-optical-sizing: auto;
+        font-feature-settings: 'cv11', 'ss01';
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-style: normal;
+        letter-spacing: -0.015em;
+        overflow-wrap: anywhere;
+        min-width: 0;
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-brand);
+        outline-offset: 2px;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    .num,
+    td,
+    .tabular {
+        font-variant-numeric: tabular-nums;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 1ms !important;
+            transition-duration: 1ms !important;
+        }
+    }
+}
+
+@layer components {
+    /* Tombol — min 44px (NFR touch target) */
+    .btn {
+        @apply inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded px-4 text-[0.9375rem] font-medium;
+        transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    }
+    .btn:active:not(:disabled) {
+        transform: translateY(1px);
+    }
+    .btn:disabled,
+    .btn[aria-disabled='true'] {
+        @apply cursor-not-allowed opacity-50;
+    }
+    .btn-primary {
+        @apply bg-brand text-white hover:bg-brand-deep;
+    }
+    .btn-secondary {
+        @apply border border-rule-strong bg-surface text-ink hover:border-brand hover:text-brand-deep;
+    }
+    .btn-ghost {
+        @apply text-brand-deep hover:bg-brand-tint;
+    }
+    .btn-danger {
+        @apply bg-bad-ink text-white hover:bg-bad-deep;
+    }
+    .btn-sm {
+        @apply min-h-[36px] px-3 text-sm;
+    }
+    .btn[data-loading='true'] {
+        @apply pointer-events-none opacity-70;
+    }
+
+    /* Formulir — font 16px agar iOS tidak zoom (NFR) */
+    .field-label {
+        @apply mb-1.5 block text-sm font-medium text-ink;
+    }
+    .field-hint {
+        @apply mt-1 text-caption text-muted;
+    }
+    .field-error {
+        @apply mt-1 text-sm text-bad-ink;
+    }
+    .input {
+        @apply block min-h-[44px] w-full rounded border-rule-strong bg-surface text-body text-ink placeholder:text-faint focus:border-brand focus:ring-brand;
+    }
+    .input[type='file'] {
+        @apply cursor-pointer text-sm text-muted file:mr-3 file:min-h-[36px] file:cursor-pointer file:rounded file:border-0 file:bg-brand-tint file:px-3 file:text-sm file:font-medium file:text-brand-deep hover:file:bg-accent-tint;
+    }
+    .input[aria-invalid='true'] {
+        @apply border-bad-ink focus:border-bad-ink focus:ring-bad-ink;
+    }
+    .checkbox {
+        @apply h-5 w-5 rounded border-rule-strong text-brand focus:ring-brand;
+    }
+
+    /* Permukaan: satu lapis kontainer saja */
+    .panel {
+        @apply rounded-lg border border-rule bg-surface;
+    }
+    .panel-head {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3 sm:px-5;
+    }
+    .panel-title {
+        @apply text-base font-semibold text-ink;
+    }
+    .panel-body {
+        @apply px-4 py-4 sm:px-5;
+    }
+
+    /* Tabel data */
+    .table-wrap {
+        @apply -mx-px overflow-x-auto;
+    }
+    .data-table {
+        @apply w-full border-collapse text-sm;
+    }
+    .data-table th {
+        @apply whitespace-nowrap border-b border-rule bg-sunken px-4 py-2.5 text-left text-caption font-semibold uppercase tracking-wide text-muted;
+    }
+    .data-table td {
+        @apply border-b border-rule px-4 py-3 align-top;
+    }
+    .data-table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+    .data-table tbody tr:hover td {
+        @apply bg-brand-wash;
+    }
+
+    .code {
+        @apply font-mono text-[0.8125rem] tracking-tight;
+    }
+
+    .link {
+        @apply font-medium text-brand-deep underline decoration-rule-strong underline-offset-4 hover:decoration-brand;
+    }
+
+    .kv {
+        @apply grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm;
+    }
+    .kv dt {
+        @apply text-muted;
+    }
+    .kv dd {
+        @apply min-w-0 text-ink;
+        overflow-wrap: anywhere;
+    }
+}

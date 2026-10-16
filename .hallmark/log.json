@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2026-10-16",
+    "macrostructure": "Workbench (app shell)",
+    "theme": "custom",
+    "theme_axes": "light / grotesk-sans / chromatic-other (green)",
+    "vibe": "ruang kerja akademik, hijau FRI, tenang dan presisi",
+    "enrichment": "none",
+    "nav": "side-rail app navigation",
+    "footer": "none",
+    "brief": "Capstone FRI Telkom University · dashboard Admin, Mahasiswa, Dosen"
+  }
+]

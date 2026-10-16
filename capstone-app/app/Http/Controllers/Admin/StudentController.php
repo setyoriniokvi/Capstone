@@ -52,7 +52,11 @@ class StudentController extends Controller
             'passed_courses' => ['nullable', 'string', 'max:2000'],
             'origin_region' => ['nullable', 'string', 'max:100'],
             'specialization' => ['nullable', 'string', 'max:100'],
+            'password' => ['nullable', 'string', 'min:6', 'max:100'],
         ]);
+        if (blank($data['password'] ?? null)) {
+            unset($data['password']);
+        }
         $data['email'] = Str::lower($data['email']);
         $data['passed_courses'] = filled($data['passed_courses'] ?? null)
             ? array_values(array_filter(array_map(fn ($c) => Str::upper(trim($c)), preg_split('/[;,|\n]/', $data['passed_courses']))))

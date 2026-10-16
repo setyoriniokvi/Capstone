@@ -52,7 +52,7 @@ class PageSmokeTest extends TestCase
 
     public function test_student_pages_render(): void
     {
-        foreach (['s1@capstone.test', 's6@capstone.test', 's9@capstone.test', 's10@capstone.test', 's14@capstone.test'] as $email) {
+        foreach (['mahasiswa@gmail.com', 'mahasiswa6@gmail.com', 'mahasiswa9@gmail.com', 'mahasiswa10@gmail.com', 'mahasiswa14@gmail.com'] as $email) {
             $student = User::query()->where('email', $email)->first();
             foreach ([
                 'mahasiswa.dashboard', 'mahasiswa.team.show', 'mahasiswa.topic.index', 'mahasiswa.bank.index', 'mahasiswa.documents.index',
@@ -66,7 +66,7 @@ class PageSmokeTest extends TestCase
     public function test_lecturer_pages_render(): void
     {
         $team = Team::query()->where('code', 'KP-SI-01')->first();
-        $lecturer = User::query()->where('email', 'dsn1@capstone.test')->first();
+        $lecturer = User::query()->where('email', 'dosen@gmail.com')->first();
 
         foreach ([
             route('dosen.dashboard'), route('dosen.topics.index'), route('dosen.topics.create'), route('dosen.applications.index'),
@@ -79,7 +79,7 @@ class PageSmokeTest extends TestCase
 
     public function test_roles_cannot_cross_access(): void
     {
-        $student = User::query()->where('email', 's1@capstone.test')->first();
+        $student = User::query()->where('email', 'mahasiswa@gmail.com')->first();
         $this->actingAs($student)->get(route('admin.dashboard'))->assertForbidden();
         $this->actingAs($student)->get(route('dosen.dashboard'))->assertForbidden();
     }

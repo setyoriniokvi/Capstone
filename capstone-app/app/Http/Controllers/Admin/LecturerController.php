@@ -41,11 +41,12 @@ class LecturerController extends Controller
     {
         $data = $this->validated($request);
         DB::transaction(function () use ($data) {
-            $user = User::create($data['user'] + ['role' => 'dosen']);
+            // Password awal = kode dosen bila admin tidak mengisinya.
+            $user = User::create($data['user'] + ['role' => 'dosen', 'password' => $data['password'] ?? $data['profile']['lecturer_code']]);
             $user->lecturerProfile()->create($data['profile']);
         });
 
-        return redirect()->route('admin.lecturers.index')->with('status', 'Akun dosen dibuat. Dosen dapat masuk dengan akun Google '.$data['user']['email'].'.');
+        return redirect()->route('admin.lecturers.index')->with('status', 'Akun dosen dibuat. Dosen dapat masuk dengan email '.$data['user']['email'].'.');
     }
 
     public function edit(User $lecturer): View
@@ -60,7 +61,7 @@ class LecturerController extends Controller
         abort_unless($lecturer->isLecturer(), 404);
         $data = $this->validated($request, $lecturer);
         DB::transaction(function () use ($lecturer, $data) {
-            $lecturer->update($data['user']);
+            $lecturer->update($data['user'] + array_filter(['password' => $data['password']]));
             $lecturer->lecturerProfile()->updateOrCreate([], $data['profile']);
         });
 
@@ -86,9 +87,11 @@ class LecturerController extends Controller
             'lecturer_code' => ['required', 'string', 'max:10', Rule::unique('lecturer_profiles', 'lecturer_code')->ignore($profileId)],
             'nip' => ['nullable', 'string', 'max:30', Rule::unique('lecturer_profiles', 'nip')->ignore($profileId)],
             'specialization' => ['nullable', 'string', 'max:150'],
+            'password' => ['nullable', 'string', 'min:6', 'max:100'],
         ], ['phone.regex' => 'Nomor WhatsApp hanya berisi angka, spasi, atau tanda +.']);
 
         return [
+            'password' => $data['password'] ?? null,
             'user' => [
                 'name' => $data['name'],
                 'email' => Str::lower($data['email']),

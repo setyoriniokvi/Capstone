@@ -15,15 +15,16 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'google_id', 'avatar_url', 'role', 'prodi_code', 'phone', 'is_active',
+        'name', 'email', 'password', 'google_id', 'avatar_url', 'role', 'prodi_code', 'phone', 'is_active',
         'nim', 'sks_passed', 'passed_courses', 'origin_region', 'specialization', 'last_login_at',
     ];
 
-    protected $hidden = ['remember_token', 'google_id'];
+    protected $hidden = ['password', 'remember_token', 'google_id'];
 
     protected function casts(): array
     {
         return [
+            'password' => 'hashed',
             'is_active' => 'boolean',
             'passed_courses' => 'array',
             'last_login_at' => 'datetime',

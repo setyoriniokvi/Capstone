@@ -12,12 +12,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check() ? redirect()->route(auth()->user()->homeRoute()) : redirect()->route('login'));
 
-// F1 — login Google
+// F1 — login email + password
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::get('/auth/google/redirect', [LoginController::class, 'redirect'])->name('auth.google');
-    Route::get('/auth/google/callback', [LoginController::class, 'callback'])->name('auth.google.callback');
-    Route::post('/dev-login', [LoginController::class, 'devLogin'])->name('auth.dev');
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1')->name('login.attempt');
 });
 
 Route::middleware('auth')->group(function () {

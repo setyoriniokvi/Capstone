@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * DATA DEMO — seluruh nama, email (@capstone.test), topik, dan indikator di sini
+ * DATA DEMO — seluruh nama, email (@gmail.com), topik, dan indikator di sini
  * adalah contoh untuk mencoba alur aplikasi, bukan data resmi. Jangan dijalankan di produksi.
  *
  *   php artisan migrate:fresh --seed && php artisan db:seed --class=DemoSeeder
@@ -203,8 +203,8 @@ class DemoSeeder extends Seeder
     /** @return array{0: User, 1: array<string, User>} */
     private function people(): array
     {
-        $adminEmail = config('capstone.admin_emails')[0] ?? 'admin@capstone.test';
-        $admin = User::query()->updateOrCreate(['email' => $adminEmail], ['name' => 'Admin Capstone', 'role' => 'admin', 'prodi_code' => 'SI']);
+        $password = config('capstone.demo_password');
+        $admin = User::query()->updateOrCreate(['email' => 'admin@gmail.com'], ['name' => 'Admin Capstone', 'role' => 'admin', 'prodi_code' => 'SI', 'password' => $password]);
 
         $data = [
             'dsn1' => ['Dr. Ratna Wulandari', 'RWL', 'SI', 'Supply Chain Analytics', '081200000001', [1, 1, 1, 1]],
@@ -215,7 +215,7 @@ class DemoSeeder extends Seeder
         ];
         $lecturers = [];
         foreach ($data as $key => [$name, $code, $prodi, $spec, $phone, [$propose, $supervise, $examine, $class]]) {
-            $user = User::query()->updateOrCreate(['email' => "{$key}@capstone.test"], ['name' => $name, 'role' => 'dosen', 'prodi_code' => $prodi, 'phone' => $phone ?: null]);
+            $user = User::query()->updateOrCreate(['email' => $this->demoEmail('dosen', $key)], ['name' => $name, 'role' => 'dosen', 'prodi_code' => $prodi, 'phone' => $phone ?: null, 'password' => $password]);
             LecturerProfile::query()->updateOrCreate(['user_id' => $user->id], [
                 'lecturer_code' => $code, 'specialization' => $spec,
                 'can_propose_topic' => (bool) $propose, 'can_supervise' => (bool) $supervise, 'can_examine' => (bool) $examine, 'is_class_lecturer' => (bool) $class,
@@ -224,6 +224,14 @@ class DemoSeeder extends Seeder
         }
 
         return [$admin, $lecturers];
+    }
+
+    /** dsn1 → dosen@gmail.com, dsn2 → dosen2@gmail.com; s1 → mahasiswa@gmail.com, s2 → mahasiswa2@gmail.com, dst. */
+    private function demoEmail(string $role, string $key): string
+    {
+        $no = (int) preg_replace('/\D/', '', $key);
+
+        return $role.($no > 1 ? $no : '').'@gmail.com';
     }
 
     /** @return array<string, User> */
@@ -248,8 +256,8 @@ class DemoSeeder extends Seeder
 
         $students = [];
         foreach ($rows as $i => [$key, $name, $prodi, $sks, $region, $spec]) {
-            $students[$key] = User::query()->updateOrCreate(['email' => "{$key}@capstone.test"], [
-                'name' => $name, 'role' => 'mahasiswa', 'prodi_code' => $prodi,
+            $students[$key] = User::query()->updateOrCreate(['email' => $this->demoEmail('mahasiswa', $key)], [
+                'name' => $name, 'role' => 'mahasiswa', 'prodi_code' => $prodi, 'password' => config('capstone.demo_password'),
                 'nim' => '1020223'.str_pad((string) ($i + 1), 5, '0', STR_PAD_LEFT),
                 'sks_passed' => $sks, 'passed_courses' => $sks >= 110 ? ['KP'] : [],
                 'origin_region' => $region, 'specialization' => $spec, 'phone' => '0857000000'.str_pad((string) $i, 2, '0', STR_PAD_LEFT),

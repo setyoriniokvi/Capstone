@@ -47,46 +47,47 @@
             <div class="mx-auto w-full max-w-[24rem]">
                 <img src="{{ asset('images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-12 w-auto" width="214" height="48">
                 <h1 class="mt-10 text-h1">Masuk ke Capstone</h1>
-                <p class="mt-2 text-muted">Gunakan akun Google yang terdaftar oleh admin program studi. Peran Anda — admin, mahasiswa, atau dosen — dikenali otomatis.</p>
+                <p class="mt-2 text-muted">Gunakan email dan password akun yang didaftarkan admin program studi. Peran Anda — admin, mahasiswa, atau dosen — dikenali otomatis.</p>
 
                 @if ($errors->any())
                     <div role="alert" class="mt-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $errors->first() }}</div>
                 @endif
 
-                <a href="{{ route('auth.google') }}"
-                   class="btn btn-secondary mt-8 w-full gap-3 border-rule-strong text-base {{ $googleReady ? '' : 'pointer-events-none opacity-50' }}"
-                   @unless ($googleReady) aria-disabled="true" @endunless>
-                    <svg class="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
-                        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/>
-                        <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-                        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
-                        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/>
-                    </svg>
-                    Masuk dengan Google
-                </a>
-                @unless ($googleReady)
-                    <p class="field-hint">Login Google belum dikonfigurasi pada server ini.</p>
-                @endunless
+                <form method="POST" action="{{ route('login.attempt') }}" class="mt-8 space-y-4">
+                    @csrf
+                    <div>
+                        <label for="email" class="field-label">Email</label>
+                        <input id="email" type="email" name="email" class="input" value="{{ old('email') }}" required autofocus autocomplete="username">
+                    </div>
+                    <div>
+                        <label for="password" class="field-label">Password</label>
+                        <x-password-input id="password" name="password" required autocomplete="current-password" />
+                    </div>
+                    <label class="flex items-center gap-3 text-sm">
+                        <input type="checkbox" class="checkbox" name="remember" value="1" @checked(old('remember'))>
+                        <span>Ingat saya</span>
+                    </label>
+                    <button class="btn btn-primary w-full text-base" type="submit">Masuk</button>
+                </form>
 
-                @if ($devUsers->isNotEmpty())
-                    <form method="POST" action="{{ route('auth.dev') }}" class="mt-10 border-t border-dashed border-rule-strong pt-6">
-                        @csrf
-                        <p class="text-sm font-medium">Mode pengembangan</p>
-                        <p class="field-hint">Hanya muncul bila <span class="code">APP_ENV=local</span> dan <span class="code">DEV_LOGIN=true</span>.</p>
-                        <div class="mt-3 flex gap-2">
-                            <label for="user_id" class="sr-only">Pilih akun</label>
-                            <select id="user_id" name="user_id" class="input">
-                                @foreach ($devUsers->groupBy('role') as $role => $users)
-                                    <optgroup label="{{ ucfirst($role) }}">
-                                        @foreach ($users as $u)
-                                            <option value="{{ $u->id }}">{{ $u->name }}</option>
+                {{-- DATA DEMO — daftar akun dummy. Hapus blok ini saat implementasi riil (atau set DEV_LOGIN=false). --}}
+                @if ($demoAccounts)
+                    <div class="mt-10 border-t border-dashed border-rule-strong pt-6">
+                        <p class="text-sm font-medium">Akun demo</p>
+                        <p class="field-hint">Password semua akun: <span class="code">{{ config('capstone.demo_password') }}</span></p>
+                        <dl class="mt-3 space-y-2 text-sm">
+                            @foreach ($demoAccounts as $role => $emails)
+                                <div class="flex gap-3">
+                                    <dt class="w-20 shrink-0 text-muted">{{ $role }}</dt>
+                                    <dd class="flex flex-wrap gap-x-3 gap-y-1">
+                                        @foreach ($emails as $email)
+                                            <span class="code">{{ $email }}</span>
                                         @endforeach
-                                    </optgroup>
-                                @endforeach
-                            </select>
-                            <button class="btn btn-primary" type="submit">Masuk</button>
-                        </div>
-                    </form>
+                                    </dd>
+                                </div>
+                            @endforeach
+                        </dl>
+                    </div>
                 @endif
 
                 <img src="{{ asset('images/telu-horizontal.png') }}" alt="Telkom University" class="mt-12 h-9 w-auto md:hidden" width="103" height="36">

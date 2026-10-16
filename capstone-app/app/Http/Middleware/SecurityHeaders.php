@@ -26,7 +26,7 @@ class SecurityHeaders
             "img-src 'self' data: https://*.googleusercontent.com",
             "connect-src 'self'{$dev}",
             "frame-ancestors 'self'",
-            "form-action 'self' https://accounts.google.com",
+            "form-action 'self'",
             "base-uri 'self'",
         ]));
         $response->headers->set('X-Content-Type-Options', 'nosniff');

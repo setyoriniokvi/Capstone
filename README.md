@@ -21,12 +21,12 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Untuk mencoba cepat tanpa MySQL dan tanpa Google, ubah `.env`:
+Untuk mencoba cepat tanpa MySQL, ubah `.env`:
 
 ```dotenv
 DB_CONNECTION=sqlite        # lalu: touch database/database.sqlite
 APP_ENV=local
-DEV_LOGIN=true              # memunculkan pilihan akun di halaman login (hanya di local)
+DEV_LOGIN=true              # menampilkan daftar akun demo di bawah form login
 ```
 
 ```bash
@@ -38,20 +38,18 @@ php artisan schedule:work                       # notifikasi tenggat mahasiswa (
 php artisan test                                # 18 test fitur & alur
 ```
 
-Akun demo (login lewat pilihan "Mode pengembangan"): `Admin Capstone`, dosen `dsn1`–`dsn5@capstone.test`, mahasiswa `s1`–`s14@capstone.test`. Semua nama dan email pada `DemoSeeder` adalah contoh, bukan data resmi.
+Akun demo (password semua akun `password`, daftarnya tampil di bawah form login bila `DEV_LOGIN=true`): `admin@gmail.com`, `mahasiswa@gmail.com`, `dosen@gmail.com`. Data demo lain memakai `mahasiswa2`–`mahasiswa14@gmail.com` dan `dosen2`–`dosen5@gmail.com`. Semua nama dan email pada `DemoSeeder` adalah contoh, bukan data resmi.
 
 ## Konfigurasi produksi
 
 | Kebutuhan | Variabel `.env` | Catatan |
 | --- | --- | --- |
 | Database (PRD §3.1) | `DB_CONNECTION=mysql`, `DB_*` | MySQL/MariaDB 8 |
-| Login Google (F1) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google Cloud Console → OAuth client (Web). Redirect URI: `https://<domain>/auth/google/callback` |
-| Admin pertama | `ADMIN_EMAILS` | Email di daftar ini otomatis menjadi admin saat login pertama |
-| Batasi domain akun (opsional) | `GOOGLE_ALLOWED_DOMAINS` | Kosong = semua akun Google yang terdaftar |
+| Login (F1) | `DEV_LOGIN=false` | Login email + password. Password awal akun impor: mahasiswa = NIM, dosen = kode dosen; admin dapat menggantinya di form edit. `DEV_LOGIN=false` menyembunyikan daftar akun demo |
 | Google Drive (F33–F41) | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_CREDENTIALS` | Service account JSON. Folder tujuan sebaiknya di **Shared Drive** yang dibagikan ke email service account. ID folder per prodi diatur di menu Periode |
 | n8n (F49–F57) | `AUTOMATION_TOKEN`, `N8N_REMINDER_WEBHOOK_URL` | Token acak panjang; URL webhook diambil dari node *Pemicu manual* |
 
-Hanya email yang sudah terdaftar (diimpor / ditambah admin) yang bisa login. Peran dibaca dari data akun.
+Hanya akun yang sudah terdaftar (diimpor / ditambah admin) yang bisa login. Peran dibaca dari data akun.
 
 ## Workflow n8n
 
@@ -65,7 +63,7 @@ Alurnya: n8n memanggil `POST /api/automation/reminders/claim` → backend mengem
 
 | FR | Lokasi di aplikasi |
 | --- | --- |
-| F1 | Login Google, pengalihan ke dashboard sesuai peran |
+| F1 | Login email + password, pengalihan ke dashboard sesuai peran |
 | F2 | Admin → Periode & Timeline (milestone, tenggat, jendela penilaian, folder Drive per prodi) |
 | F3, F4 | Admin → Dosen / Mahasiswa / Registrasi Tim, termasuk impor Excel/CSV dengan pratinjau per baris |
 | F5, F6 | Admin → Aturan Registrasi; screening otomatis (flag + skor) di detail tim |
@@ -86,7 +84,7 @@ Alurnya: n8n memanggil `POST /api/automation/reminders/claim` → backend mengem
 
 Functional Requirement dijadikan acuan utama, sesuai arahan.
 
-- **Login**: Google OAuth (sesuai pilihan Anda). Mode login tanpa Google hanya aktif di lingkungan lokal.
+- **Login**: email + password dari akun yang diimpor / ditambah admin. Daftar akun demo di halaman login hanya tampil bila `DEV_LOGIN=true`.
 - **Admin**: satu peran Admin dengan filter prodi (sesuai pilihan Anda).
 - **Pameran dinilai penguji**: mengikuti F47. PRD dan BPMN menyebut pembimbing atau pihak eksternal.
 - **Bentuk penilaian** mengikuti F13 (Proposal, Laporan Progress, Sidang Pembimbing, Sidang Penguji, Peer Review, Pameran). Bobot "Laporan Akhir + Presentasi Akhir" dari tabel PRD digabung ke Sidang.

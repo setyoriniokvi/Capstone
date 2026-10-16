@@ -34,6 +34,26 @@ Alpine.data('decision', () => ({
     },
 }));
 
+// Tombol mata pada field password
+Alpine.data('passwordToggle', () => ({
+    visible: false,
+    toggle() {
+        this.visible = !this.visible;
+    },
+    get hidden() {
+        return !this.visible;
+    },
+    get inputType() {
+        return this.visible ? 'text' : 'password';
+    },
+    get label() {
+        return this.visible ? 'Sembunyikan password' : 'Tampilkan password';
+    },
+    get pressed() {
+        return this.visible ? 'true' : 'false';
+    },
+}));
+
 // Panel lipat sederhana
 Alpine.data('disclosure', () => ({
     expanded: false,

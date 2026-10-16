@@ -47,7 +47,7 @@ class WorkflowTest extends TestCase
 
     public function test_full_registration_and_topic_flow(): void
     {
-        $leader = $this->user('s14@capstone.test');           // TI, belum punya tim
+        $leader = $this->user('mahasiswa14@gmail.com');           // TI, belum punya tim
         $member = User::query()->where('nim', '102022300013')->first(); // s13 — SKS kurang
         $admin = User::query()->where('role', 'admin')->first();
 
@@ -63,7 +63,7 @@ class WorkflowTest extends TestCase
         $this->actingAs($member)->post(route('mahasiswa.team.respond', $invite), ['decision' => 'accept'])->assertSessionHasErrors('team');
 
         // Undang anggota layak lalu terima
-        $other = $this->user('s10@capstone.test');
+        $other = $this->user('mahasiswa10@gmail.com');
         $other->memberships()->delete();
         $this->actingAs($leader)->post(route('mahasiswa.team.invite'), ['identifier' => $other->email])->assertSessionHasNoErrors();
         $this->actingAs($leader)->delete(route('mahasiswa.team.members.destroy', $invite))->assertSessionHasNoErrors();
@@ -110,7 +110,7 @@ class WorkflowTest extends TestCase
         // F22 + F43 — lamar, dosen menerima → dosen otomatis pembimbing & topik final tergantikan (F8)
         $this->actingAs($leader)->post(route('mahasiswa.bank.apply', $bankTopic))->assertSessionHasNoErrors();
         $application = TopicApplication::query()->where('team_id', $team->id)->first();
-        $this->actingAs($this->user('dsn2@capstone.test'))->post(route('dosen.applications.decide', $application), ['decision' => 'approve'])->assertSessionHasNoErrors();
+        $this->actingAs($this->user('dosen2@gmail.com'))->post(route('dosen.applications.decide', $application), ['decision' => 'approve'])->assertSessionHasNoErrors();
 
         $team->refresh();
         $this->assertSame($bankTopic->id, $team->final_topic_id);
@@ -127,15 +127,15 @@ class WorkflowTest extends TestCase
         TopicApplication::create(['topic_id' => $topic->id, 'team_id' => Team::where('code', 'KP-MR-01')->value('id'), 'status' => 'diterima']);
         $t2->applications()->delete();
 
-        $this->actingAs($this->user('s4@capstone.test'))->post(route('mahasiswa.bank.apply', $topic))
+        $this->actingAs($this->user('mahasiswa4@gmail.com'))->post(route('mahasiswa.bank.apply', $topic))
             ->assertSessionHasErrors(['topic' => 'Kuota topik ini sudah penuh. Pilih topik lain.']);
     }
 
     public function test_logbook_gate_and_review(): void
     {
         $team = Team::query()->where('code', 'KP-TI-01')->first();
-        $student = $this->user('s4@capstone.test');
-        $lecturer = $this->user('dsn3@capstone.test');
+        $student = $this->user('mahasiswa4@gmail.com');
+        $lecturer = $this->user('dosen3@gmail.com');
 
         $this->actingAs($student)->post(route('mahasiswa.logbooks.store'), [
             'session_date' => now()->toDateString(), 'activity' => 'Validasi kebutuhan', 'responsible_person' => 'Dimas', 'output' => 'Daftar kebutuhan',
@@ -144,7 +144,7 @@ class WorkflowTest extends TestCase
         $this->assertSame(4, $log->session_no);
 
         // Dosen lain tidak boleh meninjau (F46)
-        $this->actingAs($this->user('dsn1@capstone.test'))->post(route('dosen.logbooks.review', $log), ['decision' => 'approve'])->assertForbidden();
+        $this->actingAs($this->user('dosen@gmail.com'))->post(route('dosen.logbooks.review', $log), ['decision' => 'approve'])->assertForbidden();
 
         $this->actingAs($lecturer)->post(route('dosen.logbooks.review', $log), ['decision' => 'reject', 'notes' => 'Lengkapi luaran'])->assertSessionHasNoErrors();
         $this->assertSame('revisi', $log->fresh()->status);
@@ -191,13 +191,13 @@ class WorkflowTest extends TestCase
     {
         $team = Team::query()->where('code', 'KP-SI-01')->first();
         // dsn3 adalah penguji KP-SI-01 → tidak boleh menilai proposal (komponen pembimbing)
-        $this->actingAs($this->user('dsn3@capstone.test'))->get(route('dosen.assessments.edit', [$team, 'proposal']))->assertForbidden();
-        $this->actingAs($this->user('dsn5@capstone.test'))->get(route('dosen.assessments.edit', [$team, 'proposal']))->assertForbidden();
+        $this->actingAs($this->user('dosen3@gmail.com'))->get(route('dosen.assessments.edit', [$team, 'proposal']))->assertForbidden();
+        $this->actingAs($this->user('dosen5@gmail.com'))->get(route('dosen.assessments.edit', [$team, 'proposal']))->assertForbidden();
     }
 
     public function test_peer_review_unlocks_results(): void
     {
-        $student = $this->user('s1@capstone.test');
+        $student = $this->user('mahasiswa@gmail.com');
         $this->actingAs($student)->get(route('mahasiswa.results.index'))->assertSee('Isi peer review terlebih dahulu');
 
         $team = Team::query()->where('code', 'KP-SI-01')->first();
@@ -225,7 +225,7 @@ class WorkflowTest extends TestCase
 
     public function test_document_upload_is_idempotent_and_owner_scoped(): void
     {
-        $student = $this->user('s2@capstone.test');
+        $student = $this->user('mahasiswa2@gmail.com');
         $team = Team::query()->where('code', 'KP-SI-01')->first();
         $milestone = $team->period->documentMilestone('proposal');
         $key = (string) Str::uuid();
@@ -242,9 +242,9 @@ class WorkflowTest extends TestCase
 
         // F36 — rekan satu tim tidak dapat mengunduh dokumen milik orang lain
         $version = $document->versions()->first();
-        $this->actingAs($this->user('s1@capstone.test'))->get(route('documents.download', $version))->assertForbidden();
-        $this->actingAs($this->user('dsn1@capstone.test'))->get(route('documents.download', $version))->assertOk();
-        $this->actingAs($this->user('dsn5@capstone.test'))->get(route('documents.download', $version))->assertForbidden();
+        $this->actingAs($this->user('mahasiswa@gmail.com'))->get(route('documents.download', $version))->assertForbidden();
+        $this->actingAs($this->user('dosen@gmail.com'))->get(route('documents.download', $version))->assertOk();
+        $this->actingAs($this->user('dosen5@gmail.com'))->get(route('documents.download', $version))->assertForbidden();
 
         // Tipe file tidak valid ditolak
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('x.exe', 10), 'idempotency_key' => (string) Str::uuid()])
@@ -259,7 +259,7 @@ class WorkflowTest extends TestCase
         $fake = new FakeDrive;
         $this->app->instance(DriveGateway::class, $fake);
 
-        $student = $this->user('s3@capstone.test');
+        $student = $this->user('mahasiswa3@gmail.com');
         $milestone = $team->period->documentMilestone('proposal');
 
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('a.pdf', 50, 'application/pdf'), 'idempotency_key' => (string) Str::uuid()]);
@@ -319,7 +319,7 @@ class WorkflowTest extends TestCase
 
         // Dosen menyelesaikan penilaian → pengingat ulang yang gagal dibatalkan, tidak dikirim (F53)
         $team = Team::query()->where('code', 'KP-TI-01')->first();
-        Assessment::create(['team_id' => $team->id, 'assessor_id' => $this->user('dsn3@capstone.test')->id, 'component' => 'proposal', 'assessor_role' => 'pembimbing', 'status' => 'final', 'submitted_at' => now()]);
+        Assessment::create(['team_id' => $team->id, 'assessor_id' => $this->user('dosen3@gmail.com')->id, 'component' => 'proposal', 'assessor_role' => 'pembimbing', 'status' => 'final', 'submitted_at' => now()]);
         $third = $this->postJson('/api/automation/reminders/claim', [], ['X-Automation-Token' => 'secret'])->json('data');
         $this->assertCount(0, collect($third)->where('job_type', 'penilaian'));
         $this->assertSame('dibatalkan', ReminderDispatch::find($proposal[1]['id'])->status);
@@ -329,7 +329,7 @@ class WorkflowTest extends TestCase
     public function test_manual_reminder_requires_contact(): void
     {
         $admin = User::query()->where('role', 'admin')->first();
-        $dsn4 = $this->user('dsn4@capstone.test'); // tanpa nomor WA
+        $dsn4 = $this->user('dosen4@gmail.com'); // tanpa nomor WA
         $team = Team::query()->where('code', 'KP-MR-01')->first();
         TeamLecturer::create(['team_id' => $team->id, 'lecturer_id' => $dsn4->id, 'role' => 'penguji', 'source' => 'admin']);
 
@@ -342,7 +342,7 @@ class WorkflowTest extends TestCase
     {
         $team = Team::query()->where('code', 'KP-SI-01')->first();
         $token = $team->activeQrToken()->token;
-        $supervisor = $this->user('dsn1@capstone.test');
+        $supervisor = $this->user('dosen@gmail.com');
 
         // Belum login → login dulu (F59)
         $this->get(route('qr.resolve', $token))->assertRedirect(route('login'));
@@ -355,10 +355,10 @@ class WorkflowTest extends TestCase
             ->assertRedirect(route('dosen.assessments.edit', [$team, 'proposal', 'via' => 'qr']));
 
         // Bukan dosen tim → ditolak walau memegang tautan
-        $this->actingAs($this->user('dsn5@capstone.test'))->get(route('qr.resolve', $token))->assertForbidden();
+        $this->actingAs($this->user('dosen5@gmail.com'))->get(route('qr.resolve', $token))->assertForbidden();
 
         // Penguji tanpa tahap aktif miliknya
-        $this->actingAs($this->user('dsn3@capstone.test'))->get(route('qr.resolve', $token))->assertStatus(409);
+        $this->actingAs($this->user('dosen3@gmail.com'))->get(route('qr.resolve', $token))->assertStatus(409);
 
         // QR dibuat ulang → yang lama tidak berlaku
         $this->actingAs(User::query()->where('role', 'admin')->first())->post(route('admin.teams.qr', $team));

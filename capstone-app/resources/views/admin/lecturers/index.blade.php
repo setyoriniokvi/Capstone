@@ -1,5 +1,5 @@
 <x-layouts.app title="Dosen" section="Admin · Data dosen">
-    <x-page-head title="Data & akun dosen" lede="Dosen masuk dengan akun Google sesuai email yang terdaftar. Hak akses menentukan peran sebagai pengusul topik, pembimbing, penguji, atau dosen kelas.">
+    <x-page-head title="Data & akun dosen" lede="Dosen masuk dengan email dan password akun yang terdaftar (password awal = kode dosen). Hak akses menentukan peran sebagai pengusul topik, pembimbing, penguji, atau dosen kelas.">
         <x-slot:actions><a href="{{ route('admin.lecturers.create') }}" class="btn btn-primary"><x-heroicon-o-plus class="h-5 w-5" />Tambah dosen</a></x-slot:actions>
     </x-page-head>
 

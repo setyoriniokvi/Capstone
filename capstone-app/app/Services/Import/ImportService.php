@@ -187,6 +187,10 @@ class ImportService
             'prodi_code' => ($d['prodi'] ?? '') !== '' ? Str::upper($d['prodi']) : null,
             'phone' => ($d['no_wa'] ?? '') ?: null,
         ]);
+        // F1 — password awal akun baru = kode dosen; dapat diganti admin di menu Data dosen.
+        if (! $user->password) {
+            $user->forceFill(['password' => Str::upper($d['kode_dosen'])])->save();
+        }
 
         LecturerProfile::query()->updateOrCreate(['user_id' => $user->id], [
             'lecturer_code' => Str::upper($d['kode_dosen']),
@@ -210,6 +214,8 @@ class ImportService
             'specialization' => ($d['peminatan'] ?? '') ?: null,
         ], fn ($v) => $v !== null));
         $user->role = 'mahasiswa';
+        // F1 — password awal akun baru = NIM; dapat diganti admin di menu Data mahasiswa.
+        $user->password ??= $d['nim'];
         $user->save();
     }
 

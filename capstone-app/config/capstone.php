@@ -121,7 +121,14 @@ return [
         'max_attempts' => (int) env('GOOGLE_DRIVE_MAX_ATTEMPTS', 3),
     ],
 
-    'admin_emails' => array_filter(array_map('trim', explode(',', (string) env('ADMIN_EMAILS', '')))),
-
+    // DATA DEMO — tampilkan daftar akun dummy di halaman login. Matikan (DEV_LOGIN=false) saat implementasi riil.
     'dev_login' => (bool) env('DEV_LOGIN', false),
+
+    // DATA DEMO — akun dummy dari DemoSeeder, semuanya ber-password demo_password. Hapus saat implementasi riil.
+    'demo_password' => 'password',
+    'demo_accounts' => [
+        'Admin' => ['admin@gmail.com'],
+        'Mahasiswa' => ['mahasiswa@gmail.com'],
+        'Dosen' => ['dosen@gmail.com'],
+    ],
 ];

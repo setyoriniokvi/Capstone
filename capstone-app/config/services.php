@@ -35,12 +35,4 @@ return [
         ],
     ],
 
-    'google' => [
-        'client_id' => env('GOOGLE_CLIENT_ID'),
-        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
-        // Batasi ke domain tertentu bila perlu, mis. student.telkomuniversity.ac.id (kosong = semua akun Google)
-        'allowed_domains' => array_filter(array_map('trim', explode(',', (string) env('GOOGLE_ALLOWED_DOMAINS', '')))),
-    ],
-
 ];

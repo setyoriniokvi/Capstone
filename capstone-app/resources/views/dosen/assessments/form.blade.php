@@ -40,14 +40,14 @@
                 @endphp
                 <fieldset class="panel">
                     <legend class="sr-only">{{ $indicator->code }} {{ $indicator->name }}</legend>
-                    <div class="flex flex-wrap items-start gap-3 border-b border-rule px-4 py-3 sm:px-5">
+                    <div class="flex flex-wrap items-start gap-3 border-b border-rule px-4 py-3 sm:px-6">
                         <span class="code pt-0.5 font-medium text-brand-deep">{{ $indicator->code }}</span>
                         <div class="min-w-0 flex-1">
                             <p class="font-medium">{{ $indicator->name }}</p>
                             <p class="text-sm text-muted">{{ $indicator->clo->code }} · {{ $indicator->schemeLabel() }}@if ($indicator->evidence) · acuan: {{ $indicator->evidence }}@endif</p>
                             @if ($indicator->rubric?->assessment_points)<p class="mt-1 text-sm">{{ $indicator->rubric->assessment_points }}</p>@endif
                         </div>
-                        <span class="whitespace-nowrap font-mono text-sm text-muted">bobot {{ $indicator->weightFor($componentKey) + 0 }}</span>
+                        <span class="whitespace-nowrap tabular text-sm text-muted">bobot {{ $indicator->weightFor($componentKey) + 0 }}</span>
                     </div>
 
                     {{-- Tabel rubrik — kolom skor terpilih disorot (PRD §10.3) --}}
@@ -57,7 +57,7 @@
                                 <input type="radio" class="peer sr-only" name="scores[{{ $indicator->id }}][score]" value="{{ $level }}" @checked((string) $selected === (string) $level) @disabled($readonlyWindow)>
                                 <span class="flex h-full min-h-[44px] flex-col gap-1 px-3 py-2.5 hover:bg-brand-wash peer-checked:bg-brand-tint peer-checked:ring-2 peer-checked:ring-inset peer-checked:ring-brand peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-brand">
                                     <span class="flex items-baseline justify-between gap-2">
-                                        <span class="font-mono text-lg font-medium">{{ $level }}</span>
+                                        <span class="tabular text-lg font-medium">{{ $level }}</span>
                                         <span class="text-caption text-muted">{{ $meta['label'] }} · {{ $meta['value'] }}</span>
                                     </span>
                                     @if ($indicator->rubric)
@@ -68,11 +68,11 @@
                         @endforeach
                     </div>
                     @if ($indicator->rubric?->example_level_5)
-                        <details class="border-t border-rule px-4 py-2 text-sm sm:px-5"><summary class="cursor-pointer text-brand-deep">Contoh pemenuhan tingkat 5</summary><p class="mt-1 text-muted">{{ $indicator->rubric->example_level_5 }}</p></details>
+                        <details class="border-t border-rule px-4 py-2 text-sm sm:px-6"><summary class="cursor-pointer text-brand-deep">Contoh pemenuhan tingkat 5</summary><p class="mt-1 text-muted">{{ $indicator->rubric->example_level_5 }}</p></details>
                     @endif
 
                     @if ($indicator->usesOralFactor())
-                        <div class="border-t border-rule bg-sunken px-4 py-3 sm:px-5">
+                        <div class="border-t border-rule bg-sunken px-4 py-3 sm:px-6">
                             <label class="field-label" for="oral-{{ $indicator->id }}">Pemahaman saat verifikasi lisan</label>
                             <select id="oral-{{ $indicator->id }}" name="scores[{{ $indicator->id }}][oral_level]" class="input max-w-xl" @disabled($readonlyWindow)>
                                 <option value="">— pilih level —</option>
@@ -82,12 +82,12 @@
                             </select>
                             @if ($oralLevels->isNotEmpty())
                                 <details class="mt-2 text-sm"><summary class="cursor-pointer text-muted">Perilaku yang teramati per level</summary>
-                                    <dl class="mt-1 space-y-1">@foreach ($oralLevels as $lvl)<div class="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2"><dt class="font-mono">L{{ $lvl->level }}</dt><dd class="text-muted">{{ $lvl->behavior }}</dd></div>@endforeach</dl>
+                                    <dl class="mt-1 space-y-1">@foreach ($oralLevels as $lvl)<div class="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-2"><dt class="tabular">L{{ $lvl->level }}</dt><dd class="text-muted">{{ $lvl->behavior }}</dd></div>@endforeach</dl>
                                 </details>
                             @endif
                         </div>
                     @endif
-                    @error("scores.{$indicator->id}.score")<p class="field-error px-4 pb-3 sm:px-5">{{ $message }}</p>@enderror
+                    @error("scores.{$indicator->id}.score")<p class="field-error px-4 pb-3 sm:px-6">{{ $message }}</p>@enderror
                 </fieldset>
             @endforeach
 

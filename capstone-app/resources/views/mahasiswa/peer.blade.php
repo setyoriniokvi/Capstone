@@ -10,14 +10,14 @@
             @csrf
             @foreach ($aspects as $aspect => $label)
                 <section class="panel">
-                    <div class="border-b border-rule px-4 py-3 sm:px-5">
+                    <div class="border-b border-rule px-4 py-3 sm:px-6">
                         <h2 class="panel-title">{{ $label }}</h2>
                         <p class="mt-0.5 text-sm text-muted">{{ $rubric[$aspect]['definition'] }}</p>
                         <details class="mt-2 text-sm">
                             <summary class="cursor-pointer text-brand-deep">Lihat rubrik perilaku 1–5</summary>
                             <dl class="mt-2 space-y-1.5">
                                 @foreach ($rubric[$aspect]['levels'] as $score => $text)
-                                    <div class="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2"><dt class="font-mono font-medium">{{ $score }}</dt><dd class="text-muted">{{ $text }}</dd></div>
+                                    <div class="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2"><dt class="tabular font-medium">{{ $score }}</dt><dd class="text-muted">{{ $text }}</dd></div>
                                 @endforeach
                             </dl>
                         </details>
@@ -25,14 +25,14 @@
                     <div class="divide-y divide-rule">
                         @foreach ($teammates as $mate)
                             @php $current = old("scores.{$mate->id}.{$aspect}", $existing->get($mate->id)?->get($aspect)); @endphp
-                            <fieldset class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                            <fieldset class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
                                 <legend class="sr-only">{{ $label }} — {{ $mate->name }}</legend>
                                 <span class="font-medium" aria-hidden="true">{{ $mate->name }}</span>
                                 <div class="flex gap-1.5">
                                     @for ($s = 1; $s <= 5; $s++)
                                         <label class="relative">
                                             <input type="radio" class="peer sr-only" name="scores[{{ $mate->id }}][{{ $aspect }}]" value="{{ $s }}" @checked((int) $current === $s) required>
-                                            <span class="grid h-11 w-11 cursor-pointer place-items-center rounded border border-rule-strong bg-surface font-mono text-sm peer-checked:border-brand peer-checked:bg-brand peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand" title="{{ $rubric[$aspect]['levels'][$s] }}">{{ $s }}</span>
+                                            <span class="grid h-11 w-11 cursor-pointer place-items-center rounded border border-rule-strong bg-surface tabular text-sm peer-checked:border-brand peer-checked:bg-brand peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand" title="{{ $rubric[$aspect]['levels'][$s] }}">{{ $s }}</span>
                                         </label>
                                     @endfor
                                 </div>

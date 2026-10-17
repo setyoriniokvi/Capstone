@@ -16,10 +16,10 @@
                     <div>
                         <p class="text-sm text-muted">Nilai akhir</p>
                         @if ($complete)
-                            <p class="mt-1 font-mono text-5xl font-medium tabular">{{ number_format($mine['total'], 2, ',', '') }}</p>
+                            <p class="mt-1 tabular text-5xl font-semibold tracking-tight">{{ number_format($mine['total'], 2, ',', '') }}</p>
                             <p class="mt-1 text-lg font-semibold text-brand-deep">Grade {{ $mine['grade'] }}</p>
                         @else
-                            <p class="mt-1 font-mono text-3xl text-muted">—</p>
+                            <p class="mt-1 tabular text-3xl text-muted">—</p>
                             <p class="mt-1 text-sm text-warn-ink">Menunggu: {{ collect($missing)->map(fn ($c) => config("capstone.components.$c.label"))->implode(', ') }}</p>
                         @endif
                     </div>
@@ -31,7 +31,7 @@
                                 <li class="grid grid-cols-[3.5rem_minmax(0,1fr)_4.5rem] items-center gap-3">
                                     <span class="code font-medium">{{ $clo->code }}</span>
                                     <span class="h-2 overflow-hidden rounded-sm bg-sunken"><span class="block h-full origin-left bg-brand" style="transform: scaleX({{ min(1, $c['percent'] / 100) }})"></span></span>
-                                    <span class="text-right font-mono text-sm">{{ number_format($c['points'], 2, ',', '') }}<span class="text-muted">/{{ $clo->weight + 0 }}</span></span>
+                                    <span class="text-right tabular text-sm">{{ number_format($c['points'], 2, ',', '') }}<span class="text-muted">/{{ $clo->weight + 0 }}</span></span>
                                 </li>
                             @endforeach
                         </ul>
@@ -51,7 +51,7 @@
                     <p class="whitespace-pre-line">{{ $a->feedback }}</p>
                     <ul class="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                         @foreach ($a->scores as $s)
-                            <li class="flex justify-between gap-3 border-b border-dashed border-rule py-1"><span class="min-w-0 truncate"><span class="code text-muted">{{ $s->indicator->code }}</span> {{ $s->indicator->name }}</span><span class="shrink-0 font-mono">{{ $s->score }}/5</span></li>
+                            <li class="flex justify-between gap-3 border-b border-dashed border-rule py-1"><span class="min-w-0 truncate"><span class="code text-muted">{{ $s->indicator->code }}</span> {{ $s->indicator->name }}</span><span class="shrink-0 tabular">{{ $s->score }}/5</span></li>
                         @endforeach
                     </ul>
                 </div>

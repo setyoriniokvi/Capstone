@@ -22,9 +22,9 @@
                         @forelse ($rows as $r)
                             <tr>
                                 <td><p class="font-medium">{{ $r['lecturer']->name }}</p><p class="text-caption text-muted"><span class="code">{{ $r['lecturer']->lecturerProfile->lecturer_code }}</span> · {{ $r['lecturer']->prodi_code ?? '—' }}</p></td>
-                                <td class="text-right font-mono">{{ $r['counts']['pembimbing'] }}</td><td><x-flag :value="$r['flags']['pembimbing']" /></td>
-                                <td class="text-right font-mono">{{ $r['counts']['penguji'] }}</td><td><x-flag :value="$r['flags']['penguji']" /></td>
-                                <td class="text-right font-mono font-medium">{{ $r['counts']['total'] }}</td><td><x-flag :value="$r['flags']['total']" /></td>
+                                <td class="text-right tabular">{{ $r['counts']['pembimbing'] }}</td><td><x-flag :value="$r['flags']['pembimbing']" /></td>
+                                <td class="text-right tabular">{{ $r['counts']['penguji'] }}</td><td><x-flag :value="$r['flags']['penguji']" /></td>
+                                <td class="text-right tabular font-medium">{{ $r['counts']['total'] }}</td><td><x-flag :value="$r['flags']['total']" /></td>
                                 <td class="whitespace-nowrap text-caption text-muted">B {{ $r['quota']['pembimbing']['min'] }}–{{ $r['quota']['pembimbing']['max'] }} · U {{ $r['quota']['penguji']['min'] }}–{{ $r['quota']['penguji']['max'] }}<br>{{ $r['quota']['source'] }}</td>
                             </tr>
                         @empty
@@ -49,7 +49,7 @@
             @else
                 <ul class="divide-y divide-rule">
                     @foreach ($teams as $team)
-                        <li class="grid gap-4 px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+                        <li class="grid gap-4 px-4 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
                             <div class="min-w-0">
                                 <p class="code font-medium">{{ $team->code }}</p>
                                 <p class="text-sm">{{ $team->name }}</p>

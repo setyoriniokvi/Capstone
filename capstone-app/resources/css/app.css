@@ -24,7 +24,6 @@
     h2,
     h3 {
         font-style: normal;
-        letter-spacing: -0.015em;
         overflow-wrap: anywhere;
         min-width: 0;
     }
@@ -58,10 +57,12 @@
     /* Tombol — min 44px (NFR touch target) */
     .btn {
         @apply inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded px-4 text-[0.9375rem] font-medium;
-        transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+        transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out),
+            transform var(--dur-press) var(--ease-out);
     }
+    /* Umpan balik tekan langsung terasa (hanya transform — murah untuk perangkat) */
     .btn:active:not(:disabled) {
-        transform: translateY(1px);
+        transform: scale(0.97);
     }
     .btn:disabled,
     .btn[aria-disabled='true'] {
@@ -109,21 +110,21 @@
         @apply h-5 w-5 rounded border-rule-strong text-brand focus:ring-brand;
     }
 
-    /* Permukaan: satu lapis kontainer saja */
+    /* Permukaan: satu lapis kontainer saja. Padding horizontal 16px / 24px (ritme 8pt). */
     .panel {
-        @apply rounded-lg border border-rule bg-surface;
+        @apply rounded-lg border border-rule bg-surface shadow-panel;
     }
     .panel-head {
-        @apply flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3 sm:px-5;
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3 sm:px-6;
     }
     .panel-title {
         @apply text-base font-semibold text-ink;
     }
     .panel-body {
-        @apply px-4 py-4 sm:px-5;
+        @apply px-4 py-4 sm:px-6;
     }
 
-    /* Tabel data */
+    /* Tabel data — lihat juga "Tabel responsif" di bawah */
     .table-wrap {
         @apply -mx-px overflow-x-auto;
     }
@@ -131,34 +132,223 @@
         @apply w-full border-collapse text-sm;
     }
     .data-table th {
-        @apply whitespace-nowrap border-b border-rule bg-sunken px-4 py-2.5 text-left text-caption font-semibold uppercase tracking-wide text-muted;
+        @apply border-b border-rule px-3 py-3 text-left text-caption font-medium text-muted first:pl-4 last:pr-4 sm:first:pl-6 sm:last:pr-6;
     }
     .data-table td {
-        @apply border-b border-rule px-4 py-3 align-top;
+        @apply border-b border-rule px-3 py-3 align-middle first:pl-4 last:pr-4 sm:first:pl-6 sm:last:pr-6;
     }
     .data-table tbody tr:last-child td {
         @apply border-b-0;
     }
     .data-table tbody tr:hover td {
-        @apply bg-brand-wash;
+        @apply bg-sunken;
     }
 
+    /* Kode (NIM, kode tim, kode dosen) — tetap Inter, tidak terpotong ke baris baru.
+       Angka proporsional agar tanda hubung pada "KP-SI-01" tidak renggang. */
     .code {
-        @apply font-mono text-[0.8125rem] tracking-tight;
+        font-variant-numeric: normal;
+        white-space: nowrap;
     }
 
+    /* Tautan teks: warna saja, garis bawah muncul saat hover/fokus */
     .link {
-        @apply font-medium text-brand-deep underline decoration-rule-strong underline-offset-4 hover:decoration-brand;
+        @apply font-medium text-brand-deep underline-offset-4 hover:underline focus-visible:underline;
     }
 
+    /* Daftar label : nilai — di layar sempit label di atas nilai */
     .kv {
-        @apply grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm;
+        @apply grid grid-cols-1 gap-x-4 text-sm sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] sm:gap-y-2;
     }
     .kv dt {
         @apply text-muted;
     }
     .kv dd {
-        @apply min-w-0 text-ink;
+        @apply mb-2 min-w-0 text-ink sm:mb-0;
         overflow-wrap: anywhere;
+    }
+
+    /* Latar foto halaman login + overlay gelap (satu elemen, tanpa blur/filter).
+       Gambar hanya diunduh saat elemen ini tampil (layar ≥ md). */
+    .login-hero {
+        background-color: #0b1f14;
+        background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.72) 35%, rgba(0, 0, 0, 0.45) 70%, rgba(0, 0, 0, 0.4) 100%),
+            url('../images/login-hero.jpg');
+        background-size: cover;
+        background-position: center top;
+    }
+
+    /*
+     * Halaman login — panel kanan selalu muat satu layar (tanpa scroll):
+     *   default            → ukuran nyaman (laptop, tablet, HP tinggi)
+     *   tinggi ≤ 720px     → ringkas (HP kecil, laptop pendek)
+     *   HP landscape       → dua kolom: judul + akun demo | form
+     * 100dvh mengikuti tinggi layar HP yang terlihat (bilah alamat); fallback 100vh.
+     */
+    .login-shell {
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+    .login-main {
+        @apply flex items-center px-6 py-8 sm:px-10;
+    }
+    .login-panel {
+        @apply mx-auto w-full max-w-[24rem];
+    }
+    .login-logos {
+        @apply flex items-center gap-4;
+    }
+    .login-logos img {
+        @apply h-10 w-auto;
+    }
+    .login-title {
+        @apply mt-8 text-h1;
+    }
+    .login-lede {
+        @apply mt-2 text-muted;
+    }
+    .login-form {
+        @apply mt-6;
+    }
+    .login-form > * + * {
+        @apply mt-4;
+    }
+    .login-demo {
+        @apply mt-8 border-t border-dashed border-rule-strong pt-5;
+    }
+    .login-demo-list {
+        @apply mt-2 space-y-1 text-sm;
+    }
+
+    /* Lembar dialog (modal di desktop, sheet dari bawah di layar sempit) */
+    .dialog-scrim {
+        @apply fixed inset-0 z-50 grid place-items-end bg-scrim p-0 sm:place-items-center sm:p-6;
+    }
+    .dialog-sheet {
+        @apply w-full max-w-lg rounded-t-lg bg-surface text-left shadow-overlay sm:rounded-lg;
+    }
+}
+
+/* Login ringkas untuk layar pendek (lihat .login-* di atas) */
+@media (max-height: 720px) {
+    .login-main {
+        @apply py-4;
+    }
+    .login-logos img {
+        @apply h-8;
+    }
+    .login-title {
+        @apply mt-5 text-[1.625rem];
+    }
+    .login-lede {
+        @apply mt-1 text-sm;
+    }
+    .login-form {
+        @apply mt-4;
+    }
+    .login-form > * + * {
+        @apply mt-3;
+    }
+    .login-form .field-label {
+        @apply mb-1;
+    }
+    .login-demo {
+        @apply mt-4 pt-3;
+    }
+    .login-demo-list {
+        @apply mt-1 space-y-0;
+    }
+}
+
+/* Layar sangat pendek (mis. iPhone SE 1): kalimat penjelasan disembunyikan agar form + pesan error tetap muat */
+@media (max-height: 600px) {
+    .login-lede {
+        @apply hidden;
+    }
+}
+
+/* HP landscape: judul + akun demo di kiri, form di kanan */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 600px) and (max-width: 1023px) {
+    .login-panel {
+        @apply grid max-w-[46rem] grid-cols-2 items-center gap-x-10;
+    }
+    .login-intro {
+        @apply col-start-1 row-start-1;
+    }
+    .login-demo {
+        @apply col-start-1 row-start-2 self-start;
+    }
+    .login-form {
+        @apply col-start-2 row-span-2 row-start-1 mt-0;
+    }
+}
+
+/*
+ * Tabel responsif — bila tabel lebih lebar dari wadahnya (di ukuran layar apa pun),
+ * fitTable() di resources/js/app.js menambah .is-stacked sehingga setiap baris tampil
+ * sebagai kartu "label : nilai" dan halaman tidak perlu di-scroll ke samping.
+ * Label diambil otomatis dari <th> oleh labelTableCells().
+ */
+.is-stacked .data-table thead {
+    @apply sr-only;
+}
+.is-stacked .data-table,
+.is-stacked .data-table tbody,
+.is-stacked .data-table td {
+    display: block;
+    width: 100%;
+}
+/* Satu kartu per baris; di wadah lebar, pasangan label : nilai mengisi beberapa kolom */
+.is-stacked .data-table tr {
+    @apply grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-x-8 border-b border-rule px-4 py-3 sm:px-6;
+}
+.is-stacked .data-table tbody tr:last-child {
+    @apply border-b-0;
+}
+.is-stacked .data-table td {
+    @apply grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)] gap-x-3 border-0 px-0 py-1 text-left;
+    white-space: normal;
+}
+.is-stacked .data-table td[data-label]::before {
+    content: attr(data-label);
+    @apply text-sm text-muted;
+}
+/* Isi sel selalu di kolom nilai, walau terdiri dari beberapa elemen (mis. nama + email) */
+.is-stacked .data-table td[data-label] > * {
+    grid-column: 2;
+}
+/* Sel tanpa judul kolom (biasanya tombol aksi) memakai lebar penuh, rata kiri */
+.is-stacked .data-table td:not([data-label]) {
+    @apply col-span-full block pt-2;
+}
+.is-stacked .data-table td:not([data-label]) > * {
+    justify-content: flex-start;
+}
+.is-stacked .data-table td * {
+    min-width: 0;
+}
+.is-stacked .data-table tbody tr:hover td {
+    background: transparent;
+}
+
+/*
+ * Gerak halus — hanya opacity & transform (dikerjakan GPU, tidak memicu layout).
+ * prefers-reduced-motion sudah dipangkas global di @layer base.
+ *   .motion-fade  → dipakai x-transition untuk scrim/overlay (masuk & keluar)
+ *   .motion-rise  → elemen yang muncul: naik sedikit sambil memudar masuk
+ */
+@layer components {
+    .motion-fade {
+        transition: opacity var(--dur-base) var(--ease-out);
+    }
+    .motion-rise {
+        animation: motion-rise var(--dur-base) var(--ease-out) both;
+    }
+}
+
+@keyframes motion-rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
     }
 }

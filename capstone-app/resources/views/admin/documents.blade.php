@@ -9,7 +9,7 @@
 
     <nav class="mb-4 flex flex-wrap gap-2">
         @foreach (['' => 'Semua', 'menunggu' => 'Menunggu', 'proses' => 'Proses', 'berhasil' => 'Berhasil', 'gagal' => 'Gagal', 'dilewati' => 'Dilewati'] as $k => $l)
-            <a href="{{ route('admin.documents.index', array_filter(['status' => $k])) }}" class="btn btn-sm {{ (string) request('status') === $k ? 'btn-primary' : 'btn-secondary' }}">{{ $l }}@if ($k !== '') <span class="font-mono">{{ $counts[$k] ?? 0 }}</span>@endif</a>
+            <a href="{{ route('admin.documents.index', array_filter(['status' => $k])) }}" class="btn btn-sm {{ (string) request('status') === $k ? 'btn-primary' : 'btn-secondary' }}">{{ $l }}@if ($k !== '') <span class="tabular">{{ $counts[$k] ?? 0 }}</span>@endif</a>
         @endforeach
     </nav>
 
@@ -28,7 +28,7 @@
                                 <td><p class="font-medium">{{ $doc->owner->name }}</p><p class="text-caption text-muted">{{ $doc->owner_email }}</p></td>
                                 <td class="code">{{ $doc->team->code }}</td>
                                 <td class="text-sm"><a class="link" href="{{ route('documents.download', $v) }}">{{ $doc->typeLabel() }}</a><p class="text-caption text-muted">{{ $v->stored_name }}</p></td>
-                                <td class="font-mono">r{{ $v->revision_no }}</td>
+                                <td class="tabular">r{{ $v->revision_no }}</td>
                                 <td class="text-sm">{{ $v->sync_action === 'update' ? 'Perbarui file' : 'Buat file' }}@if ($doc->drive_file_id)<p class="code text-caption text-muted">{{ \Illuminate\Support\Str::limit($doc->drive_file_id, 14) }}</p>@endif</td>
                                 <td><x-badge :status="$v->sync_status" />@if ($v->sync_error)<p class="mt-1 max-w-[16rem] text-caption text-muted">{{ $v->sync_error }}</p>@endif<p class="text-caption text-muted">{{ $v->sync_attempts }} percobaan</p></td>
                                 <td class="text-right">
@@ -36,7 +36,7 @@
                                         <form method="POST" action="{{ route('admin.documents.retry', $v) }}">@csrf<button class="btn btn-ghost btn-sm">Coba ulang</button></form>
                                     @endif
                                     @if ($doc->state === 'trash')
-                                        <form method="POST" action="{{ route('admin.documents.destroy', $doc) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus permanen</button></form>
+                                        <form method="POST" action="{{ route('admin.documents.destroy', $doc) }}" data-confirm="Hapus permanen dokumen ini? Tindakan ini tidak dapat dibatalkan." data-confirm-label="Hapus permanen">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus permanen</button></form>
                                     @endif
                                 </td>
                             </tr>

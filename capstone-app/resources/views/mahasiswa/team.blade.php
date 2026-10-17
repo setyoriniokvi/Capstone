@@ -7,7 +7,7 @@
                 <div class="panel-head"><h2 class="panel-title">Undangan untuk Anda</h2></div>
                 <ul class="divide-y divide-rule">
                     @foreach ($invitations as $invite)
-                        <li class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
+                        <li class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
                             <div class="min-w-0 flex-1">
                                 <p class="font-medium">{{ $invite->team->name }} <span class="code text-muted">{{ $invite->team->code }}</span></p>
                                 <p class="text-sm text-muted">Ketua: {{ $invite->team->leader?->name }}</p>
@@ -74,7 +74,7 @@
                     </div>
                     <ul class="divide-y divide-rule">
                         @foreach ($team->members as $m)
-                            <li class="flex flex-wrap items-start gap-3 px-4 py-3 sm:px-5">
+                            <li class="flex flex-wrap items-start gap-3 px-4 py-3 sm:px-6">
                                 <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-sunken text-sm font-semibold text-muted">{{ $m->user->initials() }}</span>
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium">{{ $m->user->name }}@if ($m->is_leader) <span class="text-caption font-normal text-muted">ketua</span>@endif</p>
@@ -83,7 +83,7 @@
                                 </div>
                                 @if ($m->invite_status !== 'diterima')<x-badge :status="$m->invite_status" />@endif
                                 @if ($editable && ! $m->is_leader && ($isLeader || $m->user_id === auth()->id()))
-                                    <form method="POST" action="{{ route('mahasiswa.team.members.destroy', $m) }}">@csrf @method('DELETE')
+                                    <form method="POST" action="{{ route('mahasiswa.team.members.destroy', $m) }}" data-confirm="{{ $m->user_id === auth()->id() ? 'Keluar dari tim ini?' : 'Keluarkan '.$m->user->name.' dari tim?' }}" data-confirm-label="{{ $m->user_id === auth()->id() ? 'Keluar' : 'Keluarkan' }}">@csrf @method('DELETE')
                                         <button class="btn btn-ghost btn-sm text-bad-ink">{{ $m->user_id === auth()->id() ? 'Keluar' : ($m->invite_status === 'diundang' ? 'Batalkan' : 'Keluarkan') }}</button>
                                     </form>
                                 @endif
@@ -91,7 +91,7 @@
                         @endforeach
                     </ul>
                     @if ($editable && $isLeader)
-                        <form method="POST" action="{{ route('mahasiswa.team.invite') }}" class="flex flex-wrap items-end gap-2 border-t border-rule px-4 py-3 sm:px-5">
+                        <form method="POST" action="{{ route('mahasiswa.team.invite') }}" class="flex flex-wrap items-end gap-2 border-t border-rule px-4 py-3 sm:px-6">
                             @csrf
                             <div class="min-w-0 flex-1"><label class="field-label" for="identifier">Undang anggota</label><input id="identifier" name="identifier" class="input" placeholder="NIM atau email" value="{{ old('identifier') }}" required>
                                 @error('identifier')<p class="field-error">{{ $message }}</p>@enderror</div>
@@ -115,13 +115,13 @@
                                 <input id="domicile" type="file" name="domicile" accept=".pdf,.jpg,.jpeg,.png" class="input py-2">
                                 @if ($me->domicile_path)<a class="link mt-1 inline-block text-sm" href="{{ route('attachments.download', [$team, $me, 'domisili']) }}">Lihat domisili</a>@endif
                             </x-field>
-                            <div class="sm:col-span-2"><button class="btn btn-primary" data-once>Simpan data saya</button></div>
+                            <div class="sm:col-span-2"><button class="btn btn-secondary" data-once>Simpan data saya</button></div>
                         </form>
                     </section>
                 @endif
 
                 @if ($editable && $isLeader)
-                    <form method="POST" action="{{ route('mahasiswa.team.update') }}" class="panel flex flex-wrap items-end gap-2 px-4 py-3 sm:px-5">
+                    <form method="POST" action="{{ route('mahasiswa.team.update') }}" class="panel flex flex-wrap items-end gap-2 px-4 py-3 sm:px-6">
                         @csrf @method('PUT')
                         <div class="min-w-0 flex-1"><label class="field-label" for="team-name">Nama tim</label><input id="team-name" name="name" class="input" value="{{ $team->name }}" required></div>
                         <button class="btn btn-secondary">Ganti nama</button>
@@ -133,7 +133,7 @@
                 <section class="panel">
                     <div class="panel-head">
                         <h2 class="panel-title">Pemeriksaan syarat</h2>
-                        <span class="font-mono text-sm {{ $preview['passed'] ? 'text-ok-ink' : 'text-warn-ink' }}">{{ $preview['score'] }}/100</span>
+                        <span class="tabular text-sm {{ $preview['passed'] ? 'text-ok-ink' : 'text-warn-ink' }}">{{ $preview['score'] }}/100</span>
                     </div>
                     <ul class="panel-body space-y-2 text-sm">
                         @foreach ($preview['checks'] as $check)
@@ -143,11 +143,11 @@
                             </li>
                         @endforeach
                     </ul>
-                    <p class="border-t border-rule px-4 py-3 text-caption text-muted sm:px-5">Syarat yang belum terpenuhi ditandai pada pengajuan dan menjadi bahan pertimbangan admin.</p>
+                    <p class="border-t border-rule px-4 py-3 text-caption text-muted sm:px-6">Syarat yang belum terpenuhi ditandai pada pengajuan dan menjadi bahan pertimbangan admin.</p>
                 </section>
 
                 @if ($editable && $isLeader)
-                    <form method="POST" action="{{ route('mahasiswa.team.submit') }}" class="panel px-4 py-4 sm:px-5">
+                    <form method="POST" action="{{ route('mahasiswa.team.submit') }}" class="panel px-4 py-4 sm:px-6">
                         @csrf
                         <p class="text-sm text-muted">Pastikan semua anggota sudah bergabung dan melengkapi data serta lampiran.</p>
                         <button class="btn btn-primary mt-3 w-full" data-once>{{ $team->status === 'ditolak' ? 'Ajukan ulang registrasi' : 'Ajukan registrasi' }}</button>

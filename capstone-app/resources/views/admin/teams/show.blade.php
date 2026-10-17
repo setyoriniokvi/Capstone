@@ -26,7 +26,7 @@
                             @foreach ($team->members as $m)
                                 <tr>
                                     <td><p class="font-medium">{{ $m->user->name }}@if ($m->is_leader) <span class="text-caption text-muted">ketua</span>@endif</p><p class="code text-muted">{{ $m->user->nim }} · {{ $m->user->prodi_code }}</p>@if ($m->invite_status !== 'diterima')<x-badge :status="$m->invite_status" />@endif</td>
-                                    <td class="font-mono">{{ $m->user->sks_passed ?? '—' }}</td>
+                                    <td class="tabular">{{ $m->user->sks_passed ?? '—' }}</td>
                                     <td>{{ $m->user->specialization ?? '—' }}</td>
                                     <td>{{ $m->user->origin_region ?? '—' }}</td>
                                     <td class="whitespace-nowrap text-sm">
@@ -36,7 +36,7 @@
                                     </td>
                                     <td class="text-right">
                                         @unless ($m->is_leader)
-                                            <form method="POST" action="{{ route('admin.teams.members.destroy', [$team, $m]) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Keluarkan</button></form>
+                                            <form method="POST" action="{{ route('admin.teams.members.destroy', [$team, $m]) }}" data-confirm="Keluarkan {{ $m->user->name }} dari tim?" data-confirm-label="Keluarkan">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Keluarkan</button></form>
                                         @endunless
                                     </td>
                                 </tr>
@@ -44,9 +44,9 @@
                         </tbody>
                     </table>
                 </div>
-                <form method="POST" action="{{ route('admin.teams.members.store', $team) }}" class="flex flex-wrap items-end gap-2 border-t border-rule px-4 py-3 sm:px-5">
+                <form method="POST" action="{{ route('admin.teams.members.store', $team) }}" class="flex flex-wrap items-end gap-2 border-t border-rule px-4 py-3 sm:px-6">
                     @csrf
-                    <div class="min-w-0 flex-1"><label class="field-label" for="nim">Tambah anggota (NIM)</label><input id="nim" name="nim" class="input font-mono" required></div>
+                    <div class="min-w-0 flex-1"><label class="field-label" for="nim">Tambah anggota (NIM)</label><input id="nim" name="nim" class="input tabular" required></div>
                     <button class="btn btn-secondary">Tambahkan</button>
                 </form>
             </section>
@@ -69,7 +69,7 @@
                     <form method="POST" action="{{ route('admin.teams.rescreen', $team) }}">@csrf<button class="btn btn-ghost btn-sm"><x-heroicon-o-arrow-path class="h-4 w-4" />Hitung ulang</button></form>
                 </div>
                 <div class="panel-body">
-                    <p class="font-mono text-3xl font-medium {{ ($team->screening_score ?? 0) === 100 ? 'text-ok-ink' : 'text-warn-ink' }}">{{ $team->screening_score ?? '—' }}<span class="text-base text-muted">/100</span></p>
+                    <p class="tabular text-3xl font-medium {{ ($team->screening_score ?? 0) === 100 ? 'text-ok-ink' : 'text-warn-ink' }}">{{ $team->screening_score ?? '—' }}<span class="text-base text-muted">/100</span></p>
                     <ul class="mt-4 space-y-2 text-sm">
                         @forelse ($team->screening ?? [] as $check)
                             <li class="flex gap-2">

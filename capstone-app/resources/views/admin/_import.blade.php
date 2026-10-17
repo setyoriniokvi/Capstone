@@ -1,6 +1,6 @@
 {{-- Unggah impor Excel/CSV (F3, F4). --}}
 <div x-data="disclosure" class="panel mb-6">
-    <button type="button" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:px-5" @click="toggle" :aria-expanded="expanded">
+    <button type="button" class="flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:px-6" @click="toggle" :aria-expanded="expanded">
         <span class="font-medium">Impor {{ $label }} dari Excel / CSV</span>
         <x-heroicon-o-chevron-down class="h-5 w-5 text-muted" />
     </button>

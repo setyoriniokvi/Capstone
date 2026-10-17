@@ -7,7 +7,7 @@
     @elseif ($pendingApp)
         <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn-line bg-warn-tint px-4 py-3 text-sm text-warn-ink">
             <p>Lamaran ke “{{ $pendingApp->topic->title }}” sedang menunggu keputusan dosen.</p>
-            <form method="POST" action="{{ route('mahasiswa.bank.withdraw', $pendingApp) }}">@csrf @method('DELETE')<button class="btn btn-secondary btn-sm">Batalkan lamaran</button></form>
+            <form method="POST" action="{{ route('mahasiswa.bank.withdraw', $pendingApp) }}" data-confirm="Batalkan lamaran ke topik ini?" data-confirm-label="Batalkan lamaran">@csrf @method('DELETE')<button class="btn btn-secondary btn-sm">Batalkan lamaran</button></form>
         </div>
     @elseif (! $canApply)
         <p class="mb-6 rounded-lg border border-rule bg-sunken px-4 py-3 text-sm text-muted">Anda dapat melihat daftar topik. Melamar dibuka setelah registrasi tim dan topik mandiri diterima.</p>
@@ -28,15 +28,15 @@
             @foreach ($topics as $topic)
                 @php $remaining = max(0, $topic->quota - $topic->accepted_count); @endphp
                 <article x-data="disclosure" class="panel break-inside-avoid">
-                    <div class="px-4 pt-4 sm:px-5">
+                    <div class="px-4 pt-4 sm:px-6">
                         <div class="flex items-start justify-between gap-3">
                             <p class="text-sm text-muted">{{ $topic->field ?? 'Umum' }}</p>
-                            <span class="whitespace-nowrap font-mono text-sm {{ $remaining ? 'text-ok-ink' : 'text-bad-ink' }}">{{ $remaining }}/{{ $topic->quota }} kuota</span>
+                            <span class="whitespace-nowrap tabular text-sm {{ $remaining ? 'text-ok-ink' : 'text-bad-ink' }}">{{ $remaining }}/{{ $topic->quota }} kuota</span>
                         </div>
                         <h2 class="mt-1 text-lg font-semibold leading-snug">{{ $topic->title }}</h2>
                         <p class="mt-2 line-clamp-4 whitespace-pre-line text-sm">{{ $topic->description }}</p>
                     </div>
-                    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-3 sm:px-5">
+                    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-3 sm:px-6">
                         <div class="min-w-0 text-sm">
                             <p class="font-medium">{{ $topic->lecturer->name }}</p>
                             <p class="text-muted"><a class="link font-normal" href="mailto:{{ $topic->lecturer->email }}">{{ $topic->lecturer->email }}</a>@if ($topic->lecturer->phone) · <span class="code">{{ $topic->lecturer->phone }}</span>@endif</p>
@@ -46,7 +46,7 @@
                         @endif
                     </div>
                     @if ($canApply && $remaining)
-                        <form x-cloak x-show="expanded" method="POST" action="{{ route('mahasiswa.bank.apply', $topic) }}" class="border-t border-rule bg-sunken px-4 py-3 sm:px-5">
+                        <form x-cloak x-show="expanded" method="POST" action="{{ route('mahasiswa.bank.apply', $topic) }}" class="border-t border-rule bg-sunken px-4 py-3 sm:px-6">
                             @csrf
                             <label class="field-label" for="motivation-{{ $topic->id }}">Alasan memilih topik (opsional)</label>
                             <textarea id="motivation-{{ $topic->id }}" name="motivation" rows="3" class="input"></textarea>

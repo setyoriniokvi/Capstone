@@ -17,7 +17,7 @@
                         <select id="prodi" name="prodi" class="input"><option value="">Semua prodi</option>@foreach ($prodis as $p)<option value="{{ $p->code }}" @selected(request('prodi') === $p->code)>{{ $p->code }}</option>@endforeach</select></div>
                 </x-filter-bar>
             @endif
-            <p class="text-sm"><span class="font-mono font-medium">{{ $complete }}</span><span class="text-muted"> dari {{ $total }} tim lengkap</span></p>
+            <p class="text-sm"><span class="tabular font-medium">{{ $complete }}</span><span class="text-muted"> dari {{ $total }} tim lengkap</span></p>
         </div>
         @if ($results->isEmpty())
             <x-empty title="Belum ada tim yang dinilai" icon="table-cells" />
@@ -40,10 +40,10 @@
                                         @endif
                                     </td>
                                     @foreach ($clos as $clo)
-                                        <td class="text-right font-mono {{ $result['complete'] ? '' : 'text-muted' }}">{{ $row['clos'][$clo->code]['points'] > 0 ? number_format($row['clos'][$clo->code]['percent'], 1, ',', '') : '—' }}</td>
+                                        <td class="text-right tabular {{ $result['complete'] ? '' : 'text-muted' }}">{{ $row['clos'][$clo->code]['points'] > 0 ? number_format($row['clos'][$clo->code]['percent'], 1, ',', '') : '—' }}</td>
                                     @endforeach
-                                    <td class="text-right font-mono font-medium">{{ $result['complete'] ? number_format($row['total'], 2, ',', '') : '—' }}</td>
-                                    <td class="font-mono font-medium">{{ $result['complete'] ? $row['grade'] : '—' }}</td>
+                                    <td class="text-right tabular font-medium">{{ $result['complete'] ? number_format($row['total'], 2, ',', '') : '—' }}</td>
+                                    <td class="tabular font-medium">{{ $result['complete'] ? $row['grade'] : '—' }}</td>
                                 </tr>
                             @endforeach
                         @endforeach

@@ -16,7 +16,7 @@
                                 <td class="font-medium">{{ $period->name }}</td>
                                 <td class="code">{{ $period->academic_year }} · {{ ucfirst($period->semester) }}</td>
                                 <td class="whitespace-nowrap">{{ $period->starts_on->translatedFormat('j M Y') }} – {{ $period->ends_on->translatedFormat('j M Y') }}</td>
-                                <td class="font-mono">{{ $period->teams_count }}</td>
+                                <td class="tabular">{{ $period->teams_count }}</td>
                                 <td>@if ($period->is_active)<x-badge status="aktif" />@else<span class="text-sm text-muted">Tidak aktif</span>@endif</td>
                                 <td>
                                     <div class="flex justify-end gap-2">

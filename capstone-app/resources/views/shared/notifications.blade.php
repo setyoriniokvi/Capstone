@@ -11,7 +11,7 @@
             <ul class="divide-y divide-rule">
                 @foreach ($notifications as $n)
                     <li>
-                        <a href="{{ route('notifications.open', $n->id) }}" class="flex gap-3 px-4 py-3 hover:bg-brand-wash sm:px-5">
+                        <a href="{{ route('notifications.open', $n->id) }}" class="flex gap-3 px-4 py-3 hover:bg-brand-wash sm:px-6">
                             <span class="mt-2 h-2 w-2 shrink-0 rounded-full {{ $n->read_at ? 'bg-transparent' : 'bg-brand' }}" aria-hidden="true"></span>
                             <span class="min-w-0 flex-1">
                                 <span class="block {{ $n->read_at ? 'text-ink' : 'font-semibold' }}">{{ $n->data['title'] ?? 'Notifikasi' }}</span>

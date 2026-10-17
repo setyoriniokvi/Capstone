@@ -17,7 +17,7 @@
 
     <div class="panel">
         <div class="panel-head">
-            <p class="text-sm"><span class="font-mono font-medium text-ok-ink">{{ $valid }}</span> valid · <span class="font-mono font-medium text-bad-ink">{{ count($rows) - $valid }}</span> bermasalah</p>
+            <p class="text-sm"><span class="tabular font-medium text-ok-ink">{{ $valid }}</span> valid · <span class="tabular font-medium text-bad-ink">{{ count($rows) - $valid }}</span> bermasalah</p>
         </div>
         <div class="table-wrap">
             <table class="data-table">
@@ -25,7 +25,7 @@
                 <tbody>
                     @foreach ($rows as $row)
                         <tr class="{{ $row['errors'] ? 'bg-bad-tint' : '' }}">
-                            <td class="font-mono">{{ $row['line'] }}</td>
+                            <td class="tabular">{{ $row['line'] }}</td>
                             <td class="min-w-[14rem]">
                                 @if ($row['errors'])
                                     <ul class="space-y-0.5 text-bad-ink">@foreach ($row['errors'] as $e)<li>{{ $e }}</li>@endforeach</ul>

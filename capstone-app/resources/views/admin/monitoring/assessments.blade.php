@@ -37,7 +37,7 @@
                                                 <x-badge status="lengkap" label="Sudah lengkap" />
                                             @else
                                                 @foreach ($row['missing'] as $componentKey => $count)
-                                                    <p>{{ config('capstone.components.'.$componentKey.'.label') }} <span class="font-mono text-muted">({{ $count }} tim)</span></p>
+                                                    <p>{{ config('capstone.components.'.$componentKey.'.label') }} <span class="tabular text-muted">({{ $count }} tim)</span></p>
                                                 @endforeach
                                             @endif
                                         </td>
@@ -48,7 +48,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-sunken px-4 py-3 sm:px-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-sunken px-4 py-3 sm:px-6">
                         <fieldset class="flex flex-wrap items-center gap-4">
                             <legend class="sr-only">Kanal</legend>
                             <label class="flex min-h-[44px] items-center gap-2"><input type="checkbox" class="checkbox" name="channels[]" value="email" checked>Email</label>

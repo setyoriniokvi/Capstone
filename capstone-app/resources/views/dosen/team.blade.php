@@ -12,7 +12,7 @@
             <div class="panel-head"><h2 class="panel-title">Anggota</h2></div>
             <ul class="divide-y divide-rule">
                 @foreach ($team->members->where('invite_status', 'diterima') as $m)
-                    <li class="px-4 py-3 sm:px-5">
+                    <li class="px-4 py-3 sm:px-6">
                         <p class="font-medium">{{ $m->user->name }}@if ($m->is_leader) <span class="text-caption font-normal text-muted">ketua</span>@endif</p>
                         <p class="text-sm text-muted"><span class="code">{{ $m->user->nim }}</span> · {{ $m->user->prodi_code }} · {{ $m->user->specialization ?? '—' }} · <a class="link font-normal" href="mailto:{{ $m->user->email }}">{{ $m->user->email }}</a></p>
                     </li>
@@ -47,11 +47,11 @@
                     <ul class="divide-y divide-rule">
                         @foreach ($docs as $doc)
                             @php $file = $doc->currentVersion ?? $doc->versions->first(); @endphp
-                            <li x-data="disclosure" class="px-4 py-3 sm:px-5">
+                            <li x-data="disclosure" class="px-4 py-3 sm:px-6">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <div class="min-w-0 flex-1">
                                         @if ($file)<a href="{{ route('documents.download', $file) }}" class="link break-all">{{ $file->stored_name }}</a>@endif
-                                        <p class="text-sm text-muted">{{ $doc->owner->name }} · revisi <span class="font-mono">{{ $file?->revision_no }}</span> · {{ $file?->created_at->translatedFormat('j M Y H:i') }}</p>
+                                        <p class="text-sm text-muted">{{ $doc->owner->name }} · revisi <span class="tabular">{{ $file?->revision_no }}</span> · {{ $file?->created_at->translatedFormat('j M Y H:i') }}</p>
                                     </div>
                                     @if ($doc->is_late)<x-badge status="terlambat" />@endif
                                     <x-badge :status="$doc->review_status" />

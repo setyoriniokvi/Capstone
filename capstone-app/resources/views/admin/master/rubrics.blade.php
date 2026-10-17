@@ -12,7 +12,7 @@
                             <tr>
                                 <td><span class="code font-medium">{{ $ind->code }}</span><p class="max-w-[22rem] text-sm">{{ $ind->name }}</p></td>
                                 <td class="code">{{ $ind->clo->code }}</td>
-                                <td class="font-mono">{{ $ind->weight + 0 }}</td>
+                                <td class="tabular">{{ $ind->weight + 0 }}</td>
                                 <td class="max-w-[22rem] text-sm text-muted">{{ \Illuminate\Support\Str::limit($ind->rubric?->assessment_points, 120) ?: '—' }}</td>
                                 <td>@if ($ind->rubric)<x-badge status="lengkap" label="Lengkap" />@else<x-badge status="belum" label="Belum ada" />@endif</td>
                                 <td class="text-right"><a href="{{ route('admin.rubrics.edit', $ind) }}" class="btn btn-secondary btn-sm">{{ $ind->rubric ? 'Ubah' : 'Isi rubrik' }}</a></td>

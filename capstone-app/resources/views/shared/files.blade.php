@@ -5,7 +5,7 @@
             <div class="panel-head"><h2 class="panel-title">{{ $category }}</h2></div>
             <ul class="divide-y divide-rule">
                 @foreach ($files as $file)
-                    <li class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
+                    <li class="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
                         <x-heroicon-o-document-text class="h-6 w-6 shrink-0 text-muted" />
                         <div class="min-w-0 flex-1">
                             <p class="font-medium">{{ $file->title }}</p>

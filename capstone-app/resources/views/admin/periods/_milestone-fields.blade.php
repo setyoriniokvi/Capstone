@@ -16,7 +16,7 @@
     </div>
     <div>
         <label class="field-label" for="m-week-{{ $uid }}">Minggu</label>
-        <input id="m-week-{{ $uid }}" type="number" min="1" max="20" name="week_no" class="input font-mono" value="{{ $m->week_no }}">
+        <input id="m-week-{{ $uid }}" type="number" min="1" max="20" name="week_no" class="input tabular" value="{{ $m->week_no }}">
     </div>
     <div class="sm:col-span-2">
         <label class="field-label" for="m-doc-{{ $uid }}">Jenis dokumen</label>

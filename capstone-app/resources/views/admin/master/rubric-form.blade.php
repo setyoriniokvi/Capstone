@@ -12,7 +12,7 @@
             @endforeach
             <x-field label="Contoh pemenuhan tingkat 5" name="example_level_5"><textarea id="example_level_5" name="example_level_5" rows="3" class="input">{{ old('example_level_5', $r?->example_level_5) }}</textarea></x-field>
         </div>
-        <div class="flex justify-between gap-2 border-t border-rule px-4 py-3 sm:px-5">
+        <div class="flex justify-between gap-2 border-t border-rule px-4 py-3 sm:px-6">
             <a href="{{ route('admin.rubrics.index') }}" class="btn btn-ghost">Kembali</a>
             <button class="btn btn-primary" data-once>Simpan rubrik</button>
         </div>

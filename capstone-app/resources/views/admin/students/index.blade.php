@@ -26,7 +26,7 @@
                                 <td class="code">{{ $s->nim }}</td>
                                 <td><p class="font-medium">{{ $s->name }}</p><p class="text-caption text-muted">{{ $s->email }}</p></td>
                                 <td>{{ $s->prodi_code }}</td>
-                                <td class="font-mono">{{ $s->sks_passed ?? '—' }}</td>
+                                <td class="tabular">{{ $s->sks_passed ?? '—' }}</td>
                                 <td>{{ $s->specialization ?? '—' }}</td>
                                 <td>{{ $s->origin_region ?? '—' }}</td>
                                 <td>@if ($membership)<a class="link code" href="{{ route('admin.teams.show', $membership->team_id) }}">{{ $membership->team->code }}</a>@else<span class="text-muted">—</span>@endif</td>

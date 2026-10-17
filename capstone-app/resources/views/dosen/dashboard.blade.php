@@ -22,7 +22,7 @@
 
     @foreach (['Tim bimbingan' => $supervised, 'Tim uji' => $examined] as $heading => $teams)
         <section class="panel mb-6">
-            <div class="panel-head"><h2 class="panel-title">{{ $heading }}</h2><span class="font-mono text-sm text-muted">{{ $teams->count() }} tim</span></div>
+            <div class="panel-head"><h2 class="panel-title">{{ $heading }}</h2><span class="tabular text-sm text-muted">{{ $teams->count() }} tim</span></div>
             @if ($teams->isEmpty())
                 <p class="panel-body text-sm text-muted">Belum ada tim.</p>
             @else
@@ -35,7 +35,7 @@
                                     <td><span class="code font-medium">{{ $team->code }}</span><p class="text-sm">{{ $team->name }}</p></td>
                                     <td class="max-w-[18rem] text-sm">{{ $team->finalTopic?->title ?? '—' }}</td>
                                     <td class="text-sm">{{ $team->activeUsers->pluck('name')->implode(', ') }}</td>
-                                    <td class="font-mono text-sm">{{ $team->document_count }}<span class="text-muted">/{{ $docMilestones }} milestone</span></td>
+                                    <td class="tabular text-sm">{{ $team->document_count }}<span class="text-muted">/{{ $docMilestones }} milestone</span></td>
                                     <td class="min-w-[10rem]"><x-gate-cells :approved="$team->logbook_approved" :min="$minLogbooks" :pending="$team->logbook_pending" /></td>
                                     <td class="text-right"><a href="{{ route('dosen.teams.show', $team) }}" class="btn btn-secondary btn-sm">Detail</a></td>
                                 </tr>

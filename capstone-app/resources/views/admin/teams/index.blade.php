@@ -8,7 +8,7 @@
             @php $active = (string) request('status') === $k; @endphp
             <a href="{{ route('admin.teams.index', array_filter(['status' => $k, 'prodi' => request('prodi')])) }}"
                class="btn btn-sm {{ $active ? 'btn-primary' : 'btn-secondary' }}" @if ($active) aria-current="page" @endif>
-                {{ $l }} @if ($k !== '')<span class="font-mono">{{ $counts[$k] ?? 0 }}</span>@endif
+                {{ $l }} @if ($k !== '')<span class="tabular">{{ $counts[$k] ?? 0 }}</span>@endif
             </a>
         @endforeach
     </nav>
@@ -40,7 +40,7 @@
                                 </td>
                                 <td>
                                     @if ($team->screening_score !== null)
-                                        <p class="font-mono {{ $team->screening_score === 100 ? 'text-ok-ink' : 'text-warn-ink' }}">{{ $team->screening_score }}/100</p>
+                                        <p class="tabular {{ $team->screening_score === 100 ? 'text-ok-ink' : 'text-warn-ink' }}">{{ $team->screening_score }}/100</p>
                                         @if ($flags->isNotEmpty())<p class="text-caption text-bad-ink">{{ $flags->count() }} syarat belum terpenuhi</p>@endif
                                     @else
                                         <span class="text-muted">—</span>

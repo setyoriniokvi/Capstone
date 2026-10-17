@@ -26,7 +26,7 @@
                     $locked = $m->document_type === 'materi_presentasi' && $approvedLogbooks < $minLogbooks;
                 @endphp
                 <section class="panel">
-                    <div class="flex flex-wrap items-start gap-4 px-4 py-4 sm:px-5">
+                    <div class="flex flex-wrap items-start gap-4 px-4 py-4 sm:px-6">
                         <div class="min-w-0 flex-1">
                             <h2 class="font-semibold">{{ $m->name }}</h2>
                             <p class="text-sm text-muted">
@@ -44,9 +44,9 @@
                     </div>
 
                     @if ($active && $latest)
-                        <div class="grid gap-4 border-t border-rule px-4 py-4 sm:px-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <div class="grid gap-4 border-t border-rule px-4 py-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                             <div class="min-w-0">
-                                <p class="text-sm text-muted">File terkini · revisi <span class="font-mono">{{ $latest->revision_no }}</span></p>
+                                <p class="text-sm text-muted">File terkini · revisi <span class="tabular">{{ $latest->revision_no }}</span></p>
                                 <a href="{{ route('documents.download', $latest) }}" class="link mt-1 inline-block break-all">{{ $latest->stored_name }}</a>
                                 <p class="mt-1 text-caption text-muted">{{ \App\Support\Format::bytes($latest->size) }} · {{ $latest->created_at->translatedFormat('j M Y H:i') }}</p>
                                 <p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -66,11 +66,11 @@
                             </div>
                         </div>
                         @if ($active->versions->count() > 1)
-                            <div x-data="disclosure" class="border-t border-rule px-4 py-2 sm:px-5">
+                            <div x-data="disclosure" class="border-t border-rule px-4 py-2 sm:px-6">
                                 <button type="button" class="btn btn-ghost btn-sm -ml-3" @click="toggle">Riwayat revisi ({{ $active->versions->count() }})</button>
                                 <ol x-cloak x-show="expanded" class="mb-2 space-y-1 text-sm">
                                     @foreach ($active->versions as $v)
-                                        <li class="flex flex-wrap gap-x-3"><span class="font-mono text-muted">r{{ $v->revision_no }}</span><a class="link" href="{{ route('documents.download', $v) }}">{{ $v->original_name }}</a><span class="text-muted">{{ $v->created_at->translatedFormat('j M H:i') }} · {{ $syncLabel($v) }}</span></li>
+                                        <li class="flex flex-wrap gap-x-3"><span class="tabular text-muted">r{{ $v->revision_no }}</span><a class="link" href="{{ route('documents.download', $v) }}">{{ $v->original_name }}</a><span class="text-muted">{{ $v->created_at->translatedFormat('j M H:i') }} · {{ $syncLabel($v) }}</span></li>
                                     @endforeach
                                 </ol>
                             </div>
@@ -78,10 +78,10 @@
                     @endif
 
                     @if ($others->isNotEmpty())
-                        <p class="border-t border-rule px-4 py-2 text-sm text-muted sm:px-5">Juga dikumpulkan oleh: {{ $others->pluck('owner.name')->implode(', ') }}</p>
+                        <p class="border-t border-rule px-4 py-2 text-sm text-muted sm:px-6">Juga dikumpulkan oleh: {{ $others->pluck('owner.name')->implode(', ') }}</p>
                     @endif
 
-                    <div class="border-t border-rule bg-sunken px-4 py-3 sm:px-5">
+                    <div class="border-t border-rule bg-sunken px-4 py-3 sm:px-6">
                         @if ($locked)
                             <p class="text-sm text-muted">Terkunci — minimal {{ $minLogbooks }} log bimbingan harus disetujui sebelum presentasi akhir ({{ $approvedLogbooks }}/{{ $minLogbooks }}).</p>
                         @elseif (! $m->hasStarted())
@@ -103,7 +103,7 @@
                                 <p x-cloak x-show="hasError" x-text="error" class="field-error w-full" role="alert"></p>
                             </form>
                             @if ($active)
-                                <form method="POST" action="{{ route('mahasiswa.documents.destroy', $active) }}" class="mt-2">@csrf @method('DELETE')
+                                <form method="POST" action="{{ route('mahasiswa.documents.destroy', $active) }}" data-confirm="Hapus dokumen ini? Dokumen dipindahkan ke Trash." class="mt-2">@csrf @method('DELETE')
                                     <button class="btn btn-ghost btn-sm -ml-3 text-bad-ink">Hapus dokumen (pindah ke Trash)</button>
                                 </form>
                             @endif

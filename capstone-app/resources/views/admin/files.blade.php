@@ -7,7 +7,7 @@
             @else
                 <ul class="divide-y divide-rule">
                     @foreach ($files as $file)
-                        <li x-data="disclosure" class="px-4 py-3 sm:px-5">
+                        <li x-data="disclosure" class="px-4 py-3 sm:px-6">
                             <div class="flex flex-wrap items-center gap-3">
                                 <x-heroicon-o-document class="h-6 w-6 shrink-0 text-muted" />
                                 <div class="min-w-0 flex-1">
@@ -16,7 +16,7 @@
                                 </div>
                                 <a href="{{ route('files.download', $file) }}" class="btn btn-ghost btn-sm">Unduh</a>
                                 <button type="button" class="btn btn-ghost btn-sm" @click="toggle">Ubah</button>
-                                <form method="POST" action="{{ route('admin.files.destroy', $file) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
+                                <form method="POST" action="{{ route('admin.files.destroy', $file) }}" data-confirm="Hapus file pendukung “{{ $file->title }}”?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
                             </div>
                             <form x-cloak x-show="expanded" method="POST" action="{{ route('admin.files.update', $file) }}" class="mt-3 grid gap-2 sm:grid-cols-2">
                                 @csrf @method('PUT')

@@ -62,7 +62,7 @@
                 @else
                     <ul class="divide-y divide-rule">
                         @foreach ($team->applications as $app)
-                            <li class="px-4 py-3 sm:px-5">
+                            <li class="px-4 py-3 sm:px-6">
                                 <div class="flex items-start justify-between gap-3"><p class="font-medium">{{ $app->topic->title }}</p><x-badge :status="$app->status" /></div>
                                 <p class="text-sm text-muted">{{ $app->topic->lecturer?->name }} · {{ $app->created_at->translatedFormat('j M Y') }}</p>
                                 @if ($app->notes)<p class="mt-1 text-sm">{{ $app->notes }}</p>@endif

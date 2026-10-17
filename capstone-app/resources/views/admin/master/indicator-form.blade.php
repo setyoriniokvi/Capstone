@@ -8,7 +8,7 @@
             <x-field label="CLO" name="clo_id" required>
                 <select id="clo_id" name="clo_id" class="input">@foreach ($clos as $c)<option value="{{ $c->id }}" @selected((int) old('clo_id', $indicator->clo_id) === $c->id)>{{ $c->code }}</option>@endforeach</select>
             </x-field>
-            <x-field label="ID indikator" name="code" required><input id="code" name="code" class="input font-mono uppercase" value="{{ old('code', $indicator->code) }}" required></x-field>
+            <x-field label="ID indikator" name="code" required><input id="code" name="code" class="input tabular uppercase" value="{{ old('code', $indicator->code) }}" required></x-field>
             <x-field label="Skema penilaian" name="scheme" required class="sm:col-span-2">
                 <select id="scheme" name="scheme" class="input">@foreach (config('capstone.schemes') as $k => $s)<option value="{{ $k }}" @selected(old('scheme', $indicator->scheme) === $k)>{{ $s['label'] }}</option>@endforeach</select>
             </x-field>
@@ -18,12 +18,12 @@
                 <legend class="field-label">Pembagian bobot per bentuk penilaian</legend>
                 <div class="grid gap-3 sm:grid-cols-3">
                     @foreach (config('capstone.components') as $k => $c)
-                        <div><label for="w-{{ $k }}" class="text-sm text-muted">{{ $c['label'] }}</label><input id="w-{{ $k }}" type="number" step="0.01" min="0" max="100" name="weights[{{ $k }}]" class="input font-mono" value="{{ old("weights.$k", $indicator->exists ? ($indicator->weightFor($k) ?: '') : '') }}"></div>
+                        <div><label for="w-{{ $k }}" class="text-sm text-muted">{{ $c['label'] }}</label><input id="w-{{ $k }}" type="number" step="0.01" min="0" max="100" name="weights[{{ $k }}]" class="input tabular" value="{{ old("weights.$k", $indicator->exists ? ($indicator->weightFor($k) ?: '') : '') }}"></div>
                     @endforeach
                 </div>
             </fieldset>
         </div>
-        <div class="flex justify-end gap-2 border-t border-rule px-4 py-3 sm:px-5">
+        <div class="flex justify-end gap-2 border-t border-rule px-4 py-3 sm:px-6">
             <a href="{{ route('admin.indicators.index') }}" class="btn btn-ghost">Batal</a>
             <button class="btn btn-primary" data-once>Simpan</button>
         </div>

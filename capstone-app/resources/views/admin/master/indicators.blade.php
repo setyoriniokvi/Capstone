@@ -11,7 +11,7 @@
                 <a href="{{ route('admin.indicators.create', ['clo' => $clo->id]) }}" class="btn btn-ghost btn-sm">Tambah</a>
             </div>
             @if ($clo->indicators->isEmpty())
-                <p class="px-4 py-4 text-sm text-muted sm:px-5">Belum ada indikator untuk {{ $clo->code }}.</p>
+                <p class="px-4 py-4 text-sm text-muted sm:px-6">Belum ada indikator untuk {{ $clo->code }}.</p>
             @else
                 <div class="table-wrap">
                     <table class="data-table">
@@ -23,11 +23,11 @@
                                     <td class="max-w-[20rem]">{{ $ind->name }}</td>
                                     <td class="max-w-[12rem] text-sm text-muted">{{ $ind->evidence ?? '—' }}</td>
                                     <td class="whitespace-nowrap text-sm">{{ $ind->schemeLabel() }}</td>
-                                    <td class="text-caption">@foreach ($ind->componentWeights as $w)<p>{{ config('capstone.components.'.$w->component.'.label') }} <span class="font-mono">{{ $w->weight + 0 }}</span></p>@endforeach</td>
-                                    <td class="text-right font-mono font-medium">{{ $ind->weight + 0 }}</td>
+                                    <td class="text-caption">@foreach ($ind->componentWeights as $w)<p>{{ config('capstone.components.'.$w->component.'.label') }} <span class="tabular">{{ $w->weight + 0 }}</span></p>@endforeach</td>
+                                    <td class="text-right tabular font-medium">{{ $ind->weight + 0 }}</td>
                                     <td>@if ($ind->rubric)<x-badge status="lengkap" label="Ada" />@else<a class="link text-sm" href="{{ route('admin.rubrics.edit', $ind) }}">Isi</a>@endif</td>
                                     <td><div class="flex justify-end gap-1"><a class="btn btn-ghost btn-sm" href="{{ route('admin.indicators.edit', $ind) }}">Ubah</a>
-                                        <form method="POST" action="{{ route('admin.indicators.destroy', $ind) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form></div></td>
+                                        <form method="POST" action="{{ route('admin.indicators.destroy', $ind) }}" data-confirm="Hapus indikator ini beserta rubriknya?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form></div></td>
                                 </tr>
                             @endforeach
                         </tbody>

@@ -12,18 +12,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'Capstone' }} · Capstone FRI</title>
-    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <x-head-assets />
 </head>
 <body x-data="shell" class="min-h-screen">
     <a href="#konten" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-4 focus:py-2">Lewati ke konten</a>
 
     {{-- Overlay navigasi untuk layar sempit --}}
-    <div x-cloak x-show="navOpen" @click="closeNav" class="fixed inset-0 z-30 bg-scrim md:hidden" aria-hidden="true"></div>
+    <div x-cloak x-show="navOpen" @click="closeNav"
+         x-transition:enter="motion-fade" x-transition:enter-start="opacity-0"
+         x-transition:leave="motion-fade" x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-30 bg-scrim md:hidden" aria-hidden="true"></div>
 
     <aside id="sidebar"
            :class="navClass"
@@ -102,5 +100,7 @@
             {{ $slot }}
         </main>
     </div>
+
+    <x-confirm-dialog />
 </body>
 </html>

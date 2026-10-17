@@ -18,15 +18,15 @@
                             <div class="grid grid-cols-3 gap-3">
                                 <div>
                                     <label class="field-label" for="sks-{{ $prodi->code }}">Min. SKS</label>
-                                    <input id="sks-{{ $prodi->code }}" type="number" name="min_sks" min="0" max="160" class="input font-mono" value="{{ $rule->min_sks ?? 110 }}" required>
+                                    <input id="sks-{{ $prodi->code }}" type="number" name="min_sks" min="0" max="160" class="input tabular" value="{{ $rule->min_sks ?? 110 }}" required>
                                 </div>
                                 <div>
                                     <label class="field-label" for="min-{{ $prodi->code }}">Min. anggota</label>
-                                    <input id="min-{{ $prodi->code }}" type="number" name="min_members" min="1" max="10" class="input font-mono" value="{{ $rule->min_members ?? config('capstone.team_size.min') }}" required>
+                                    <input id="min-{{ $prodi->code }}" type="number" name="min_members" min="1" max="10" class="input tabular" value="{{ $rule->min_members ?? config('capstone.team_size.min') }}" required>
                                 </div>
                                 <div>
                                     <label class="field-label" for="max-{{ $prodi->code }}">Maks. anggota</label>
-                                    <input id="max-{{ $prodi->code }}" type="number" name="max_members" min="1" max="10" class="input font-mono" value="{{ $rule->max_members ?? config('capstone.team_size.max') }}" required>
+                                    <input id="max-{{ $prodi->code }}" type="number" name="max_members" min="1" max="10" class="input tabular" value="{{ $rule->max_members ?? config('capstone.team_size.max') }}" required>
                                 </div>
                             </div>
                             <label class="flex min-h-[44px] items-center gap-3">
@@ -47,7 +47,7 @@
                                     @forelse ($rule->courses as $course)
                                         <li class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                                             <span><span class="code mr-2">{{ $course->code }}</span>{{ $course->name }}</span>
-                                            <form method="POST" action="{{ route('admin.rules.courses.destroy', $course) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink" aria-label="Hapus {{ $course->code }}">Hapus</button></form>
+                                            <form method="POST" action="{{ route('admin.rules.courses.destroy', $course) }}" data-confirm="Hapus mata kuliah prasyarat {{ $course->code }}?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink" aria-label="Hapus {{ $course->code }}">Hapus</button></form>
                                         </li>
                                     @empty
                                         <li class="px-3 py-3 text-sm text-muted">Belum ada mata kuliah prasyarat.</li>
@@ -56,7 +56,7 @@
                                 <form method="POST" action="{{ route('admin.rules.courses.store', $rule) }}" class="mt-3 grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_auto] gap-2">
                                     @csrf
                                     <label class="sr-only" for="c-code-{{ $prodi->code }}">Kode</label>
-                                    <input id="c-code-{{ $prodi->code }}" name="code" class="input font-mono" placeholder="Kode" required>
+                                    <input id="c-code-{{ $prodi->code }}" name="code" class="input tabular" placeholder="Kode" required>
                                     <label class="sr-only" for="c-name-{{ $prodi->code }}">Nama mata kuliah</label>
                                     <input id="c-name-{{ $prodi->code }}" name="name" class="input" placeholder="Nama mata kuliah" required>
                                     <button class="btn btn-secondary">Tambah</button>

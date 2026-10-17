@@ -16,7 +16,7 @@
                     @forelse ($rules as $rule)
                         <tr x-data="disclosure">
                             <td class="font-medium">{{ config('capstone.reminder_job_types.'.$rule->job_type) }}</td>
-                            <td class="font-mono">{{ $rule->hours_before }} jam sebelum tenggat</td>
+                            <td class="tabular">{{ $rule->hours_before }} jam sebelum tenggat</td>
                             <td>{{ collect($rule->channels)->map(fn ($c) => $c === 'email' ? 'Email' : 'WhatsApp')->implode(', ') }}</td>
                             <td>@if ($rule->is_active)<x-badge status="aktif" />@else<x-badge status="nonaktif" />@endif</td>
                             <td class="text-right">
@@ -28,7 +28,7 @@
                                     <input type="hidden" name="is_active" value="{{ $rule->is_active ? 0 : 1 }}">
                                     <button class="btn btn-ghost btn-sm">{{ $rule->is_active ? 'Nonaktifkan' : 'Aktifkan' }}</button>
                                 </form>
-                                <form method="POST" action="{{ route('admin.reminders.destroy', $rule) }}" class="inline">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
+                                <form method="POST" action="{{ route('admin.reminders.destroy', $rule) }}" data-confirm="Hapus aturan reminder ini?" class="inline">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
                             </td>
                         </tr>
                     @empty
@@ -37,12 +37,12 @@
                 </tbody>
             </table>
         </div>
-        <form method="POST" action="{{ route('admin.reminders.store') }}" class="grid gap-3 border-t border-rule bg-sunken px-4 py-4 sm:grid-cols-[minmax(0,1fr)_10rem_auto_auto] sm:items-end sm:px-5">
+        <form method="POST" action="{{ route('admin.reminders.store') }}" class="grid gap-3 border-t border-rule bg-sunken px-4 py-4 sm:grid-cols-[minmax(0,1fr)_10rem_auto_auto] sm:items-end sm:px-6">
             @csrf
             <x-field label="Jenis pekerjaan" name="job_type">
                 <select id="job_type" name="job_type" class="input">@foreach (config('capstone.reminder_job_types') as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select>
             </x-field>
-            <x-field label="Jam sebelum tenggat" name="hours_before"><input id="hours_before" type="number" min="1" max="720" name="hours_before" class="input font-mono" value="{{ old('hours_before', 48) }}" required></x-field>
+            <x-field label="Jam sebelum tenggat" name="hours_before"><input id="hours_before" type="number" min="1" max="720" name="hours_before" class="input tabular" value="{{ old('hours_before', 48) }}" required></x-field>
             <fieldset class="flex items-center gap-4">
                 <legend class="sr-only">Kanal</legend>
                 <label class="flex min-h-[44px] items-center gap-2"><input type="checkbox" class="checkbox" name="channels[]" value="email" checked>Email</label>
@@ -78,7 +78,7 @@
                                 <td>{{ $d->channel === 'email' ? 'Email' : 'WhatsApp' }}</td>
                                 <td class="capitalize">{{ $d->trigger }}</td>
                                 <td><x-badge :status="$d->status" />@if ($d->last_error)<p class="mt-1 max-w-[14rem] text-caption text-muted">{{ $d->last_error }}</p>@endif</td>
-                                <td class="font-mono">{{ $d->attempts }}</td>
+                                <td class="tabular">{{ $d->attempts }}</td>
                                 <td>@if (in_array($d->status, ['gagal', 'dibatalkan']) && $d->recipient)<form method="POST" action="{{ route('admin.reminders.retry', $d) }}">@csrf<button class="btn btn-ghost btn-sm">Kirim ulang</button></form>@endif</td>
                             </tr>
                         @endforeach

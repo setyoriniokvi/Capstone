@@ -8,10 +8,10 @@
             <section class="panel">
                 <div class="panel-head"><h2 class="panel-title">Syarat presentasi akhir</h2></div>
                 <div class="panel-body"><x-gate-cells :approved="$approved" :min="$minLogbooks" :pending="$team->logbooks->where('status', 'menunggu')->count()" /></div>
-                <p class="border-t border-rule px-4 py-3 text-sm text-muted sm:px-5">Pembimbing: <span class="text-ink">{{ $team->supervisor?->lecturer->name ?? 'belum ditetapkan' }}</span></p>
+                <p class="border-t border-rule px-4 py-3 text-sm text-muted sm:px-6">Pembimbing: <span class="text-ink">{{ $team->supervisor?->lecturer->name ?? 'belum ditetapkan' }}</span></p>
             </section>
             <section class="panel">
-                <div class="panel-head"><h2 class="panel-title">Sesi <span class="font-mono">{{ $nextSession }}</span></h2></div>
+                <div class="panel-head"><h2 class="panel-title">Sesi <span class="tabular">{{ $nextSession }}</span></h2></div>
                 @if ($team->supervisor)
                     <form method="POST" action="{{ route('mahasiswa.logbooks.store') }}" class="panel-body">
                         @csrf
@@ -31,9 +31,9 @@
             @else
                 <ol class="divide-y divide-rule">
                     @foreach ($team->logbooks->sortByDesc('session_no') as $log)
-                        <li x-data="disclosure" class="px-4 py-4 sm:px-5">
+                        <li x-data="disclosure" class="px-4 py-4 sm:px-6">
                             <div class="flex flex-wrap items-start gap-3">
-                                <span class="w-12 shrink-0 font-mono text-lg font-medium text-brand-deep">#{{ $log->session_no }}</span>
+                                <span class="w-12 shrink-0 tabular text-lg font-medium text-brand-deep">#{{ $log->session_no }}</span>
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm text-muted">{{ $log->session_date->translatedFormat('l, j F Y') }} · {{ $log->responsible_person }}</p>
                                     <p class="mt-1 whitespace-pre-line">{{ $log->activity }}</p>
@@ -47,7 +47,7 @@
                             @if ($log->status !== 'disetujui')
                                 <div class="mt-3 flex gap-1 pl-[3.75rem]">
                                     <button type="button" class="btn btn-ghost btn-sm" @click="toggle">{{ $log->status === 'revisi' ? 'Revisi log' : 'Ubah' }}</button>
-                                    <form method="POST" action="{{ route('mahasiswa.logbooks.destroy', $log) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
+                                    <form method="POST" action="{{ route('mahasiswa.logbooks.destroy', $log) }}" data-confirm="Hapus log bimbingan ini?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
                                 </div>
                                 <form x-cloak x-show="expanded" method="POST" action="{{ route('mahasiswa.logbooks.update', $log) }}" class="mt-3 rounded-lg border border-rule bg-sunken p-4">
                                     @csrf @method('PUT')

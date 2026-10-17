@@ -7,7 +7,7 @@
         @endfor
     </div>
     <p class="mt-2 text-sm">
-        <span class="font-mono font-medium">{{ $approved }}</span><span class="text-muted"> / {{ $min }} sesi disetujui</span>
+        <span class="tabular font-medium">{{ $approved }}</span><span class="text-muted"> / {{ $min }} sesi disetujui</span>
         @if ($pending)
             <span class="text-muted"> · {{ $pending }} menunggu</span>
         @endif

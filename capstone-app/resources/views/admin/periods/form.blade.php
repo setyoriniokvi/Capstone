@@ -24,7 +24,7 @@
                     <input id="name" name="name" class="input" value="{{ old('name', $period->name) }}" placeholder="Capstone Ganjil 2026/2027" required>
                 </x-field>
                 <x-field label="Tahun akademik" name="academic_year" required hint="Format 2026/2027">
-                    <input id="academic_year" name="academic_year" class="input font-mono" value="{{ old('academic_year', $period->academic_year) }}" required>
+                    <input id="academic_year" name="academic_year" class="input tabular" value="{{ old('academic_year', $period->academic_year) }}" required>
                 </x-field>
                 <x-field label="Semester" name="semester" required>
                     <select id="semester" name="semester" class="input">
@@ -72,11 +72,11 @@
             </div>
             <div class="panel-body grid gap-4 sm:grid-cols-2">
                 <x-field label="Folder induk (cadangan)" name="drive_root_folder_id" class="sm:col-span-2" hint="Dipakai bila prodi belum memiliki folder sendiri.">
-                    <input id="drive_root_folder_id" name="drive_root_folder_id" class="input font-mono" value="{{ old('drive_root_folder_id', $period->drive_root_folder_id) }}">
+                    <input id="drive_root_folder_id" name="drive_root_folder_id" class="input tabular" value="{{ old('drive_root_folder_id', $period->drive_root_folder_id) }}">
                 </x-field>
                 @foreach ($prodis as $prodi)
                     <x-field :label="'Prodi '.$prodi->code.' — '.$prodi->name" :name="'folders.'.$prodi->code">
-                        <input id="folders.{{ $prodi->code }}" name="folders[{{ $prodi->code }}]" class="input font-mono" value="{{ old("folders.{$prodi->code}", $period->driveFolders?->firstWhere('prodi_code', $prodi->code)?->folder_id) }}">
+                        <input id="folders.{{ $prodi->code }}" name="folders[{{ $prodi->code }}]" class="input tabular" value="{{ old("folders.{$prodi->code}", $period->driveFolders?->firstWhere('prodi_code', $prodi->code)?->folder_id) }}">
                     </x-field>
                 @endforeach
             </div>
@@ -95,15 +95,15 @@
                 <div class="panel-body border-b border-rule"><x-week-ruler :period="$period" /></div>
                 <ul class="divide-y divide-rule">
                     @foreach ($period->milestones as $m)
-                        <li x-data="disclosure" class="px-4 py-3 sm:px-5">
+                        <li x-data="disclosure" class="px-4 py-3 sm:px-6">
                             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span class="w-14 shrink-0 font-mono text-sm text-muted">{{ $m->week_no ? 'Mg '.$m->week_no : '—' }}</span>
+                                <span class="w-14 shrink-0 tabular text-sm text-muted">{{ $m->week_no ? 'Mg '.$m->week_no : '—' }}</span>
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium">{{ $m->name }}</p>
                                     <p class="text-sm text-muted">{{ $m->kindLabel() }}@if ($m->document_type) · {{ config('capstone.document_types.'.$m->document_type) }}@endif · {{ $m->starts_at->translatedFormat('j M H:i') }} → {{ $m->due_at->translatedFormat('j M Y H:i') }}</p>
                                 </div>
                                 <button type="button" class="btn btn-ghost btn-sm" @click="toggle" :aria-expanded="expanded">Ubah</button>
-                                <form method="POST" action="{{ route('admin.milestones.destroy', $m) }}">@csrf @method('DELETE')
+                                <form method="POST" action="{{ route('admin.milestones.destroy', $m) }}" data-confirm="Hapus milestone “{{ $m->name }}”?">@csrf @method('DELETE')
                                     <button class="btn btn-ghost btn-sm text-bad-ink" aria-label="Hapus {{ $m->name }}">Hapus</button>
                                 </form>
                             </div>
@@ -114,14 +114,14 @@
                     @endforeach
                 </ul>
             @endif
-            <div class="border-t border-rule bg-sunken px-4 py-4 sm:px-5">
+            <div class="border-t border-rule bg-sunken px-4 py-4 sm:px-6">
                 <h3 class="mb-3 text-sm font-semibold">Tambah milestone</h3>
                 @include('admin.periods._milestone-fields', ['m' => new \App\Models\Milestone(['kind' => 'dokumen']), 'action' => route('admin.milestones.store', $period), 'method' => 'POST', 'submit' => 'Tambah'])
             </div>
         </section>
 
         @if ($period->teams()->doesntExist())
-            <form method="POST" action="{{ route('admin.periods.destroy', $period) }}" class="mt-6 flex justify-end">
+            <form method="POST" action="{{ route('admin.periods.destroy', $period) }}" data-confirm="Hapus periode {{ $period->name }}? Seluruh milestone di dalamnya ikut terhapus." data-confirm-label="Hapus periode" class="mt-6 flex justify-end">
                 @csrf @method('DELETE')
                 <button class="btn btn-ghost text-bad-ink">Hapus periode ini</button>
             </form>

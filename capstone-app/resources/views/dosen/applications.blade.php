@@ -1,7 +1,7 @@
 <x-layouts.app title="Tim Pelamar" section="Dosen · Tim pelamar">
     <x-page-head title="Tim pelamar topik" lede="Menerima tim menjadikan Anda dosen pembimbing tim tersebut secara otomatis. Kuota tidak dapat dilampaui." />
 
-    <h2 class="mb-3 text-h2">Menunggu keputusan <span class="font-mono text-muted">{{ $pending->count() }}</span></h2>
+    <h2 class="mb-3 text-h2">Menunggu keputusan <span class="tabular text-muted">{{ $pending->count() }}</span></h2>
     <div class="mb-8 space-y-4">
         @forelse ($pending as $app)
             @php $remaining = max(0, $app->topic->quota - $app->topic->accepted_count); @endphp
@@ -11,7 +11,7 @@
                         <p class="text-sm text-muted">Melamar: {{ $app->topic->title }}</p>
                         <h3 class="font-semibold"><span class="code mr-1">{{ $app->team->code }}</span> {{ $app->team->name }}</h3>
                     </div>
-                    <span class="font-mono text-sm {{ $remaining ? 'text-ok-ink' : 'text-bad-ink' }}">sisa kuota {{ $remaining }}</span>
+                    <span class="tabular text-sm {{ $remaining ? 'text-ok-ink' : 'text-bad-ink' }}">sisa kuota {{ $remaining }}</span>
                 </div>
                 <div class="grid gap-4 panel-body md:grid-cols-2">
                     <div>
@@ -28,7 +28,7 @@
                         @if ($app->motivation)<p class="mt-3 text-sm text-muted">Alasan melamar</p><p class="text-sm">{{ $app->motivation }}</p>@endif
                     </div>
                 </div>
-                <div class="border-t border-rule px-4 py-3 sm:px-5">
+                <div class="border-t border-rule px-4 py-3 sm:px-6">
                     <x-decision :action="route('dosen.applications.decide', $app)" title="Keputusan lamaran {{ $app->team->code }}" approve-label="Terima tim" reject-label="Tolak" trigger="Putuskan">
                         Menerima tim menetapkan Anda sebagai pembimbing {{ $app->team->code }}.
                     </x-decision>

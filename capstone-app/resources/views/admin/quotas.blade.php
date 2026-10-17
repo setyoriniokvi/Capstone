@@ -18,9 +18,9 @@
                                         @case('kategori')<span class="font-medium">{{ config('capstone.prodi_categories.'.$q->category) }}</span>@break
                                         @default<span class="font-medium">{{ $q->lecturer?->name }}</span>
                                     @endswitch</td>
-                                    <td class="font-mono">{{ $q->supervise_default }} · {{ $q->supervise_min }} · {{ $q->supervise_max }}</td>
-                                    <td class="font-mono">{{ $q->examine_default }} · {{ $q->examine_min }} · {{ $q->examine_max }}</td>
-                                    <td class="text-right"><form method="POST" action="{{ route('admin.quotas.destroy', $q) }}">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form></td>
+                                    <td class="tabular">{{ $q->supervise_default }} · {{ $q->supervise_min }} · {{ $q->supervise_max }}</td>
+                                    <td class="tabular">{{ $q->examine_default }} · {{ $q->examine_min }} · {{ $q->examine_max }}</td>
+                                    <td class="text-right"><form method="POST" action="{{ route('admin.quotas.destroy', $q) }}" data-confirm="Hapus pengaturan kuota ini?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form></td>
                                 </tr>
                             @empty
                                 <tr><td colspan="4"><x-empty title="Belum ada aturan kuota" icon="scale">Mulai dari aturan global.</x-empty></td></tr>
@@ -52,7 +52,7 @@
                             <legend class="field-label">{{ $label }}</legend>
                             <div class="grid grid-cols-3 gap-2">
                                 @foreach (['default' => 'Default', 'min' => 'Min', 'max' => 'Maks'] as $k => $l)
-                                    <div><label for="{{ $role }}_{{ $k }}" class="text-caption text-muted">{{ $l }}</label><input id="{{ $role }}_{{ $k }}" type="number" min="0" max="99" name="{{ $role }}_{{ $k }}" value="{{ old("{$role}_{$k}", 0) }}" class="input font-mono" required></div>
+                                    <div><label for="{{ $role }}_{{ $k }}" class="text-caption text-muted">{{ $l }}</label><input id="{{ $role }}_{{ $k }}" type="number" min="0" max="99" name="{{ $role }}_{{ $k }}" value="{{ old("{$role}_{$k}", 0) }}" class="input tabular" required></div>
                                 @endforeach
                             </div>
                             @error("{$role}_default")<p class="field-error">{{ $message }}</p>@enderror

@@ -5,23 +5,23 @@
     <div class="space-y-4">
         @foreach ($clos as $clo)
             <section x-data="disclosure" class="panel">
-                <div class="flex flex-wrap items-start gap-4 px-4 py-4 sm:px-5">
+                <div class="flex flex-wrap items-start gap-4 px-4 py-4 sm:px-6">
                     <span class="code w-14 shrink-0 pt-0.5 text-base font-medium text-brand-deep">{{ $clo->code }}</span>
                     <div class="min-w-0 flex-1">
                         <p>{{ $clo->description }}</p>
                         <p class="mt-1 text-sm text-muted">{{ $clo->assessment_scheme ?: 'Skema penilaian belum diisi' }}</p>
                         <div class="mt-2 flex flex-wrap gap-1.5">
                             @foreach ($clo->componentWeights as $w)
-                                <span class="rounded bg-sunken px-2 py-0.5 text-caption">{{ config('capstone.components.'.$w->component.'.label') }} <span class="font-mono font-medium">{{ $w->weight + 0 }}</span></span>
+                                <span class="rounded bg-sunken px-2 py-0.5 text-caption">{{ config('capstone.components.'.$w->component.'.label') }} <span class="tabular font-medium">{{ $w->weight + 0 }}</span></span>
                             @endforeach
                         </div>
                     </div>
-                    <p class="font-mono text-2xl font-medium">{{ $clo->weight + 0 }}</p>
+                    <p class="tabular text-2xl font-medium">{{ $clo->weight + 0 }}</p>
                     <button type="button" class="btn btn-ghost btn-sm" @click="toggle">Ubah</button>
                 </div>
-                <div x-cloak x-show="expanded" class="border-t border-rule bg-sunken px-4 py-4 sm:px-5">
+                <div x-cloak x-show="expanded" class="border-t border-rule bg-sunken px-4 py-4 sm:px-6">
                     @include('admin.master._clo-form', ['clo' => $clo, 'action' => route('admin.clos.update', $clo), 'method' => 'PUT'])
-                    <form method="POST" action="{{ route('admin.clos.destroy', $clo) }}" class="mt-3">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus {{ $clo->code }}</button></form>
+                    <form method="POST" action="{{ route('admin.clos.destroy', $clo) }}" data-confirm="Hapus CLO {{ $clo->code }}?" class="mt-3">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus {{ $clo->code }}</button></form>
                 </div>
             </section>
         @endforeach

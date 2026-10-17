@@ -31,15 +31,18 @@ export default {
             },
             fontFamily: {
                 sans: ['var(--font-sans)'],
-                mono: ['var(--font-mono)'],
             },
             fontSize: {
-                caption: ['0.75rem', { lineHeight: '1.4' }],
+                // Hierarki tipografi (Apple UI: title / body / caption)
+                caption: ['0.8125rem', { lineHeight: '1.4' }],
                 body: ['1rem', { lineHeight: '1.5' }],
-                h2: ['1.375rem', { lineHeight: '1.3', fontWeight: '600' }],
-                h1: ['1.75rem', { lineHeight: '1.2', fontWeight: '700' }],
+                h2: ['1.375rem', { lineHeight: '1.3', fontWeight: '600', letterSpacing: '-0.015em' }],
+                h1: ['2rem', { lineHeight: '1.2', fontWeight: '700', letterSpacing: '-0.02em' }],
             },
+            // Lebar baca nyaman untuk form & teks (~680px)
+            maxWidth: { form: '42.5rem' },
             borderRadius: { DEFAULT: 'var(--radius)', lg: 'var(--radius-lg)' },
+            boxShadow: { panel: 'var(--shadow-panel)', overlay: 'var(--shadow-overlay)' },
             transitionTimingFunction: { out: 'var(--ease-out)' },
         },
     },

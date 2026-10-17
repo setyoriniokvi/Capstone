@@ -5,7 +5,7 @@
         <div class="min-w-0">
             <div class="mb-4 flex flex-wrap items-center gap-2">
                 @foreach (['mandiri' => 'Topik mandiri', 'dosen' => 'Topik dosen'] as $k => $l)
-                    <a href="{{ route('admin.topics.index', ['sumber' => $k, 'status' => $status]) }}" class="btn btn-sm {{ $source === $k ? 'btn-primary' : 'btn-secondary' }}">{{ $l }} <span class="font-mono">{{ $pending[$k] ?? 0 }}</span></a>
+                    <a href="{{ route('admin.topics.index', ['sumber' => $k, 'status' => $status]) }}" class="btn btn-sm {{ $source === $k ? 'btn-primary' : 'btn-secondary' }}">{{ $l }} <span class="tabular">{{ $pending[$k] ?? 0 }}</span></a>
                 @endforeach
                 <span class="mx-1 h-6 w-px bg-rule"></span>
                 @foreach (['menunggu' => 'Menunggu', 'diterima' => 'Diterima', 'ditolak' => 'Ditolak', 'semua' => 'Semua'] as $k => $l)
@@ -19,14 +19,14 @@
                 @else
                     <ul class="divide-y divide-rule">
                         @foreach ($topics as $topic)
-                            <li class="px-4 py-4 sm:px-5">
+                            <li class="px-4 py-4 sm:px-6">
                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                     <div class="min-w-0 flex-1">
                                         <p class="text-sm text-muted">
                                             @if ($topic->source === 'mandiri')
                                                 <span class="code">{{ $topic->team?->code }}</span> · {{ $topic->team?->name }}
                                             @else
-                                                <span class="code">{{ $topic->lecturer?->lecturerProfile?->lecturer_code }}</span> · {{ $topic->lecturer?->name }} · kuota <span class="font-mono">{{ $topic->quota }}</span> tim
+                                                <span class="code">{{ $topic->lecturer?->lecturerProfile?->lecturer_code }}</span> · {{ $topic->lecturer?->name }} · kuota <span class="tabular">{{ $topic->quota }}</span> tim
                                             @endif
                                             @if ($topic->field) · {{ $topic->field }}@endif
                                         </p>
@@ -36,7 +36,7 @@
                                 </div>
                                 <p class="mt-2 max-w-[75ch] whitespace-pre-line text-sm text-ink">{{ $topic->description }}</p>
                                 @if ($topic->keyword_hits)
-                                    <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-bad-ink"><x-heroicon-o-flag class="h-4 w-4" />Kata kunci terlarang: @foreach ($topic->keyword_hits as $hit)<span class="rounded bg-bad-tint px-1.5 font-mono text-caption">{{ $hit }}</span>@endforeach</p>
+                                    <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-bad-ink"><x-heroicon-o-flag class="h-4 w-4" />Kata kunci terlarang: @foreach ($topic->keyword_hits as $hit)<span class="rounded bg-bad-tint px-1.5 tabular text-caption">{{ $hit }}</span>@endforeach</p>
                                 @endif
                                 @if ($topic->review_notes)
                                     <p class="mt-2 text-sm text-muted">Catatan: {{ $topic->review_notes }}</p>
@@ -67,7 +67,7 @@
                     @forelse ($keywords as $k)
                         <li class="flex items-center gap-1 rounded bg-sunken py-0.5 pl-2 text-sm">
                             {{ $k->keyword }}
-                            <form method="POST" action="{{ route('admin.keywords.destroy', $k) }}">@csrf @method('DELETE')<button class="grid h-7 w-7 place-items-center text-muted hover:text-bad-ink" aria-label="Hapus {{ $k->keyword }}"><x-heroicon-o-x-mark class="h-4 w-4" /></button></form>
+                            <form method="POST" action="{{ route('admin.keywords.destroy', $k) }}" data-confirm="Hapus kata kunci “{{ $k->keyword }}”?">@csrf @method('DELETE')<button class="grid h-7 w-7 place-items-center text-muted hover:text-bad-ink" aria-label="Hapus {{ $k->keyword }}"><x-heroicon-o-x-mark class="h-4 w-4" /></button></form>
                         </li>
                     @empty
                         <li class="text-sm text-muted">Belum ada kata kunci.</li>

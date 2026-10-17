@@ -1,6 +1,6 @@
 <x-layouts.app title="Approval Bimbingan" section="Dosen · Approval bimbingan">
     <x-page-head title="Approval log bimbingan" lede="Setujui log atau minta revisi dengan feedback. Setiap tim perlu minimal {{ $minLogbooks }} log disetujui sebelum presentasi akhir.">
-        <x-slot:actions><span class="text-sm text-muted"><span class="font-mono font-medium text-ink">{{ $pendingTotal }}</span> log menunggu</span></x-slot:actions>
+        <x-slot:actions><span class="text-sm text-muted"><span class="tabular font-medium text-ink">{{ $pendingTotal }}</span> log menunggu</span></x-slot:actions>
     </x-page-head>
 
     @forelse ($teams as $team)
@@ -14,8 +14,8 @@
             @else
                 <ol class="divide-y divide-rule">
                     @foreach ($team->logbooks as $log)
-                        <li class="grid gap-3 px-4 py-4 sm:px-5 md:grid-cols-[3rem_minmax(0,1fr)_auto]">
-                            <span class="font-mono text-lg font-medium text-brand-deep">#{{ $log->session_no }}</span>
+                        <li class="grid gap-3 px-4 py-4 sm:px-6 md:grid-cols-[3rem_minmax(0,1fr)_auto]">
+                            <span class="tabular text-lg font-medium text-brand-deep">#{{ $log->session_no }}</span>
                             <div class="min-w-0">
                                 <p class="text-sm text-muted">{{ $log->session_date->translatedFormat('l, j F Y') }} · PJ {{ $log->responsible_person }} · diisi {{ $log->author->name }}</p>
                                 <p class="mt-1 whitespace-pre-line">{{ $log->activity }}</p>

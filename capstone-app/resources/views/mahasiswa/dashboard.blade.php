@@ -54,9 +54,9 @@
                         <ol class="divide-y divide-rule">
                             @foreach ($docMilestones as $m)
                                 @php $done = $submitted($m); $doc = $team?->documents->firstWhere('milestone_id', $m->id); @endphp
-                                <li class="flex items-center gap-4 px-4 py-3 sm:px-5">
+                                <li class="flex items-center gap-4 px-4 py-3 sm:px-6">
                                     <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full border {{ $done ? 'border-brand bg-brand text-white' : ($m->isPast() ? 'border-bad-line bg-bad-tint text-bad-ink' : 'border-rule-strong text-muted') }}">
-                                        @if ($done)<x-heroicon-o-check class="h-4 w-4" />@else<span class="font-mono text-caption">{{ $m->week_no ?? '·' }}</span>@endif
+                                        @if ($done)<x-heroicon-o-check class="h-4 w-4" />@else<span class="tabular text-caption">{{ $m->week_no ?? '·' }}</span>@endif
                                     </span>
                                     <div class="min-w-0 flex-1">
                                         <p class="font-medium">{{ $m->name }}</p>
@@ -100,7 +100,7 @@
                         @endforeach
                     </ul>
                     @if (collect($eligibility)->contains('passed', false))
-                        <p class="border-t border-rule px-4 py-3 text-sm text-muted sm:px-5">Bila data belum sesuai, hubungi admin program studi untuk pembaruan data akademik.</p>
+                        <p class="border-t border-rule px-4 py-3 text-sm text-muted sm:px-6">Bila data belum sesuai, hubungi admin program studi untuk pembaruan data akademik.</p>
                     @endif
                 </section>
 

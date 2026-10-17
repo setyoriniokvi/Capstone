@@ -6,7 +6,7 @@
                 <div><label class="field-label" for="prodi">Prodi</label>
                     <select id="prodi" name="prodi" class="input"><option value="">Semua</option>@foreach ($prodis as $p)<option value="{{ $p->code }}" @selected(request('prodi') === $p->code)>{{ $p->code }}</option>@endforeach</select></div>
             </x-filter-bar>
-            <p class="text-sm text-muted"><span class="font-mono">{{ $teams->whereNotNull('final_topic_id')->count() }}</span> dari {{ $teams->count() }} tim memiliki topik final</p>
+            <p class="text-sm text-muted"><span class="tabular">{{ $teams->whereNotNull('final_topic_id')->count() }}</span> dari {{ $teams->count() }} tim memiliki topik final</p>
         </div>
         <div class="table-wrap">
             <table class="data-table">

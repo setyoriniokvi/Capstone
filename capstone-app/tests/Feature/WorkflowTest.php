@@ -36,6 +36,8 @@ class WorkflowTest extends TestCase
         parent::setUp();
         $this->seed();
         $this->seed(DemoSeeder::class);
+        // Admin bekerja di dalam Dashboard Periode (periode aktif demo)
+        $this->withSession([\App\Models\Period::WORKSPACE_KEY => \App\Models\Period::active()->id]);
         $this->withoutVite();
         Storage::fake('local');
     }
@@ -51,39 +53,37 @@ class WorkflowTest extends TestCase
         $member = User::query()->where('nim', '102022300013')->first(); // s13 — SKS kurang
         $admin = User::query()->where('role', 'admin')->first();
 
-        // F21 — buat tim
-        $this->actingAs($leader)->post(route('mahasiswa.team.store'), ['name' => 'Tim Uji'])->assertSessionHasNoErrors();
-        $team = $leader->teamFor(Period::active());
-        $this->assertSame('draft', $team->status);
-        $this->assertStringStartsWith('KP-TI-', $team->code);
-
-        // Undang anggota yang tidak memenuhi prasyarat: undangan terkirim, tetapi menerima ditolak sistem
-        $this->actingAs($leader)->post(route('mahasiswa.team.invite'), ['identifier' => $member->nim])->assertSessionHasNoErrors();
-        $invite = $team->members()->where('user_id', $member->id)->first();
-        $this->actingAs($member)->post(route('mahasiswa.team.respond', $invite), ['decision' => 'accept'])->assertSessionHasErrors('team');
-
-        // Undang anggota layak lalu terima
         $other = $this->user('mahasiswa10@gmail.com');
         $other->memberships()->delete();
-        $this->actingAs($leader)->post(route('mahasiswa.team.invite'), ['identifier' => $other->email])->assertSessionHasNoErrors();
-        $this->actingAs($leader)->delete(route('mahasiswa.team.members.destroy', $invite))->assertSessionHasNoErrors();
-        $this->actingAs($other)->post(route('mahasiswa.team.respond', $team->members()->where('user_id', $other->id)->first()), ['decision' => 'accept'])->assertSessionHasNoErrors();
+        $khs = fn () => UploadedFile::fake()->create('khs.pdf', 100, 'application/pdf');
+        $form = fn (User $mate, array $extra = []) => [
+            'name' => 'Tim Uji',
+            'leader_region' => 'Bandung, Jawa Barat',
+            'leader_khs' => $khs(),
+            'members' => [['user_id' => $mate->id, 'origin_region' => 'Medan, Sumatera Utara', 'khs' => $khs()]],
+        ] + $extra;
 
-        // Pengajuan tanpa lampiran ditolak
-        $this->actingAs($leader)->post(route('mahasiswa.team.submit'))->assertSessionHasErrors('team');
+        // F21 — anggota yang tidak memenuhi prasyarat ditolak sistem
+        $this->actingAs($leader)->post(route('mahasiswa.team.store'), $form($member))->assertSessionHasErrors('members.0.user_id');
+        $this->assertNull($leader->teamFor(Period::active()));
 
-        foreach ([$leader, $other] as $u) {
-            $this->actingAs($u)->put(route('mahasiswa.team.profile'), [
-                'specialization' => $u->specialization, 'origin_region' => $u->origin_region,
-                'khs' => UploadedFile::fake()->create('khs.pdf', 100, 'application/pdf'),
-                'domicile' => UploadedFile::fake()->create('dom.pdf', 100, 'application/pdf'),
-            ])->assertSessionHasNoErrors();
-        }
+        // KHS anggota wajib
+        $incomplete = $form($other);
+        unset($incomplete['members'][0]['khs']);
+        $this->actingAs($leader)->post(route('mahasiswa.team.store'), $incomplete)->assertSessionHasErrors('members.0.khs');
 
-        $this->actingAs($leader)->post(route('mahasiswa.team.submit'))->assertSessionHasNoErrors();
-        $team->refresh();
+        // Registrasi lengkap langsung diajukan ke admin
+        $this->actingAs($leader)->post(route('mahasiswa.team.store'), $form($other))->assertSessionHasNoErrors();
+        $team = $leader->teamFor(Period::active());
         $this->assertSame('menunggu', $team->status);
+        $this->assertStringStartsWith('KP-TI-', $team->code);
+        $this->assertSame($team->id, $other->teamFor(Period::active())?->id);
+        $this->assertSame('Medan, Sumatera Utara', $other->fresh()->origin_region);
         $this->assertSame(100, $team->screening_score);
+
+        // Sesama anggota dapat melihat KHS anggota lain
+        $otherMember = $team->members()->where('user_id', $other->id)->first();
+        $this->actingAs($leader)->get(route('attachments.download', [$team, $otherMember, 'khs']))->assertOk();
 
         // F6 — penolakan wajib catatan, lalu diterima
         $this->actingAs($admin)->post(route('admin.teams.decide', $team), ['decision' => 'reject'])->assertSessionHasErrors('notes');
@@ -96,20 +96,24 @@ class WorkflowTest extends TestCase
         $this->actingAs($leader)->post(route('mahasiswa.topic.store'), [
             'title' => 'Sistem Informasi Akademik terpadu',
             'description' => str_repeat('Permasalahan integrasi data antar unit. ', 3),
+            'object' => 'PT Contoh Logistik',
         ])->assertSessionHasNoErrors();
         $topic = $team->fresh()->independentTopic;
         $this->assertSame(['sistem informasi akademik'], $topic->keyword_hits);
+        $this->assertSame('PT Contoh Logistik', $topic->object);
+        $portfolio = ['portfolio_url' => 'https://drive.google.com/drive/folders/portofolio-tim'];
 
         // Melamar topik dosen sebelum topik mandiri diterima → ditolak (flowchart mahasiswa)
         $bankTopic = Topic::query()->published()->where('title', 'like', 'Dashboard%')->first();
-        $this->actingAs($leader)->post(route('mahasiswa.bank.apply', $bankTopic))->assertSessionHasErrors('topic');
+        $this->actingAs($leader)->post(route('mahasiswa.bank.apply', $bankTopic), $portfolio)->assertSessionHasErrors('topic');
 
         $this->actingAs($admin)->post(route('admin.topics.decide', $topic), ['decision' => 'approve'])->assertSessionHasNoErrors();
         $this->assertSame($topic->id, $team->fresh()->final_topic_id);
 
         // F22 + F43 — lamar, dosen menerima → dosen otomatis pembimbing & topik final tergantikan (F8)
-        $this->actingAs($leader)->post(route('mahasiswa.bank.apply', $bankTopic))->assertSessionHasNoErrors();
+        $this->actingAs($leader)->post(route('mahasiswa.bank.apply', $bankTopic), $portfolio)->assertSessionHasNoErrors();
         $application = TopicApplication::query()->where('team_id', $team->id)->first();
+        $this->assertSame($portfolio['portfolio_url'], $application->portfolio_url);
         $this->actingAs($this->user('dosen2@gmail.com'))->post(route('dosen.applications.decide', $application), ['decision' => 'approve'])->assertSessionHasNoErrors();
 
         $team->refresh();
@@ -117,6 +121,87 @@ class WorkflowTest extends TestCase
         $this->assertSame($bankTopic->lecturer_id, $team->supervisor->lecturer_id);
         $this->assertSame('sistem', $team->supervisor->source);
         $this->assertSame(0, $bankTopic->fresh()->remainingQuota());
+    }
+
+    public function test_lecturer_topic_competency_must_match_period_specializations(): void
+    {
+        $lecturer = $this->user('dosen@gmail.com');
+        $form = [
+            'title' => 'Optimasi rute distribusi bahan baku', 'field' => 'Supply Chain', 'quota' => 1,
+            'description' => str_repeat('Permasalahan distribusi lintas gudang yang belum terintegrasi. ', 2),
+            'object' => 'PT Contoh Distribusi', 'prodi_code' => 'TI',
+        ];
+
+        // Peminatan di luar daftar aturan registrasi periode ditolak
+        $this->actingAs($lecturer)->post(route('dosen.topics.store'), $form + ['competencies' => 'Peminatan Fiktif'])->assertSessionHasErrors('competencies');
+
+        $this->actingAs($lecturer)->post(route('dosen.topics.store'), $form + ['competencies' => 'Production Systems'])->assertSessionHasNoErrors();
+        $topic = Topic::query()->where('title', $form['title'])->firstOrFail();
+        $this->assertSame('Production Systems', $topic->competencies);
+        $this->assertSame('PT Contoh Distribusi', $topic->object);
+    }
+
+    public function test_lecturer_dashboard_greets_with_lecturer_code_and_roles(): void
+    {
+        $this->actingAs($this->user('dosen2@gmail.com'))->get(route('dosen.dashboard'))->assertOk()
+            ->assertSee('Selamat datang, Bapak/Ibu HSP.')
+            ->assertSee('Pembimbing');
+    }
+
+    public function test_lecturer_sees_other_published_topics_but_manages_only_own(): void
+    {
+        $lecturer = $this->user('dosen@gmail.com');
+        $others = Topic::query()->published()->where('lecturer_id', '!=', $lecturer->id)->first();
+        $hiddenDraft = Topic::query()->where('source', 'dosen')->where('status', 'menunggu')->where('lecturer_id', '!=', $lecturer->id)->first();
+
+        $page = $this->actingAs($lecturer)->get(route('dosen.topics.index'))->assertOk()->assertSee($others->title);
+        if ($hiddenDraft) {
+            $page->assertDontSee($hiddenDraft->title);
+        }
+
+        // Formulir tambah/edit tampil di atas halaman yang sama
+        $own = Topic::query()->where('lecturer_id', $lecturer->id)->first();
+        $this->actingAs($lecturer)->get(route('dosen.topics.index', ['edit' => $own->id]))->assertOk()->assertSee('Edit topik')->assertSee($own->object);
+        $this->actingAs($lecturer)->get(route('dosen.topics.create'))->assertRedirect(route('dosen.topics.index', ['tambah' => 1]));
+        $this->actingAs($lecturer)->get(route('dosen.topics.index', ['edit' => $others->id]))->assertForbidden();
+
+        // Topik dosen lain tidak dapat diubah/dihapus
+        $this->actingAs($lecturer)->get(route('dosen.topics.edit', $others))->assertForbidden();
+        $this->actingAs($lecturer)->put(route('dosen.topics.update', $others), [])->assertForbidden();
+        $this->actingAs($lecturer)->delete(route('dosen.topics.destroy', $others))->assertForbidden();
+    }
+
+    public function test_team_may_hold_several_pending_applications_until_one_is_accepted(): void
+    {
+        $student = $this->user('mahasiswa4@gmail.com');                  // Tim Lintang: 1 pengajuan menunggu (topik dsn3)
+        $team = $student->teamFor(Period::active());
+        $pending = $team->applications()->where('status', 'menunggu')->firstOrFail();
+        $another = Topic::query()->published()->where('title', 'like', 'Dashboard%')->firstOrFail();
+        $portfolio = ['portfolio_url' => 'https://drive.google.com/x'];
+
+        // Masih menunggu → tetap boleh mengajukan topik lain, tetapi tidak topik yang sama dua kali
+        $this->actingAs($student)->post(route('mahasiswa.bank.apply', $another), $portfolio)->assertSessionHasNoErrors();
+        $this->actingAs($student)->post(route('mahasiswa.bank.apply', $another), $portfolio)->assertSessionHasErrors('topic');
+        $this->assertSame(2, $team->applications()->where('status', 'menunggu')->count());
+
+        // To Do dosen memuat pengajuan yang perlu diputuskan
+        $this->actingAs($this->user('dosen3@gmail.com'))->get(route('dosen.dashboard'))->assertOk()
+            ->assertSee('To Do')->assertSee('Putuskan pengajuan '.$team->name);
+
+        // Halaman Tim Pelamar dosen menampilkan kuota topik & pelamar
+        $this->actingAs($this->user('dosen3@gmail.com'))->get(route('dosen.applications.index'))->assertOk()
+            ->assertSee('Topik Saya')->assertSee($team->name);
+
+        // Satu diterima → pengajuan lain otomatis dibatalkan dan pengajuan baru ditolak
+        $this->actingAs($this->user('dosen3@gmail.com'))->post(route('dosen.applications.decide', $pending), ['decision' => 'approve'])->assertSessionHasNoErrors();
+        $this->assertSame('dibatalkan', $team->applications()->where('topic_id', $another->id)->value('status'));
+        $third = Topic::query()->published()->whereNotIn('id', [$another->id, $pending->topic_id])->firstOrFail();
+        $this->actingAs($student)->post(route('mahasiswa.bank.apply', $third), $portfolio)->assertSessionHasErrors('topic');
+
+        // Penolakan boleh tanpa alasan
+        $other = TopicApplication::create(['topic_id' => $third->id, 'team_id' => Team::where('code', 'KP-MR-01')->value('id')]);
+        $this->actingAs($third->lecturer)->post(route('dosen.applications.decide', $other), ['decision' => 'reject'])->assertSessionHasNoErrors();
+        $this->assertSame('ditolak', $other->fresh()->status);
     }
 
     public function test_quota_full_blocks_application(): void
@@ -127,7 +212,7 @@ class WorkflowTest extends TestCase
         TopicApplication::create(['topic_id' => $topic->id, 'team_id' => Team::where('code', 'KP-MR-01')->value('id'), 'status' => 'diterima']);
         $t2->applications()->delete();
 
-        $this->actingAs($this->user('mahasiswa4@gmail.com'))->post(route('mahasiswa.bank.apply', $topic))
+        $this->actingAs($this->user('mahasiswa4@gmail.com'))->post(route('mahasiswa.bank.apply', $topic), ['portfolio_url' => 'https://drive.google.com/x'])
             ->assertSessionHasErrors(['topic' => 'Kuota topik ini sudah penuh. Pilih topik lain.']);
     }
 
@@ -138,19 +223,27 @@ class WorkflowTest extends TestCase
         $lecturer = $this->user('dosen3@gmail.com');
 
         $this->actingAs($student)->post(route('mahasiswa.logbooks.store'), [
-            'session_date' => now()->toDateString(), 'activity' => 'Validasi kebutuhan', 'responsible_person' => 'Dimas', 'output' => 'Daftar kebutuhan',
+            'session_date' => now()->toDateString(), 'activity' => 'Validasi kebutuhan',
         ])->assertSessionHasNoErrors();
         $log = Logbook::query()->where('team_id', $team->id)->latest('id')->first();
         $this->assertSame(4, $log->session_no);
 
+        // Log baru tampil di kartu Pengajuan Log Bimbingan pembimbing
+        $this->actingAs($lecturer)->get(route('dosen.logbooks.index'))->assertOk()
+            ->assertSee('Pengajuan Log Bimbingan')->assertSee('Validasi kebutuhan');
+
+        $this->actingAs($lecturer)->get(route('dosen.logbooks.index', ['tab' => 'log']))->assertOk()
+            ->assertSee('Jumlah Tim Bimbingan')->assertSee('Validasi kebutuhan')->assertSee('Tanggal bimbingan');
+
         // Dosen lain tidak boleh meninjau (F46)
         $this->actingAs($this->user('dosen@gmail.com'))->post(route('dosen.logbooks.review', $log), ['decision' => 'approve'])->assertForbidden();
 
-        $this->actingAs($lecturer)->post(route('dosen.logbooks.review', $log), ['decision' => 'reject', 'notes' => 'Lengkapi luaran'])->assertSessionHasNoErrors();
+        // Tolak boleh tanpa feedback
+        $this->actingAs($lecturer)->post(route('dosen.logbooks.review', $log), ['decision' => 'reject'])->assertSessionHasNoErrors();
         $this->assertSame('revisi', $log->fresh()->status);
 
         $this->actingAs($student)->put(route('mahasiswa.logbooks.update', $log), [
-            'session_date' => now()->toDateString(), 'activity' => 'Validasi kebutuhan', 'responsible_person' => 'Dimas', 'output' => 'Daftar kebutuhan tervalidasi',
+            'session_date' => now()->toDateString(), 'activity' => 'Validasi kebutuhan beserta daftar kebutuhan tervalidasi',
         ])->assertSessionHasNoErrors();
         $this->assertSame('menunggu', $log->fresh()->status);
         $this->assertGreaterThanOrEqual(3, $log->histories()->count(), 'Histori revisi tersimpan (PRD 6.6)');
@@ -204,51 +297,64 @@ class WorkflowTest extends TestCase
         $peerWindow = $team->period->milestones()->where('kind', 'peer_review')->first();
 
         // Di luar jendela peer review → ditolak
-        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['scores' => []])->assertSessionHasErrors('window');
+        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => 0, 'scores' => []])->assertSessionHasErrors('window');
         $peerWindow->update(['starts_at' => now()->subDay(), 'due_at' => now()->addDay()]);
 
-        $scores = [];
-        foreach ($team->activeUsers()->whereKeyNot($student->id)->pluck('users.id') as $id) {
-            foreach (array_keys(config('capstone.peer_aspects')) as $aspect) {
-                $scores[$id][$aspect] = 4;
-            }
-        }
-        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['scores' => $scores])->assertSessionHasNoErrors();
-        $this->assertSame(12, PeerReview::query()->where('reviewer_id', $student->id)->count());
+        // Setiap rekan dinilai terpisah (6 aspek per rekan)
+        $scores = array_fill_keys(array_keys(config('capstone.peer_aspects')), 4);
+        $mates = $team->activeUsers()->whereKeyNot($student->id)->pluck('users.id');
+        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $mates[0], 'scores' => $scores])->assertSessionHasNoErrors();
+        $this->assertSame(6, PeerReview::query()->where('reviewer_id', $student->id)->count());
+        $this->actingAs($student)->get(route('mahasiswa.results.index'))->assertSee('Isi peer review terlebih dahulu');
 
+        // Bukan rekan satu tim → ditolak
+        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $this->user('mahasiswa4@gmail.com')->id, 'scores' => $scores])->assertSessionHasErrors('reviewee_id');
+
+        foreach ($mates as $id) {
+            $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $id, 'scores' => $scores])->assertSessionHasNoErrors();
+        }
         // Overwrite, bukan menambah baris
-        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['scores' => $scores])->assertSessionHasNoErrors();
         $this->assertSame(12, PeerReview::query()->where('reviewer_id', $student->id)->count());
 
         $this->actingAs($student)->get(route('mahasiswa.results.index'))->assertDontSee('Isi peer review terlebih dahulu');
     }
 
-    public function test_document_upload_is_idempotent_and_owner_scoped(): void
+    public function test_document_upload_is_idempotent_and_team_scoped(): void
     {
         $student = $this->user('mahasiswa2@gmail.com');
         $team = Team::query()->where('code', 'KP-SI-01')->first();
         $milestone = $team->period->documentMilestone('proposal');
+        $teamDocument = fn () => Document::query()->where('team_id', $team->id)->where('milestone_id', $milestone->id)->where('state', 'aktif')->sole();
+        $before = $teamDocument()->versions()->count();
         $key = (string) Str::uuid();
         $file = UploadedFile::fake()->create('proposal.pdf', 200, 'application/pdf');
 
+        // Pengumpulan per tim: unggahan anggota lain menjadi revisi dokumen tim yang sama
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => $file, 'idempotency_key' => $key])->assertSessionHasNoErrors();
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => $file, 'idempotency_key' => $key])->assertSessionHasNoErrors();
-        $document = Document::query()->where('owner_id', $student->id)->first();
-        $this->assertSame(1, $document->versions()->count(), 'Kirim ulang dengan kunci sama tidak membuat duplikat (F41)');
+        $document = $teamDocument();
+        $this->assertSame($before + 1, $document->versions()->count(), 'Kirim ulang dengan kunci sama tidak membuat duplikat (F41)');
+        $this->assertSame($student->id, $document->latestVersion()->uploaded_by);
 
         // Revisi
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('v2.pdf', 200, 'application/pdf'), 'idempotency_key' => (string) Str::uuid()]);
-        $this->assertSame(2, $document->versions()->count());
+        $this->assertSame($before + 2, $document->versions()->count());
 
-        // F36 — rekan satu tim tidak dapat mengunduh dokumen milik orang lain
-        $version = $document->versions()->first();
-        $this->actingAs($this->user('mahasiswa@gmail.com'))->get(route('documents.download', $version))->assertForbidden();
+        // F36 — sesama anggota tim boleh membuka dokumen tim; mahasiswa tim lain tidak
+        $version = $document->latestVersion();
+        $this->actingAs($this->user('mahasiswa@gmail.com'))->get(route('documents.download', $version))->assertOk();
+        $this->actingAs($this->user('mahasiswa4@gmail.com'))->get(route('documents.download', $version))->assertForbidden();
         $this->actingAs($this->user('dosen@gmail.com'))->get(route('documents.download', $version))->assertOk();
         $this->actingAs($this->user('dosen5@gmail.com'))->get(route('documents.download', $version))->assertForbidden();
 
         // Tipe file tidak valid ditolak
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('x.exe', 10), 'idempotency_key' => (string) Str::uuid()])
             ->assertSessionHasErrors('file');
+
+        // Tipe file mengikuti pengaturan admin per milestone
+        $milestone->update(['allowed_types' => ['pdf']]);
+        $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('slide.pptx', 10), 'idempotency_key' => (string) Str::uuid()])
+            ->assertSessionHasErrors(['file' => 'Format file harus PDF.']);
     }
 
     public function test_drive_sync_updates_same_file_and_records_failures(): void
@@ -262,8 +368,10 @@ class WorkflowTest extends TestCase
         $student = $this->user('mahasiswa3@gmail.com');
         $milestone = $team->period->documentMilestone('proposal');
 
+        // Mulai dari milestone tanpa pengumpulan agar dokumen tim baru dibuat
+        Document::query()->where('team_id', $team->id)->where('milestone_id', $milestone->id)->delete();
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('a.pdf', 50, 'application/pdf'), 'idempotency_key' => (string) Str::uuid()]);
-        $document = Document::query()->where('owner_id', $student->id)->first();
+        $document = Document::query()->where('team_id', $team->id)->where('milestone_id', $milestone->id)->sole();
         $this->assertSame('file-1', $document->drive_file_id);
         $this->assertSame('berhasil', $document->versions()->first()->sync_status);
         $this->assertSame(['create', 'share'], array_column($fake->calls, 0));

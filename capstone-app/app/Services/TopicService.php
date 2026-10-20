@@ -47,7 +47,8 @@ class TopicService
             'team_id' => $team->id,
             'title' => $data['title'],
             'description' => $data['description'],
-            'field' => $data['field'] ?? null,
+            'field' => $data['field'] ?? $topic?->field,
+            'object' => $data['object'] ?? null,
             'status' => 'menunggu',
             'review_notes' => null,
             'reviewed_by' => null,
@@ -74,7 +75,10 @@ class TopicService
             'lecturer_id' => $lecturer->id,
             'title' => $data['title'],
             'description' => $data['description'],
-            'field' => $data['field'] ?? null,
+            'field' => $data['field'] ?? $topic?->field,
+            'object' => $data['object'],
+            'competencies' => $data['competencies'],
+            'prodi_code' => $data['prodi_code'],
             'quota' => (int) $data['quota'],
             'keyword_hits' => $this->keywordHits($data['title'].' '.$data['description']),
         ];
@@ -83,7 +87,10 @@ class TopicService
         $contentChanged = ! $topic
             || $topic->title !== $payload['title']
             || $topic->description !== $payload['description']
-            || $topic->field !== $payload['field'];
+            || $topic->field !== $payload['field']
+            || $topic->object !== $payload['object']
+            || $topic->competencies !== $payload['competencies']
+            || $topic->prodi_code !== $payload['prodi_code'];
 
         if ($topic?->status !== 'diterima' || $contentChanged) {
             $payload += ['status' => 'menunggu', 'review_notes' => null, 'reviewed_by' => null, 'reviewed_at' => null];
@@ -117,7 +124,7 @@ class TopicService
     }
 
     /** F22 — tim melamar topik dosen. */
-    public function apply(Team $team, Topic $topic, ?string $motivation): TopicApplication
+    public function apply(Team $team, Topic $topic, string $portfolioUrl): TopicApplication
     {
         $independent = $team->independentTopic;
 
@@ -126,7 +133,7 @@ class TopicService
             ! $independent || $independent->status !== 'diterima' => 'Topik mandiri tim harus diterima terlebih dahulu.',
             $topic->source !== 'dosen' || $topic->status !== 'diterima' || $topic->period_id !== $team->period_id => 'Topik tidak tersedia.',
             $team->applications()->where('status', 'diterima')->exists() => 'Tim sudah diterima di topik dosen.',
-            $team->applications()->where('status', 'menunggu')->exists() => 'Tim masih memiliki lamaran yang menunggu keputusan.',
+            $team->applications()->where('topic_id', $topic->id)->whereIn('status', ['menunggu', 'ditolak'])->exists() => 'Tim sudah pernah mengajukan topik ini.',
             $topic->remainingQuota() === 0 => 'Kuota topik ini sudah penuh. Pilih topik lain.',
             default => null,
         };
@@ -138,10 +145,10 @@ class TopicService
         $application = TopicApplication::create([
             'topic_id' => $topic->id,
             'team_id' => $team->id,
-            'motivation' => $motivation,
+            'portfolio_url' => $portfolioUrl,
         ]);
 
-        SystemNotice::sendTo([$topic->lecturer], 'Lamaran topik baru', "{$team->code} · {$team->name} melamar “{$topic->title}”.", route('dosen.applications.index'));
+        SystemNotice::sendTo([$topic->lecturer], 'Lamaran topik baru', "{$team->name} melamar “{$topic->title}”.", route('dosen.applications.index'));
 
         return $application;
     }
@@ -181,6 +188,12 @@ class TopicService
             }
 
             $team = $application->team;
+            // Satu topik dosen diterima → pengajuan tim lain yang masih menunggu otomatis dibatalkan.
+            $team->applications()->whereKeyNot($application->id)->where('status', 'menunggu')->update([
+                'status' => 'dibatalkan',
+                'notes' => 'Dibatalkan otomatis: tim sudah diterima di topik lain.',
+                'decided_at' => now(),
+            ]);
             TeamLecturer::updateOrCreate(
                 ['team_id' => $team->id, 'role' => 'pembimbing'],
                 ['lecturer_id' => $topic->lecturer_id, 'source' => 'sistem', 'assigned_by' => null]

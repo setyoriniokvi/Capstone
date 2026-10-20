@@ -1,6 +1,6 @@
 @php $approved = $team->logbooks->where('status', 'disetujui')->count(); @endphp
-<x-layouts.app :title="$team->code" section="Dosen · Detail tim">
-    <x-page-head :title="$team->code.' · '.$team->name" :lede="'Anda sebagai '.$role.' · '.($team->finalTopic?->title ?? 'topik final belum ditetapkan')">
+<x-layouts.app :title="$team->name" section="Dosen · Detail tim">
+    <x-page-head :title="$team->name" :lede="'Anda sebagai '.$role.' · '.($team->finalTopic?->title ?? 'topik final belum ditetapkan')">
         <x-slot:actions>
             <a href="{{ route('dosen.assessments.index') }}" class="btn btn-secondary">Penilaian</a>
             @if ($role === 'pembimbing')<a href="{{ route('dosen.logbooks.index', ['tim' => $team->id]) }}" class="btn btn-secondary">Log bimbingan</a>@endif
@@ -58,13 +58,16 @@
                                     <button type="button" class="btn btn-ghost btn-sm" @click="toggle">Beri feedback</button>
                                 </div>
                                 @if ($doc->feedback)<p class="mt-2 text-sm"><span class="text-muted">Feedback:</span> {{ $doc->feedback }}</p>@endif
-                                <form x-cloak x-show="expanded" method="POST" action="{{ route('dosen.documents.feedback', $doc) }}" class="mt-3 grid gap-3 rounded-lg border border-rule bg-sunken p-4 sm:grid-cols-[12rem_minmax(0,1fr)_auto] sm:items-end">
+                                <x-modal width="sm:max-w-lg">
+                                <x-slot:heading>Feedback · {{ $doc->typeLabel() }}</x-slot:heading>
+                                <form method="POST" action="{{ route('dosen.documents.feedback', $doc) }}" class="space-y-4">
                                     @csrf
                                     <div><label class="field-label" for="rs-{{ $doc->id }}">Status</label>
                                         <select id="rs-{{ $doc->id }}" name="review_status" class="input">@foreach (['ditinjau' => 'Ditinjau', 'revisi' => 'Perlu revisi', 'disetujui' => 'Disetujui'] as $k => $l)<option value="{{ $k }}" @selected($doc->review_status === $k)>{{ $l }}</option>@endforeach</select></div>
-                                    <div><label class="field-label" for="fb-{{ $doc->id }}">Feedback</label><textarea id="fb-{{ $doc->id }}" name="feedback" rows="2" class="input">{{ $doc->feedback }}</textarea></div>
-                                    <button class="btn btn-primary">Simpan</button>
+                                    <div><label class="field-label" for="fb-{{ $doc->id }}">Feedback</label><textarea id="fb-{{ $doc->id }}" name="feedback" rows="4" class="input">{{ $doc->feedback }}</textarea></div>
+                                    <div class="flex justify-end gap-3 border-t border-rule pt-4"><button type="button" class="btn btn-ghost" @click="close">Batal</button><button class="btn btn-primary">Simpan</button></div>
                                 </form>
+                                </x-modal>
                             </li>
                         @endforeach
                     </ul>

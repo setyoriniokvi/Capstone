@@ -18,13 +18,16 @@
                                 <button type="button" class="btn btn-ghost btn-sm" @click="toggle">Ubah</button>
                                 <form method="POST" action="{{ route('admin.files.destroy', $file) }}" data-confirm="Hapus file pendukung “{{ $file->title }}”?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
                             </div>
-                            <form x-cloak x-show="expanded" method="POST" action="{{ route('admin.files.update', $file) }}" class="mt-3 grid gap-2 sm:grid-cols-2">
-                                @csrf @method('PUT')
-                                <input name="title" class="input" value="{{ $file->title }}" aria-label="Judul" required>
-                                <input name="category" class="input" value="{{ $file->category }}" aria-label="Kategori" required>
-                                <input name="description" class="input sm:col-span-2" value="{{ $file->description }}" aria-label="Deskripsi">
-                                <button class="btn btn-secondary sm:col-span-2">Simpan</button>
-                            </form>
+                            <x-modal width="sm:max-w-lg">
+                                <x-slot:heading>Ubah file pendukung</x-slot:heading>
+                                <form method="POST" action="{{ route('admin.files.update', $file) }}" class="space-y-4">
+                                    @csrf @method('PUT')
+                                    <div><label class="field-label" for="ft-{{ $file->id }}">Judul</label><input id="ft-{{ $file->id }}" name="title" class="input" value="{{ $file->title }}" required></div>
+                                    <div><label class="field-label" for="fc-{{ $file->id }}">Kategori</label><input id="fc-{{ $file->id }}" name="category" class="input" value="{{ $file->category }}" required></div>
+                                    <div><label class="field-label" for="fd-{{ $file->id }}">Deskripsi</label><input id="fd-{{ $file->id }}" name="description" class="input" value="{{ $file->description }}"></div>
+                                    <div class="flex justify-end gap-3 border-t border-rule pt-4"><button type="button" class="btn btn-ghost" @click="close">Batal</button><button class="btn btn-primary">Simpan</button></div>
+                                </form>
+                            </x-modal>
                         </li>
                     @endforeach
                 </ul>

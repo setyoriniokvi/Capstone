@@ -4,15 +4,27 @@ namespace App\Http\Controllers\Lecturer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Document;
+use App\Models\Period;
 use App\Models\Team;
 use App\Notifications\SystemNotice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/** F44 — detail tim dan dokumen milestone untuk pembimbing / penguji. */
+/** F44 — daftar & detail tim serta dokumen milestone untuk pembimbing / penguji. */
 class TeamController extends Controller
 {
+    /** Semua tim yang dibimbing/diuji dosen pada periode aktif ("Lihat semua" dari dashboard). */
+    public function index(Request $request): View
+    {
+        $period = Period::active();
+
+        return view('dosen.teams', [
+            'teams' => $period ? Team::handledBy($request->user(), $period) : collect(),
+            'minLogbooks' => config('capstone.min_approved_logbooks'),
+        ]);
+    }
+
     public function show(Request $request, Team $team): View
     {
         $role = $team->lecturerRole($request->user());

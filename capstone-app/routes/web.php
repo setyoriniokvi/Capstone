@@ -22,7 +22,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
     // F48
-    Route::get('/notifikasi', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifikasi/{id}', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifikasi/baca-semua', [NotificationController::class, 'readAll'])->name('notifications.read-all');
 
@@ -40,21 +39,20 @@ Route::middleware('auth')->group(function () {
 });
 
 /* ------------------------------------------------------------------ Admin */
-Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [Admin\DashboardController::class, 'index'])->name('dashboard');
+
+    // Dashboard awal admin (Kelola Periode) ⇄ Dashboard Periode
+    Route::post('periode/{period}/masuk', [Admin\PeriodController::class, 'enter'])->name('workspace.enter');
+    Route::post('periode-keluar', [Admin\PeriodController::class, 'leave'])->name('workspace.leave');
 
     // F2
     Route::resource('periode', Admin\PeriodController::class)->parameters(['periode' => 'period'])->names('periods')->except('show');
     Route::post('periode/{period}/aktifkan', [Admin\PeriodController::class, 'activate'])->name('periods.activate');
+    Route::post('periode/{period}/nonaktifkan', [Admin\PeriodController::class, 'deactivate'])->name('periods.deactivate');
     Route::post('periode/{period}/milestone', [Admin\MilestoneController::class, 'store'])->name('milestones.store');
     Route::put('milestone/{milestone}', [Admin\MilestoneController::class, 'update'])->name('milestones.update');
     Route::delete('milestone/{milestone}', [Admin\MilestoneController::class, 'destroy'])->name('milestones.destroy');
-
-    // F5 / F7 kata kunci
-    Route::get('aturan-registrasi', [Admin\RuleController::class, 'index'])->name('rules.index');
-    Route::put('aturan-registrasi/{prodi}', [Admin\RuleController::class, 'update'])->name('rules.update');
-    Route::post('aturan-registrasi/{rule}/mata-kuliah', [Admin\RuleController::class, 'addCourse'])->name('rules.courses.store');
-    Route::delete('mata-kuliah-prasyarat/{course}', [Admin\RuleController::class, 'removeCourse'])->name('rules.courses.destroy');
 
     // F3 / F4 + impor
     Route::resource('dosen', Admin\LecturerController::class)->parameters(['dosen' => 'lecturer'])->names('lecturers')->except('show', 'destroy');
@@ -144,11 +142,6 @@ Route::middleware(['auth', 'role:mahasiswa'])->prefix('mahasiswa')->name('mahasi
     Route::get('tim', [Student\TeamController::class, 'show'])->name('team.show');
     Route::post('tim', [Student\TeamController::class, 'store'])->name('team.store');
     Route::put('tim', [Student\TeamController::class, 'update'])->name('team.update');
-    Route::post('tim/anggota', [Student\TeamController::class, 'invite'])->name('team.invite');
-    Route::delete('tim/anggota/{member}', [Student\TeamController::class, 'removeMember'])->name('team.members.destroy');
-    Route::post('tim/undangan/{member}', [Student\TeamController::class, 'respond'])->name('team.respond');
-    Route::put('tim/profil', [Student\TeamController::class, 'profile'])->name('team.profile');
-    Route::post('tim/ajukan', [Student\TeamController::class, 'submit'])->name('team.submit');
 
     // F23 / F25 / F22
     Route::get('topik', [Student\TopicController::class, 'index'])->name('topic.index');
@@ -174,7 +167,8 @@ Route::middleware(['auth', 'role:mahasiswa'])->prefix('mahasiswa')->name('mahasi
     Route::post('peer-review', [Student\PeerReviewController::class, 'store'])->name('peer.store');
     Route::get('nilai', [Student\ResultController::class, 'index'])->name('results.index');
     Route::get('qr', [Student\QrController::class, 'show'])->name('qr.show');
-    Route::get('qr.svg', [Student\QrController::class, 'download'])->name('qr.download');
+    Route::post('qr/baru', [Student\QrController::class, 'regenerate'])->middleware('throttle:5,1')->name('qr.regenerate');
+    Route::get('qr.png', [Student\QrController::class, 'download'])->name('qr.download');
 });
 
 /* ------------------------------------------------------------------ Dosen */
@@ -187,6 +181,7 @@ Route::middleware(['auth', 'role:dosen'])->prefix('dosen')->name('dosen.')->grou
     Route::post('pelamar/{application}', [Lecturer\ApplicationController::class, 'decide'])->name('applications.decide');
 
     // F44
+    Route::get('tim', [Lecturer\TeamController::class, 'index'])->name('teams.index');
     Route::get('tim/{team}', [Lecturer\TeamController::class, 'show'])->name('teams.show');
     Route::post('dokumen/{document}/feedback', [Lecturer\TeamController::class, 'feedback'])->name('documents.feedback');
 

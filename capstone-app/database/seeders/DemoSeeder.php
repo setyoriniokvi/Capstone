@@ -54,16 +54,17 @@ class DemoSeeder extends Seeder
 
             // Topik dosen di bank topik
             $bank = [
-                ['dsn1', 'Integrasi data persediaan multi-gudang untuk perencanaan pengadaan', 'Supply Chain', 2],
-                ['dsn2', 'Dashboard pemantauan kinerja layanan akademik berbasis data terintegrasi', 'Sistem Informasi', 1],
-                ['dsn3', 'Perancangan sistem penjadwalan produksi terintegrasi dengan perawatan mesin', 'Teknik Industri', 2],
-                ['dsn2', 'Platform pelaporan keuangan UMKM yang terhubung dengan sistem kasir', 'Sistem Informasi', 1],
+                ['dsn1', 'Integrasi data persediaan multi-gudang untuk perencanaan pengadaan', 'Supply Chain', 2, 'PT Sinar Distribusi Nusantara', 'DSC', 'Supply Chain Analytics'],
+                ['dsn2', 'Dashboard pemantauan kinerja layanan akademik berbasis data terintegrasi', 'Sistem Informasi', 1, 'Direktorat Akademik Telkom University', 'SI', 'Enterprise Systems'],
+                ['dsn3', 'Perancangan sistem penjadwalan produksi terintegrasi dengan perawatan mesin', 'Teknik Industri', 2, 'PT Tekstil Majalaya Jaya', 'TI', 'Production Systems'],
+                ['dsn2', 'Platform pelaporan keuangan UMKM yang terhubung dengan sistem kasir', 'Sistem Informasi', 1, 'Koperasi UMKM Kota Bandung', 'SI', 'Data Engineering'],
             ];
             $bankTopics = [];
-            foreach ($bank as $i => [$owner, $title, $field, $quota]) {
+            foreach ($bank as $i => [$owner, $title, $field, $quota, $object, $prodi, $competencies]) {
                 $bankTopics[] = Topic::create([
                     'period_id' => $period->id, 'source' => 'dosen', 'lecturer_id' => $lecturers[$owner]->id,
                     'title' => $title, 'field' => $field, 'quota' => $quota,
+                    'object' => $object, 'prodi_code' => $prodi, 'competencies' => $competencies,
                     'description' => "Contoh topik dosen. {$title}. Tim diharapkan memetakan proses bisnis eksisting, merancang solusi sistem terintegrasi, lalu memverifikasi rancangan terhadap spesifikasi yang disepakati dengan problem owner.",
                     'status' => $i === 3 ? 'menunggu' : 'diterima',
                     'reviewed_by' => $i === 3 ? null : $admin->id, 'reviewed_at' => $i === 3 ? null : now()->subDays(6),
@@ -109,6 +110,7 @@ class DemoSeeder extends Seeder
         $period = Period::create([
             'name' => 'Capstone Demo '.$start->year.'/'.($start->year + 1),
             'academic_year' => $start->year.'/'.($start->year + 1),
+            'prodi_name' => 'S1 Sistem Informasi',
             'semester' => 'ganjil',
             'starts_on' => $start->toDateString(),
             'ends_on' => $start->copy()->addWeeks(16)->subDay()->toDateString(),
@@ -149,9 +151,17 @@ class DemoSeeder extends Seeder
 
     private function rules(Period $period): void
     {
-        foreach (['TI', 'SI', 'DSC', 'MR'] as $prodi) {
-            $rule = RegistrationRule::create(['period_id' => $period->id, 'prodi_code' => $prodi, 'min_sks' => 110]);
-            $rule->courses()->create(['code' => 'KP', 'name' => 'Kerja Praktek (contoh)']);
+        $specializations = [
+            'TI' => ['Production Systems', 'Supply Chain', 'Ergonomics', 'Quality Engineering'],
+            'SI' => ['Enterprise Systems', 'Data Engineering', 'Supply Chain Analytics'],
+            'DSC' => ['Logistics', 'Supply Chain Analytics'],
+            'MR' => ['Engineering Management', 'Project Management'],
+        ];
+        // Satu aturan registrasi untuk periode; peminatan gabungan semua prodi contoh
+        $rule = RegistrationRule::create(['period_id' => $period->id, 'min_sks' => 110]);
+        $rule->courses()->create(['code' => 'KP', 'name' => 'Kerja Praktek (contoh)']);
+        foreach (collect($specializations)->flatten()->unique() as $name) {
+            $rule->specializations()->create(['name' => $name]);
         }
     }
 
@@ -296,7 +306,7 @@ class DemoSeeder extends Seeder
         Topic::create([
             'period_id' => $team->period_id, 'source' => 'mandiri', 'team_id' => $team->id, 'title' => $title,
             'description' => "Contoh topik mandiri hasil Kerja Praktek. {$title}. Permasalahan melibatkan beberapa unit kerja yang datanya belum terhubung sehingga perlu solusi sistem terintegrasi.",
-            'field' => 'Sistem terintegrasi', 'status' => $status,
+            'field' => 'Sistem terintegrasi', 'object' => 'UMKM mitra Kerja Praktek tim '.$team->name, 'status' => $status,
             'reviewed_by' => $status === 'menunggu' ? null : $admin->id, 'reviewed_at' => $status === 'menunggu' ? null : now()->subDays(5),
         ]);
         $topics->refreshFinalTopic($team);

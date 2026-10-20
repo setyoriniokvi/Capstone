@@ -116,7 +116,7 @@ class ReminderService
                     'lecturer' => $lecturer,
                     'title' => 'Approval log bimbingan',
                     'deadline' => $milestone->due_at,
-                    'items' => $logs->groupBy('team_id')->map(fn ($g) => "{$g->first()->team->code} · {$g->count()} log menunggu")->values()->all(),
+                    'items' => $logs->groupBy('team_id')->map(fn ($g) => "{$g->first()->team->name} · {$g->count()} log menunggu")->values()->all(),
                     'url' => route('dosen.logbooks.index'),
                 ];
             })->values();
@@ -143,7 +143,7 @@ class ReminderService
                     'lecturer' => $lecturer,
                     'title' => 'Approval tim pelamar topik',
                     'deadline' => $milestone->due_at,
-                    'items' => $apps->map(fn ($a) => "{$a->team->code} → {$a->topic->title}")->values()->all(),
+                    'items' => $apps->map(fn ($a) => "{$a->team->name} → {$a->topic->title}")->values()->all(),
                     'url' => route('dosen.applications.index'),
                 ];
             })->values();

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAdminPeriod;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\VerifyAutomationToken;
@@ -17,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => EnsureRole::class,
+            'admin.period' => EnsureAdminPeriod::class,
             'automation' => VerifyAutomationToken::class,
         ]);
         $middleware->web(append: [SecurityHeaders::class]);

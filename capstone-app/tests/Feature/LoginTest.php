@@ -22,7 +22,7 @@ class LoginTest extends TestCase
 
     public function test_each_role_logs_in_to_its_dashboard(): void
     {
-        foreach (['admin@gmail.com' => 'admin.dashboard', 'mahasiswa@gmail.com' => 'mahasiswa.dashboard', 'dosen@gmail.com' => 'dosen.dashboard'] as $email => $route) {
+        foreach (['admin@gmail.com' => 'admin.periods.index', 'mahasiswa@gmail.com' => 'mahasiswa.dashboard', 'dosen@gmail.com' => 'dosen.dashboard'] as $email => $route) {
             $this->post(route('login.attempt'), ['email' => $email, 'password' => 'password'])->assertRedirect(route($route));
             $this->assertAuthenticatedAs(User::query()->where('email', $email)->first());
             $this->post(route('logout'));

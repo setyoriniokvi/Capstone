@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TopicApplication extends Model
 {
-    protected $fillable = ['topic_id', 'team_id', 'motivation', 'status', 'notes', 'decided_by', 'decided_at'];
+    protected $fillable = ['topic_id', 'team_id', 'motivation', 'portfolio_url', 'status', 'notes', 'decided_by', 'decided_at'];
 
     protected function casts(): array
     {

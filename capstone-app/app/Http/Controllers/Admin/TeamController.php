@@ -22,7 +22,7 @@ class TeamController extends Controller
 {
     public function index(Request $request): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
         $teams = Team::query()
             ->when($period, fn ($q) => $q->where('period_id', $period->id))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))

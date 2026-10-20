@@ -10,7 +10,7 @@
         </div>
         <div class="flex flex-col-reverse gap-2 border-t border-rule px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
             <button type="button" class="btn btn-ghost" x-ref="cancel" @click="cancel">Batal</button>
-            <button type="button" class="btn btn-danger" @click="accept" x-text="label"></button>
+            <button type="button" class="btn" :class="acceptClass" @click="accept" x-text="label"></button>
         </div>
     </div>
 </div>

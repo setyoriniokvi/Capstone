@@ -39,20 +39,30 @@ class MilestoneController extends Controller
 
     private function validated(Request $request): array
     {
+        // Jenis "dokumen" → kind dokumen; jenis "lainnya" → tahapan non-dokumen (registrasi tim, sidang, dsb.)
+        if ($request->input('category') === 'dokumen') {
+            $request->merge(['kind' => 'dokumen']);
+        }
         $data = $request->validate([
+            'category' => ['required', Rule::in(array_keys(config('capstone.milestone_categories')))],
             'name' => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'kind' => ['required', Rule::in(array_keys(config('capstone.milestone_kinds')))],
+            'kind' => ['required', Rule::in(array_keys(config('capstone.milestone_kinds'))), Rule::when($request->input('category') === 'lainnya', [Rule::notIn(['dokumen'])])],
             'document_type' => ['nullable', 'required_if:kind,dokumen', Rule::in(array_keys(config('capstone.document_types')))],
             'week_no' => ['nullable', 'integer', 'between:1,20'],
             'starts_at' => ['required', 'date'],
             'due_at' => ['required', 'date', 'after:starts_at'],
             'sort_order' => ['nullable', 'integer', 'between:0,999'],
+            'allowed_types' => ['nullable', 'required_if:kind,dokumen', 'array'],
+            'allowed_types.*' => [Rule::in(array_keys(config('capstone.document_file_types')))],
         ], [
+            'allowed_types.required_if' => 'Pilih minimal satu tipe file untuk milestone pengumpulan dokumen.',
             'document_type.required_if' => 'Pilih jenis dokumen untuk milestone pengumpulan dokumen.',
             'due_at.after' => 'Tenggat harus setelah waktu mulai.',
         ]);
+        unset($data['category']);
         $data['document_type'] = $data['kind'] === 'dokumen' ? $data['document_type'] : null;
+        $data['allowed_types'] = $data['kind'] === 'dokumen' ? array_values($data['allowed_types'] ?? []) : null;
         $data['sort_order'] ??= 0;
 
         return $data;

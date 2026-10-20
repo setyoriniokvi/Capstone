@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class Team extends Model
 {
@@ -27,6 +28,25 @@ class Team extends Model
     public function period(): BelongsTo
     {
         return $this->belongsTo(Period::class);
+    }
+
+    /**
+     * Tim yang dibimbing/diuji dosen pada periode, beserta jumlah log disetujui, diurutkan dari aktivitas terbaru
+     * (perubahan tim, log bimbingan, atau dokumen). Peran dosen ada di relasi "lecturers" yang sudah difilter.
+     *
+     * @return Collection<int, Team>
+     */
+    public static function handledBy(User $lecturer, Period $period): Collection
+    {
+        return static::query()->where('period_id', $period->id)
+            ->whereHas('lecturers', fn ($q) => $q->where('lecturer_id', $lecturer->id))
+            ->with(['finalTopic', 'lecturers' => fn ($q) => $q->where('lecturer_id', $lecturer->id)])
+            ->withCount(['logbooks as logbook_approved' => fn ($q) => $q->where('status', 'disetujui')])
+            ->withMax('logbooks', 'updated_at')
+            ->withMax('documents', 'updated_at')
+            ->get()
+            ->sortByDesc(fn (Team $t) => max((string) $t->updated_at, (string) $t->logbooks_max_updated_at, (string) $t->documents_max_updated_at))
+            ->values();
     }
 
     public function leader(): BelongsTo
@@ -133,6 +153,16 @@ class Team extends Model
     public function approvedLogbookCount(): int
     {
         return $this->logbooks()->where('status', 'disetujui')->count();
+    }
+
+    /** Alasan unggah dokumen milestone belum dibuka, atau null bila sudah boleh (F33). */
+    public function documentUploadBlocker(): ?string
+    {
+        return match (true) {
+            $this->status !== 'diterima' => 'Registrasi tim belum diterima admin.',
+            ! $this->final_topic_id => 'Unggah dokumen dibuka setelah topik tim disetujui.',
+            default => null,
+        };
     }
 
     public function statusLabel(): string

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Period;
 use App\Models\User;
 
 /** Menu samping per peran — mengikuti urutan menu pada flowchart setiap role. */
@@ -19,22 +20,29 @@ class Navigation
         };
     }
 
-    private static function item(string $label, string $route, string $icon, ?string $match = null): array
+    private static function item(string $label, string $route, string $icon, string|array|null $match = null): array
     {
         return ['label' => $label, 'route' => $route, 'icon' => $icon, 'match' => $match ?? $route];
     }
 
+    /** Admin: tanpa periode terbuka hanya "Kelola Periode"; di dalam Dashboard Periode tampil menu lengkap. */
     private static function admin(): array
     {
+        if (! Period::workspace()) {
+            return [
+                ['label' => null, 'items' => [
+                    self::item('Kelola Periode', 'admin.periods.index', 'calendar-days', 'admin.periods.*'),
+                ]],
+            ];
+        }
+
         return [
             ['label' => null, 'items' => [
                 self::item('Ringkasan', 'admin.dashboard', 'home'),
-                self::item('Periode & Timeline', 'admin.periods.index', 'calendar-days', 'admin.periods.*'),
             ]],
             ['label' => 'Data', 'items' => [
                 self::item('Dosen', 'admin.lecturers.index', 'academic-cap', 'admin.lecturers.*'),
                 self::item('Mahasiswa', 'admin.students.index', 'users', 'admin.students.*'),
-                self::item('Aturan Registrasi', 'admin.rules.index', 'adjustments-horizontal', 'admin.rules.*'),
             ]],
             ['label' => 'Proses', 'items' => [
                 self::item('Registrasi Tim', 'admin.teams.index', 'user-group', 'admin.teams.*'),
@@ -65,10 +73,9 @@ class Navigation
         return [
             ['label' => null, 'items' => [
                 self::item('Dashboard Tim', 'mahasiswa.dashboard', 'home'),
-                self::item('Registrasi Tim', 'mahasiswa.team.show', 'user-group', 'mahasiswa.team.*'),
-                self::item('Topik', 'mahasiswa.topic.index', 'light-bulb', 'mahasiswa.topic.*'),
-                self::item('Bank Topik Dosen', 'mahasiswa.bank.index', 'book-open', 'mahasiswa.bank.*'),
-                self::item('Dokumen Milestone', 'mahasiswa.documents.index', 'document-arrow-up', 'mahasiswa.documents.*'),
+                self::item('Tim Saya', 'mahasiswa.team.show', 'user-group', 'mahasiswa.team.*'),
+                self::item('Topik', 'mahasiswa.topic.index', 'light-bulb', ['mahasiswa.topic.*', 'mahasiswa.bank.*']),
+                self::item('Dokumen', 'mahasiswa.documents.index', 'document-arrow-up', 'mahasiswa.documents.*'),
                 self::item('Log Bimbingan', 'mahasiswa.logbooks.index', 'clipboard-document-check', 'mahasiswa.logbooks.*'),
             ]],
             ['label' => 'Penilaian', 'items' => [
@@ -87,8 +94,8 @@ class Navigation
         return [
             ['label' => null, 'items' => [
                 self::item('Dashboard', 'dosen.dashboard', 'home', 'dosen.dashboard'),
-                self::item('Topik Saya', 'dosen.topics.index', 'light-bulb', 'dosen.topics.*'),
-                self::item('Tim Pelamar', 'dosen.applications.index', 'inbox-arrow-down', 'dosen.applications.*'),
+                self::item('Topik Dosen', 'dosen.topics.index', 'light-bulb', 'dosen.topics.*'),
+                self::item('Approval Pengajuan Topik', 'dosen.applications.index', 'inbox-arrow-down', 'dosen.applications.*'),
                 self::item('Approval Bimbingan', 'dosen.logbooks.index', 'clipboard-document-check', 'dosen.logbooks.*'),
                 self::item('Penilaian', 'dosen.assessments.index', 'pencil-square', 'dosen.assessments.*'),
                 self::item('Rekap Nilai', 'dosen.recap.index', 'table-cells', 'dosen.recap.*'),

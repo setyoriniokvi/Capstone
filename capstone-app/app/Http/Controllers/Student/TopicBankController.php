@@ -7,47 +7,28 @@ use App\Models\TopicApplication;
 use App\Services\TopicService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
-/** F22 — bank topik dosen: cari, filter, dan lamar. */
+/** F22 — pengajuan & pembatalan topik dosen (daftar topik ada di tab "Topik Dosen" pada TopicController). */
 class TopicBankController extends StudentController
 {
-    public function index(Request $request): View
+    /** Bank topik kini menjadi tab "Topik Dosen" di menu Topik. */
+    public function index(Request $request): RedirectResponse
     {
-        $period = $this->period();
-        $topics = Topic::query()->published()->where('period_id', $period->id)
-            ->with('lecturer.lecturerProfile')
-            ->withCount(['applications as accepted_count' => fn ($q) => $q->where('status', 'diterima')])
-            ->when($request->filled('q'), function ($q) use ($request) {
-                $term = '%'.$request->string('q').'%';
-                $q->where(fn ($q) => $q->where('title', 'like', $term)->orWhere('description', 'like', $term)
-                    ->orWhereHas('lecturer', fn ($l) => $l->where('name', 'like', $term)));
-            })
-            ->when($request->filled('bidang'), fn ($q) => $q->where('field', $request->string('bidang')))
-            ->orderBy('title')
-            ->get()
-            ->when($request->boolean('tersedia'), fn ($c) => $c->filter(fn ($t) => $t->quota > $t->accepted_count))
-            ->values();
-
-        $team = $this->team();
-
-        return view('mahasiswa.bank', [
-            'topics' => $topics,
-            'fields' => Topic::query()->published()->where('period_id', $period->id)->whereNotNull('field')->distinct()->orderBy('field')->pluck('field'),
-            'team' => $team,
-            'applications' => $team ? $team->applications()->with('topic')->latest()->get() : collect(),
-            'canApply' => $team?->status === 'diterima' && $team->independentTopic?->status === 'diterima',
-        ]);
+        return redirect()->route('mahasiswa.topic.index', ['tab' => 'dosen'] + $request->only('q', 'peminatan'));
     }
 
     public function apply(Request $request, Topic $topic, TopicService $topics): RedirectResponse
     {
         $team = $this->teamOrFail();
         $this->ensureWindow('apply_topik_dosen', 'Pendaftaran topik dosen');
-        $data = $request->validate(['motivation' => ['nullable', 'string', 'max:2000']]);
-        $topics->apply($team, $topic, $data['motivation'] ?? null);
+        $data = $request->validate(
+            // Cukup wajib diisi: portofolio boleh di layanan penyimpanan apa pun, tidak dicek formatnya.
+            ['portfolio_url' => ['required', 'string', 'max:500']],
+            ['portfolio_url.required' => 'Isi tautan portofolio tim.'],
+        );
+        $topics->apply($team, $topic, $data['portfolio_url']);
 
-        return back()->with('status', "Lamaran untuk “{$topic->title}” dikirim ke dosen.");
+        return redirect()->route('mahasiswa.topic.index', ['tab' => 'dosen'])->with('status', "Pengajuan untuk “{$topic->title}” dikirim ke dosen.");
     }
 
     public function withdraw(TopicApplication $application, TopicService $topics): RedirectResponse

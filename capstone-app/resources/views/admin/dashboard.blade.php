@@ -13,16 +13,7 @@
             </x-slot:actions>
         </x-page-head>
 
-        <section class="panel mb-6">
-            <div class="panel-head"><h2 class="panel-title">Timeline periode</h2></div>
-            <div class="panel-body">
-                @if ($period->milestones->isEmpty())
-                    <p class="text-sm text-muted">Belum ada milestone. <a class="link" href="{{ route('admin.periods.edit', $period) }}">Tambahkan milestone</a>.</p>
-                @else
-                    <x-week-ruler :period="$period" />
-                @endif
-            </div>
-        </section>
+        <x-capstone-timeline class="mb-6" :period="$period" :edit-href="route('admin.periods.edit', $period)" />
 
         <div class="grid gap-6 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
             <section class="panel">

@@ -9,7 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/** F27 — log bimbingan tim. */
+/** F27 — log bimbingan tim: tanggal + catatan bimbingan; status Menunggu / Disetujui / Ditolak (revisi). */
 class LogbookController extends StudentController
 {
     public function index(): View
@@ -20,7 +20,6 @@ class LogbookController extends StudentController
             'team' => $team,
             'approved' => $team?->logbooks->where('status', 'disetujui')->count() ?? 0,
             'minLogbooks' => config('capstone.min_approved_logbooks'),
-            'nextSession' => ($team?->logbooks->max('session_no') ?? 0) + 1,
         ]);
     }
 
@@ -38,7 +37,7 @@ class LogbookController extends StudentController
         ]);
         $logbook->snapshot('dibuat', $request->user());
         ActivityLog::record('submit_logbook', $logbook);
-        SystemNotice::sendTo([$team->supervisor->lecturer], 'Log bimbingan baru', "{$team->code} · sesi {$logbook->session_no}", route('dosen.logbooks.index'));
+        SystemNotice::sendTo([$team->supervisor->lecturer], 'Log bimbingan baru', "{$team->name} · sesi {$logbook->session_no}", route('dosen.logbooks.index'));
 
         return back()->with('status', "Log sesi {$logbook->session_no} dikirim ke dosen pembimbing.");
     }
@@ -51,15 +50,16 @@ class LogbookController extends StudentController
             return back()->withErrors(['logbook' => 'Log yang sudah disetujui tidak dapat diubah.']);
         }
 
-        $wasRevision = $logbook->status === 'revisi';
+        // Log yang ditolak (revisi) dikirim ulang ke pembimbing setelah diubah.
+        $wasRejected = $logbook->status === 'revisi';
         $logbook->update($this->validated($request) + ['status' => 'menunggu']);
-        $logbook->snapshot($wasRevision ? 'direvisi' : 'diubah', $request->user());
+        $logbook->snapshot($wasRejected ? 'direvisi' : 'diubah', $request->user());
 
-        if ($wasRevision && $team->supervisor) {
-            SystemNotice::sendTo([$team->supervisor->lecturer], 'Revisi log bimbingan', "{$team->code} · sesi {$logbook->session_no}", route('dosen.logbooks.index'));
+        if ($wasRejected && $team->supervisor) {
+            SystemNotice::sendTo([$team->supervisor->lecturer], 'Log bimbingan diperbarui', "{$team->name} · sesi {$logbook->session_no}", route('dosen.logbooks.index'));
         }
 
-        return back()->with('status', "Log sesi {$logbook->session_no} diperbarui".($wasRevision ? ' dan dikirim ulang.' : '.'));
+        return back()->with('status', "Log sesi {$logbook->session_no} diperbarui".($wasRejected ? ' dan dikirim ulang ke pembimbing.' : '.'));
     }
 
     public function destroy(Logbook $logbook): RedirectResponse
@@ -78,10 +78,9 @@ class LogbookController extends StudentController
         return $request->validate([
             'session_date' => ['required', 'date', 'before_or_equal:today'],
             'activity' => ['required', 'string', 'max:3000'],
-            'responsible_person' => ['required', 'string', 'max:150'],
-            'instrument' => ['nullable', 'string', 'max:2000'],
-            'data_collected' => ['nullable', 'string', 'max:2000'],
-            'output' => ['required', 'string', 'max:3000'],
-        ], ['session_date.before_or_equal' => 'Tanggal bimbingan tidak boleh di masa depan.']);
+        ], [
+            'session_date.before_or_equal' => 'Tanggal bimbingan tidak boleh di masa depan.',
+            'activity.required' => 'Isi catatan bimbingan.',
+        ]);
     }
 }

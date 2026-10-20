@@ -101,7 +101,7 @@
         @apply block min-h-[44px] w-full rounded border-rule-strong bg-surface text-body text-ink placeholder:text-faint focus:border-brand focus:ring-brand;
     }
     .input[type='file'] {
-        @apply cursor-pointer text-sm text-muted file:mr-3 file:min-h-[36px] file:cursor-pointer file:rounded file:border-0 file:bg-brand-tint file:px-3 file:text-sm file:font-medium file:text-brand-deep hover:file:bg-accent-tint;
+        @apply cursor-pointer border px-2 py-1.5 text-sm text-muted file:mr-4 file:min-h-[36px] file:cursor-pointer file:rounded file:border-0 file:bg-brand-tint file:px-3 file:text-sm file:font-medium file:text-brand-deep hover:file:bg-accent-tint;
     }
     .input[aria-invalid='true'] {
         @apply border-bad-ink focus:border-bad-ink focus:ring-bad-ink;
@@ -122,6 +122,11 @@
     }
     .panel-body {
         @apply px-4 py-4 sm:px-6;
+    }
+
+    /* Sambutan dashboard: satu bidang hijau FRI solid — tanpa gradien, ornamen, atau kartu di dalamnya */
+    .hero-panel {
+        @apply rounded-lg bg-brand-deep px-5 py-6 text-on-brand sm:px-8 sm:py-7;
     }
 
     /* Tabel data — lihat juga "Tabel responsif" di bawah */
@@ -223,6 +228,10 @@
     /* Lembar dialog (modal di desktop, sheet dari bawah di layar sempit) */
     .dialog-scrim {
         @apply fixed inset-0 z-50 grid place-items-end bg-scrim p-0 sm:place-items-center sm:p-6;
+    }
+    /* Halaman di belakang modal tidak ikut tergulir selama ada dialog yang terbuka */
+    html:has(.dialog-scrim:not([x-cloak]):not([style*='display: none'])) {
+        overflow: hidden;
     }
     .dialog-sheet {
         @apply w-full max-w-lg rounded-t-lg bg-surface text-left shadow-overlay sm:rounded-lg;

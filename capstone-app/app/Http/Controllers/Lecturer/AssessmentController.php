@@ -118,7 +118,7 @@ class AssessmentController extends Controller
         ActivityLog::record($final ? 'submit_assessment' : 'draft_assessment', $team, ['component' => $component]);
 
         return $final
-            ? redirect()->route('dosen.assessments.index')->with('status', "Nilai {$team->code} · ".config("capstone.components.{$component}.label").' tersimpan final.')
+            ? redirect()->route('dosen.assessments.index')->with('status', "Nilai {$team->name} · ".config("capstone.components.{$component}.label").' tersimpan final.')
             : back()->with('status', 'Draf penilaian disimpan.');
     }
 

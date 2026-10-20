@@ -19,10 +19,11 @@
                     <p class="tabular text-2xl font-medium">{{ $clo->weight + 0 }}</p>
                     <button type="button" class="btn btn-ghost btn-sm" @click="toggle">Ubah</button>
                 </div>
-                <div x-cloak x-show="expanded" class="border-t border-rule bg-sunken px-4 py-4 sm:px-6">
+                <x-modal width="sm:max-w-3xl">
+                    <x-slot:heading>Ubah {{ $clo->code }}</x-slot:heading>
                     @include('admin.master._clo-form', ['clo' => $clo, 'action' => route('admin.clos.update', $clo), 'method' => 'PUT'])
-                    <form method="POST" action="{{ route('admin.clos.destroy', $clo) }}" data-confirm="Hapus CLO {{ $clo->code }}?" class="mt-3">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus {{ $clo->code }}</button></form>
-                </div>
+                    <form method="POST" action="{{ route('admin.clos.destroy', $clo) }}" data-confirm="Hapus CLO {{ $clo->code }}?" class="mt-4 border-t border-rule pt-4">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus {{ $clo->code }}</button></form>
+                </x-modal>
             </section>
         @endforeach
         <section class="panel">

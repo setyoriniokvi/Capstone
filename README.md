@@ -35,8 +35,30 @@ php artisan db:seed --class=DemoSeeder          # opsional: data contoh untuk me
 php artisan serve                               # http://127.0.0.1:8000
 php artisan queue:work                          # wajib bila sinkronisasi Google Drive aktif
 php artisan schedule:work                       # notifikasi tenggat mahasiswa (tiap jam)
-php artisan test                                # 18 test fitur & alur
+php artisan test                                # 36 test fitur & alur
 ```
+
+## Setelah `git pull`
+
+Hasil build tampilan (`public/build`) tidak disimpan di git, jadi setiap selesai pull jalankan dari folder `capstone-app`:
+
+```bash
+composer install        # bila ada package PHP baru
+npm install             # bila ada package JS baru
+php artisan migrate     # bila ada migration baru
+npm run build           # wajib: bangun ulang CSS, JS, dan gambar
+```
+
+Selama mengembangkan tampilan, `npm run dev` lebih praktis karena perubahan langsung terlihat tanpa build ulang. Jangan mengedit file di `public/build` — isinya ditimpa setiap build; yang diedit selalu `resources/`.
+
+### Letak gambar
+
+| Folder | Isi | Cara memakai |
+| --- | --- | --- |
+| `resources/images/` | Semua gambar aplikasi (logo, foto login) | Blade: `{{ Vite::asset('resources/images/nama.png') }}` · CSS: `url('../images/nama.jpg')` |
+| `public/icons/` | Ikon browser (favicon, apple-touch-icon) — URL-nya harus tetap | `{{ asset('icons/favicon.png') }}` |
+
+Gambar di `resources/images` diberi nama ber-hash saat build, sehingga browser otomatis memuat versi terbaru bila gambar diganti.
 
 Akun demo (password semua akun `password`, daftarnya tampil di bawah form login bila `DEV_LOGIN=true`): `admin@gmail.com`, `mahasiswa@gmail.com`, `dosen@gmail.com`. Data demo lain memakai `mahasiswa2`–`mahasiswa14@gmail.com` dan `dosen2`–`dosen5@gmail.com`. Semua nama dan email pada `DemoSeeder` adalah contoh, bukan data resmi.
 

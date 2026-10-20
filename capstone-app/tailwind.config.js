@@ -28,6 +28,7 @@ export default {
                 warn: { DEFAULT: token('warning'), ink: token('warning-ink'), tint: token('warning-tint'), line: token('warning-line') },
                 bad: { DEFAULT: token('danger'), ink: token('danger-ink'), tint: token('danger-tint'), deep: token('danger-deep'), line: token('danger-line') },
                 scrim: token('scrim'),
+                'on-brand': { DEFAULT: token('on-brand'), muted: token('on-brand-muted'), line: token('on-brand-line') },
             },
             fontFamily: {
                 sans: ['var(--font-sans)'],

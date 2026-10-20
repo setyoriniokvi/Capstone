@@ -3,7 +3,10 @@
     $user = auth()->user();
     $nav = \App\Support\Navigation::for($user);
     $activePeriod = \App\Models\Period::active();
-    $unread = $user->unreadNotifications()->count();
+    // Admin bekerja di dalam periode yang dipilih (dropdown); di luar itu = dashboard awal Kelola Periode.
+    $workspace = $user->isAdmin() ? \App\Models\Period::workspace() : null;
+    // Dashboard awal admin (Kelola Periode) tanpa sidebar: menunya hanya satu.
+    $withSidebar = ! ($user->isAdmin() && ! $workspace);
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -17,6 +20,7 @@
 <body x-data="shell" class="min-h-screen">
     <a href="#konten" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-4 focus:py-2">Lewati ke konten</a>
 
+    @if ($withSidebar)
     {{-- Overlay navigasi untuk layar sempit --}}
     <div x-cloak x-show="navOpen" @click="closeNav"
          x-transition:enter="motion-fade" x-transition:enter-start="opacity-0"
@@ -28,18 +32,24 @@
            class="fixed inset-y-0 left-0 z-40 flex w-[17rem] -translate-x-full flex-col border-r border-rule bg-surface transition-transform duration-200 ease-out md:translate-x-0">
         <div class="px-5 pb-4 pt-5">
             <a href="{{ route($user->homeRoute()) }}" class="block" aria-label="Beranda Capstone">
-                <img src="{{ asset('images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-10 w-auto" width="178" height="40">
+                <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-10 w-auto" width="178" height="40">
             </a>
-            <div class="mt-4 flex items-baseline justify-between gap-2 border-t border-rule pt-3">
-                <span class="text-sm font-semibold tracking-tight text-ink">Capstone Design &amp; Project</span>
-            </div>
-            <p class="mt-0.5 text-caption text-muted">
-                @if ($activePeriod)
-                    <span class="code">{{ $activePeriod->academic_year }}</span> · {{ ucfirst($activePeriod->semester) }}
-                @else
-                    Belum ada periode aktif
-                @endif
-            </p>
+            @if ($workspace)
+                <x-admin-period-switcher :current="$workspace" />
+            @else
+                <div class="mt-4 flex items-baseline justify-between gap-2 border-t border-rule pt-3">
+                    <span class="text-sm font-semibold tracking-tight text-ink">Capstone Design &amp; Project</span>
+                </div>
+                <p class="mt-0.5 text-caption text-muted">
+                    @if ($user->isAdmin())
+                        Kelola periode
+                    @elseif ($activePeriod)
+                        <span class="code">{{ $activePeriod->academic_year }}</span> · {{ ucfirst($activePeriod->semester) }}
+                    @else
+                        Belum ada periode aktif
+                    @endif
+                </p>
+            @endif
         </div>
 
         <nav class="flex-1 overflow-y-auto px-3 pb-4" aria-label="Menu utama">
@@ -62,37 +72,28 @@
                 </ul>
             @endforeach
         </nav>
-
-        <div class="border-t border-rule px-4 py-3">
-            <div class="flex items-center gap-3">
-                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-tint text-sm font-semibold text-brand-deep" aria-hidden="true">{{ $user->initials() }}</span>
-                <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-medium">{{ $user->name }}</p>
-                    <p class="truncate text-caption text-muted">{{ $user->roleLabel() }}@if ($user->prodi_code) · {{ $user->prodi_code }}@endif</p>
-                </div>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="grid h-10 w-10 place-items-center rounded text-muted hover:bg-sunken hover:text-ink" title="Keluar" aria-label="Keluar">
-                        <x-heroicon-o-arrow-right-on-rectangle class="h-5 w-5" />
-                    </button>
-                </form>
-            </div>
-        </div>
     </aside>
+    @endif
 
-    <div class="md:pl-[17rem]">
+    <div class="{{ $withSidebar ? 'md:pl-[17rem]' : '' }}">
         <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-rule bg-paper px-4 sm:px-8">
-            <button type="button" @click="toggleNav" class="-ml-2 grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken md:hidden" aria-controls="sidebar" aria-label="Buka menu">
-                <x-heroicon-o-bars-3 class="h-6 w-6" />
-            </button>
-            <img src="{{ asset('images/favicon.png') }}" alt="" class="h-7 w-7 md:hidden" width="28" height="28">
+            @if ($withSidebar)
+                <button type="button" @click="toggleNav" class="-ml-2 grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken md:hidden" aria-controls="sidebar" aria-label="Buka menu">
+                    <x-heroicon-o-bars-3 class="h-6 w-6" />
+                </button>
+                <img src="{{ Vite::asset('resources/images/telu-mark.png') }}" alt="" class="h-7 w-7 md:hidden" width="28" height="28">
+            @else
+                <a href="{{ route($user->homeRoute()) }}" class="shrink-0" aria-label="Kelola Periode">
+                    <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-8 w-auto" width="143" height="32">
+                </a>
+            @endif
             <p class="min-w-0 flex-1 truncate text-sm text-muted">{{ $section ?? '' }}</p>
-            <a href="{{ route('notifications.index') }}" class="relative grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken" aria-label="Notifikasi{{ $unread ? ", {$unread} belum dibaca" : '' }}">
-                <x-heroicon-o-bell class="h-6 w-6" />
-                @if ($unread)
-                    <span class="absolute right-1.5 top-1.5 min-w-[1.125rem] rounded-full bg-bad-ink px-1 text-center text-[0.6875rem] font-semibold leading-[1.125rem] text-white tabular">{{ $unread > 9 ? '9+' : $unread }}</span>
-                @endif
-            </a>
+            {{-- Topbar kanan: notifikasi, pemisah, menu profil --}}
+            <div class="flex items-center gap-1 sm:gap-3">
+                <x-notification-menu :user="$user" />
+                <span class="h-7 w-px bg-rule" aria-hidden="true"></span>
+                <x-profile-menu :user="$user" />
+            </div>
         </header>
 
         <main id="konten" class="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-6 sm:px-8">

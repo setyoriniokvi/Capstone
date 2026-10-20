@@ -5,40 +5,46 @@ namespace App\Http\Controllers\Student;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Milestone;
+use App\Models\Team;
 use App\Services\DocumentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
-/** F26 / F33–F41 — dokumen milestone milik mahasiswa yang sedang login. */
+/**
+ * F26 / F33–F41 — dokumen milestone tim. Pengumpulan bersifat per tim: bila salah satu anggota
+ * sudah mengunggah, milestone tersebut selesai untuk seluruh tim.
+ */
 class DocumentController extends StudentController
 {
+    /** Pilihan rentang tampilan: semua milestone, atau tenggat dalam 7 / 30 hari ke depan. */
+    public const RANGES = ['semua' => 'Semua', '7' => '7 hari ke depan', '30' => '30 hari ke depan'];
+
     public function index(Request $request, DocumentService $documents): View
     {
-        $user = $request->user();
         $period = $this->period();
         $team = $this->team();
-        $milestones = $period->milestones()->where('kind', 'dokumen')->orderBy('due_at')->get();
+        $range = array_key_exists((string) $request->query('rentang'), self::RANGES) ? (string) $request->query('rentang') : 'semua';
 
-        $mine = $team ? Document::query()->where('team_id', $team->id)->where('owner_id', $user->id)
-            ->with(['versions.uploader', 'currentVersion', 'milestone'])->get()->keyBy('milestone_id') : collect();
-        // Dokumen anggota lain hanya ditampilkan sebagai metadata, tanpa akses unduh (F36).
-        $teammates = $team ? Document::query()->where('team_id', $team->id)->where('owner_id', '!=', $user->id)
-            ->where('state', 'aktif')->with('owner:id,name')->get()->groupBy('milestone_id') : collect();
+        $milestones = $period->milestones()->where('kind', 'dokumen')->orderBy('due_at')->get()
+            ->when($range !== 'semua', fn ($c) => $c->filter(fn (Milestone $m) => $m->due_at->between(now(), now()->addDays((int) $range))))
+            ->values();
+
+        // Dokumen aktif tim per milestone (satu per milestone).
+        $submissions = $team ? Document::query()->where('team_id', $team->id)->where('state', 'aktif')
+            ->with(['versions.uploader:id,name', 'feedbackBy:id,name'])->latest('updated_at')->get()->unique('milestone_id')->keyBy('milestone_id') : collect();
 
         return view('mahasiswa.documents', [
             'team' => $team,
-            'milestones' => $milestones,
-            'mine' => $mine,
-            'teammates' => $teammates,
+            'range' => $range,
+            'groups' => $milestones->groupBy(fn (Milestone $m) => $m->due_at->toDateString()),
+            'submissions' => $submissions,
             'gate' => $this->gate($team),
             'driveEnabled' => $documents->driveEnabled(),
             'approvedLogbooks' => $team?->approvedLogbookCount() ?? 0,
             'minLogbooks' => config('capstone.min_approved_logbooks'),
-            'idempotencyKey' => (string) Str::uuid(),
         ]);
     }
 
@@ -55,15 +61,15 @@ class DocumentController extends StudentController
         }
 
         $request->validate([
-            'file' => ['required', 'file', 'mimes:'.implode(',', config('capstone.upload.document_mimes')), 'max:'.config('capstone.upload.document_max_kb')],
+            'file' => ['required', 'file', 'mimes:'.implode(',', $milestone->uploadMimes()), 'max:'.config('capstone.upload.document_max_kb')],
             'idempotency_key' => ['required', 'uuid'],
         ], [
-            'file.mimes' => 'Format file harus PDF, DOCX, PPTX, atau JPG.',
+            'file.mimes' => 'Format file harus '.$milestone->fileTypesLabel().'.',
             'file.max' => 'Ukuran file maksimal '.(config('capstone.upload.document_max_kb') / 1024).' MB.',
         ]);
 
         $version = $documents->upload($team, $milestone, $request->user(), $request->file('file'), $request->input('idempotency_key'));
-        $message = $version->revision_no > 1 ? "Revisi {$version->revision_no} diunggah." : 'Dokumen diunggah.';
+        $message = $version->revision_no > 1 ? 'File pengumpulan diperbarui.' : 'Dokumen tim dikumpulkan.';
         $message .= $documents->driveEnabled() ? ' Sinkronisasi ke Google Drive berjalan di latar belakang.' : '';
 
         if ($request->expectsJson()) {
@@ -77,28 +83,29 @@ class DocumentController extends StudentController
 
     public function destroy(Request $request, Document $document, DocumentService $documents): RedirectResponse
     {
-        abort_unless($document->owner_id === $request->user()->id, 403, 'Anda hanya dapat menghapus dokumen milik sendiri.');
+        $this->authorizeTeam($document);
         $documents->delete($document, $request->user());
 
-        return back()->with('status', 'Dokumen dipindahkan ke Trash.');
+        return back()->with('status', 'Pengumpulan dihapus (file dipindahkan ke Trash).');
     }
 
     public function retry(Request $request, DocumentVersion $version, DocumentService $documents): RedirectResponse
     {
-        abort_unless($version->document->owner_id === $request->user()->id, 403);
+        $this->authorizeTeam($version->document);
         $documents->retry($version);
 
         return back()->with('status', 'Sinkronisasi dicoba ulang.');
     }
 
-    /** PRD 8.2 — topik harus berstatus diterima sebelum unggah dokumen. */
-    private function gate($team): ?string
+    /** Seluruh anggota tim boleh mengelola pengumpulan timnya. */
+    private function authorizeTeam(Document $document): void
     {
-        return match (true) {
-            ! $team => 'Anda belum tergabung dalam tim.',
-            $team->status !== 'diterima' => 'Registrasi tim belum diterima admin.',
-            ! $team->final_topic_id => 'Unggah dokumen dibuka setelah topik tim disetujui.',
-            default => null,
-        };
+        abort_unless($document->team_id === $this->team()?->id, 403, 'Dokumen ini bukan milik tim Anda.');
+    }
+
+    /** PRD 8.2 — topik harus berstatus diterima sebelum unggah dokumen. */
+    private function gate(?Team $team): ?string
+    {
+        return $team ? $team->documentUploadBlocker() : 'Anda belum tergabung dalam tim.';
     }
 }

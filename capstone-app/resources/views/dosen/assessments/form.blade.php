@@ -2,8 +2,8 @@
     $readonlyWindow = $window && ! $window->isOpen();
     $isFinal = $assessment?->status === 'final';
 @endphp
-<x-layouts.app :title="'Penilaian '.$team->code" section="Dosen · Penilaian">
-    <x-page-head :title="$label" :lede="$team->code.' · '.$team->name.' · Anda sebagai '.$role">
+<x-layouts.app :title="'Penilaian '.$team->name" section="Dosen · Penilaian">
+    <x-page-head :title="$label" :lede="$team->name.' · Anda sebagai '.$role">
         <x-slot:actions>
             @if ($isFinal)<x-badge status="final" label="Sudah final" class="text-sm" />@elseif ($assessment)<x-badge status="draft" label="Draf tersimpan" class="text-sm" />@endif
             <a href="{{ route('dosen.assessments.index') }}" class="btn btn-ghost">Kembali</a>

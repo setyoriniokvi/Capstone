@@ -21,7 +21,7 @@ class PlottingController extends Controller
 {
     public function index(Request $request, LoadBalanceService $balance): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
         if (! $period) {
             return view('admin.plotting', ['period' => null]);
         }
@@ -72,7 +72,7 @@ class PlottingController extends Controller
         );
         ActivityLog::record('plot_lecturer', $team, $data);
 
-        SystemNotice::sendTo([$lecturer], "Penugasan sebagai {$data['role']}", "{$team->code} · {$team->name}", route('dosen.teams.show', $team));
+        SystemNotice::sendTo([$lecturer], "Penugasan sebagai {$data['role']}", $team->name, route('dosen.teams.show', $team));
         SystemNotice::sendTo($team->activeUsers, "Dosen {$data['role']} ditetapkan", $lecturer->name, route('mahasiswa.dashboard'));
 
         return back()->with('status', ucfirst($data['role'])." {$team->code} disimpan.");

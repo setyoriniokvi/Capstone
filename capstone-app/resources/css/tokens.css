@@ -44,6 +44,11 @@
     --color-warning-line: #F3D58A;
     --color-scrim: rgba(31, 41, 55, 0.45);
 
+    /* Di atas bidang brand-deep (sambutan dashboard): putih 7:1, putih redup ≥ 5:1, garis pemisah halus */
+    --color-on-brand: #FFFFFF;
+    --color-on-brand-muted: rgba(255, 255, 255, 0.86);
+    --color-on-brand-line: rgba(255, 255, 255, 0.24);
+
     --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
 
     /* Bentuk & kedalaman (Apple UI: sudut lembut, bayangan tipis statis — tanpa blur) */

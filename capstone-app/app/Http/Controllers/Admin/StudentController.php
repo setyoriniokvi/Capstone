@@ -17,7 +17,7 @@ class StudentController extends Controller
 {
     public function index(Request $request): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
         $students = User::query()->students()
             ->when($request->filled('prodi'), fn ($q) => $q->where('prodi_code', $request->string('prodi')))
             ->when($request->filled('q'), function ($q) use ($request) {

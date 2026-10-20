@@ -35,6 +35,7 @@
                                     <x-badge :status="$topic->status" />
                                 </div>
                                 <p class="mt-2 max-w-[75ch] whitespace-pre-line text-sm text-ink">{{ $topic->description }}</p>
+                                @if ($topic->object)<p class="mt-2 text-sm"><span class="text-muted">Objek Capstone:</span> {{ $topic->object }}</p>@endif
                                 @if ($topic->keyword_hits)
                                     <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-bad-ink"><x-heroicon-o-flag class="h-4 w-4" />Kata kunci terlarang: @foreach ($topic->keyword_hits as $hit)<span class="rounded bg-bad-tint px-1.5 tabular text-caption">{{ $hit }}</span>@endforeach</p>
                                 @endif

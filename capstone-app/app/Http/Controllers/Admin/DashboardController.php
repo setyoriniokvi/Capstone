@@ -18,7 +18,7 @@ class DashboardController extends Controller
 {
     public function index(ReminderService $reminders): View
     {
-        $period = Period::active()?->load('milestones');
+        $period = Period::workspace()?->load('milestones');
         if (! $period) {
             return view('admin.dashboard', ['period' => null]);
         }

@@ -21,9 +21,9 @@
             <div class="login-panel">
                 <div class="login-intro">
                     <div class="login-logos">
-                        <img src="{{ asset('images/telu-horizontal.png') }}" alt="Telkom University" width="114" height="40">
+                        <img src="{{ Vite::asset('resources/images/telu-horizontal.png') }}" alt="Telkom University" width="114" height="40">
                         <span class="h-8 w-px bg-rule-strong" aria-hidden="true"></span>
-                        <img src="{{ asset('images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri" width="178" height="40">
+                        <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri" width="178" height="40">
                     </div>
                     <h1 class="login-title">Masuk ke Capstone</h1>
                     <p class="login-lede">Gunakan email dan password akun yang didaftarkan admin program studi.</p>

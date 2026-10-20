@@ -51,10 +51,15 @@ class DocumentService
         }
 
         $version = DB::transaction(function () use ($team, $milestone, $owner, $file, $idempotencyKey) {
-            $document = Document::query()->lockForUpdate()->firstOrCreate(
-                ['team_id' => $team->id, 'milestone_id' => $milestone->id, 'owner_id' => $owner->id],
-                ['owner_email' => $owner->email, 'document_type' => $milestone->document_type]
-            );
+            // Satu dokumen per tim per milestone: unggahan anggota mana pun menjadi revisi dokumen tim.
+            // owner_id = pengunggah pertama (pemilik folder Drive); pengunggah tiap versi ada di uploaded_by.
+            $document = Document::query()->lockForUpdate()
+                ->where('team_id', $team->id)->where('milestone_id', $milestone->id)
+                ->orderByRaw("state = 'aktif' desc")->latest('updated_at')->first()
+                ?? Document::create([
+                    'team_id' => $team->id, 'milestone_id' => $milestone->id, 'owner_id' => $owner->id,
+                    'owner_email' => $owner->email, 'document_type' => $milestone->document_type,
+                ]);
 
             // Dokumen yang sebelumnya dipindah ke Trash diunggah sebagai file baru di Drive.
             if ($document->state !== 'aktif' && $document->drive_file_id) {
@@ -84,7 +89,6 @@ class DocumentService
                 'state' => 'aktif',
                 'review_status' => 'dikumpulkan',
                 'is_late' => now()->greaterThan($milestone->due_at),
-                'owner_email' => $owner->email,
             ]);
 
             // Tanpa Drive, salinan lokal adalah satu-satunya penyimpanan.

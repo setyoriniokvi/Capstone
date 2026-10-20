@@ -13,8 +13,10 @@
         'bad' => 'bg-bad-tint text-bad-ink',
         'neutral' => 'bg-sunken text-muted',
     ][$tone];
+    // Ikon membawa status selain warna (aksesibilitas buta warna).
+    $icon = ['ok' => 'check-circle', 'warn' => 'clock', 'bad' => 'x-circle', 'neutral' => 'minus-circle'][$tone];
     $text = $label ?? \Illuminate\Support\Str::of($status)->replace('_', ' ')->ucfirst();
 @endphp
-<span {{ $attributes->merge(['class' => "inline-flex items-center gap-1.5 whitespace-nowrap rounded px-2 py-0.5 text-caption font-medium {$classes}"]) }}>
-    <span class="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true"></span>{{ $text }}
+<span {{ $attributes->merge(['class' => "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-caption font-medium {$classes}"]) }}>
+    <x-dynamic-component :component="'heroicon-m-'.$icon" class="h-4 w-4 shrink-0" aria-hidden="true" />{{ $text }}
 </span>

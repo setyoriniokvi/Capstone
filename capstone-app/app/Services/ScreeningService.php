@@ -6,6 +6,7 @@ use App\Models\RegistrationRule;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * F6 — screening otomatis registrasi tim berdasarkan aturan F5.
@@ -18,10 +19,9 @@ class ScreeningService
      */
     public function evaluate(Team $team): array
     {
-        $team->loadMissing('members.user', 'period.registrationRules.courses');
+        $team->loadMissing('members.user', 'period.registrationRule.courses');
         $members = $team->members->where('invite_status', 'diterima');
-        $rules = $team->period->registrationRules->keyBy('prodi_code');
-        $teamRule = $rules->get($team->prodi_code);
+        $teamRule = $team->period->registrationRule;
 
         $min = $teamRule?->min_members ?? config('capstone.team_size.min');
         $max = $teamRule?->max_members ?? config('capstone.team_size.max');
@@ -35,7 +35,7 @@ class ScreeningService
         );
 
         foreach ($members as $member) {
-            $checks = array_merge($checks, $this->memberChecks($member->user, $rules->get($member->user->prodi_code), $member));
+            $checks = array_merge($checks, $this->memberChecks($member->user, $teamRule, $member));
         }
 
         if ($teamRule?->require_distinct_region ?? true) {
@@ -108,12 +108,64 @@ class ScreeningService
 
         $checks[] = $this->check(
             $user->nim.'_lampiran',
-            $user->name.' · Lampiran KHS & domisili',
-            filled($member->khs_path) && filled($member->domicile_path),
-            filled($member->khs_path) && filled($member->domicile_path) ? 'Lengkap' : 'Belum diunggah'
+            $user->name.' · Lampiran KHS',
+            filled($member->khs_path),
+            filled($member->khs_path) ? 'Lengkap' : 'Belum diunggah'
         );
 
         return $checks;
+    }
+
+    /**
+     * Ringkasan screening per syarat tingkat tim untuk halaman Tim Saya: SKS, prasyarat mata kuliah,
+     * multikultural, multidisiplin — mengikuti aturan registrasi prodi tim pada periode (F5).
+     *
+     * @return array{prodi: ?string, checks: list<array{label: string, passed: bool, detail: string}>}
+     */
+    public function summary(Team $team): array
+    {
+        $team->loadMissing('members.user', 'period.registrationRule.courses');
+        $members = $team->members->where('invite_status', 'diterima')->values();
+        $teamRule = $team->period->registrationRule;
+        $total = $members->count();
+
+        $results = $members->map(fn ($m) => collect($this->eligibility($m->user, $teamRule)));
+        $sksOk = $results->filter(fn ($r) => $r->firstWhere('key', 'sks')['passed'] ?? false)->count();
+        $courseOk = $results->filter(fn ($r) => $r->reject(fn ($c) => $c['key'] === 'sks')->every('passed'))->count();
+        $courses = $teamRule?->courses ?? collect();
+
+        $checks = [
+            [
+                'label' => 'SKS minimal '.($teamRule?->min_sks ?? 0),
+                'passed' => $total > 0 && $sksOk === $total,
+                'detail' => $sksOk === $total ? 'Semua anggota memenuhi' : "{$sksOk}/{$total} anggota memenuhi",
+            ],
+            [
+                'label' => $courses->isEmpty() ? 'Prasyarat mata kuliah' : 'Prasyarat & micro-course',
+                'passed' => $total > 0 && $courseOk === $total,
+                'detail' => $courses->isEmpty() ? 'Tidak ada prasyarat mata kuliah' : "{$courseOk}/{$total} anggota lulus",
+            ],
+        ];
+
+        if ($teamRule?->require_distinct_region ?? true) {
+            $regions = $members->pluck('user.origin_region')->filter()->unique(fn ($v) => mb_strtolower(trim($v)))->map(fn ($v) => trim($v));
+            $checks[] = [
+                'label' => 'Multikultural (≥ 1 beda daerah asal)',
+                'passed' => $regions->count() >= 2,
+                'detail' => $regions->isEmpty() ? 'Daerah asal belum diisi' : $regions->map(fn ($r) => trim(Str::afterLast($r, ',')))->unique()->implode(', '),
+            ];
+        }
+
+        if ($teamRule?->require_distinct_specialization ?? true) {
+            $specs = $this->distinct($members->pluck('user.specialization'));
+            $checks[] = [
+                'label' => 'Multidisiplin (≥ 1 beda peminatan)',
+                'passed' => $specs->count() >= 2,
+                'detail' => $specs->isEmpty() ? 'Peminatan belum diisi' : $specs->count().' peminatan berbeda',
+            ];
+        }
+
+        return ['prodi' => $team->prodi_code, 'checks' => $checks];
     }
 
     private function distinct(Collection $values): Collection

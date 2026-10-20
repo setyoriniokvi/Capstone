@@ -19,7 +19,7 @@ class TopicController extends Controller
 {
     public function index(Request $request): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
         $source = $request->input('sumber', 'mandiri') === 'dosen' ? 'dosen' : 'mandiri';
         $status = $request->input('status', 'menunggu');
 
@@ -59,7 +59,7 @@ class TopicController extends Controller
     /** F8 */
     public function recap(Request $request): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
         $teams = Team::query()
             ->when($period, fn ($q) => $q->where('period_id', $period->id))
             ->where('status', 'diterima')

@@ -18,7 +18,7 @@
                         @foreach ($rows as $row)
                             @php $w = $windows->get($row['component']); $isDraft = $drafts->has($row['team']->id.':'.$row['component']); @endphp
                             <tr>
-                                <td><span class="code font-medium">{{ $row['team']->code }}</span><p class="text-sm">{{ $row['team']->name }}</p></td>
+                                <td class="font-medium">{{ $row['team']->name }}</td>
                                 <td>{{ config('capstone.components.'.$row['component'].'.label') }}</td>
                                 <td class="capitalize text-muted">{{ $row['role'] }}</td>
                                 <td class="whitespace-nowrap text-sm">

@@ -56,7 +56,7 @@ class ImportController extends Controller
         }
 
         $token = Str::random(32);
-        Cache::put("import:{$request->user()->id}:{$type}", ['token' => $token, 'rows' => $importer->preview($type, $rows, Period::active()), 'file' => $file->getClientOriginalName()], now()->addMinutes(30));
+        Cache::put("import:{$request->user()->id}:{$type}", ['token' => $token, 'rows' => $importer->preview($type, $rows, Period::workspace()), 'file' => $file->getClientOriginalName()], now()->addMinutes(30));
 
         return redirect()->route('admin.imports.show', $type);
     }
@@ -80,8 +80,8 @@ class ImportController extends Controller
         }
 
         // Validasi ulang saat commit agar data yang berubah sejak pratinjau tidak lolos.
-        $fresh = $importer->preview($type, array_map(fn ($r) => ['line' => $r['line'], 'data' => $r['data']], $data['rows']), Period::active());
-        $saved = $importer->commit($type, $fresh, Period::active());
+        $fresh = $importer->preview($type, array_map(fn ($r) => ['line' => $r['line'], 'data' => $r['data']], $data['rows']), Period::workspace());
+        $saved = $importer->commit($type, $fresh, Period::workspace());
         Cache::forget($key);
         ActivityLog::record("import_{$type}", null, ['saved' => $saved, 'file' => $data['file']]);
 

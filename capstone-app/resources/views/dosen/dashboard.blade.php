@@ -1,49 +1,66 @@
 <x-layouts.app title="Dashboard Dosen" section="Dosen · Dashboard">
-    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-            <p class="text-sm text-muted">{{ $period?->name ?? 'Belum ada periode aktif' }}</p>
-            <h1 class="mt-1 text-h1">{{ auth()->user()->name }}</h1>
-            <p class="mt-1 text-muted"><span class="code">{{ $profile?->lecturer_code }}</span> · {{ implode(' · ', $profile?->accessLabels() ?? []) ?: 'Hak akses belum diatur' }}</p>
+    {{-- Sambutan (sama dengan dashboard mahasiswa) + minggu berjalan --}}
+    @php $week = $period?->currentWeek(); @endphp
+    {{-- Kartu hijau dengan "tab" menjorok di kiri bawah berisi kuota --}}
+    <div class="mb-6">
+    <section class="hero-panel flex flex-col gap-5 {{ $quota ? 'rounded-bl-none' : '' }} sm:flex-row sm:items-end sm:justify-between" aria-labelledby="sambutan">
+        <div class="min-w-0">
+            <p class="text-sm text-on-brand-muted"><time datetime="{{ now()->toDateString() }}">{{ now()->translatedFormat('l, j F Y') }}</time></p>
+            <h1 id="sambutan" class="mt-1 text-h1 font-semibold">Selamat datang, Bapak/Ibu {{ $profile?->lecturer_code ?? auth()->user()->name }}.</h1>
+            {{-- Peran dosen sebagai kotak-kotak kecil --}}
+            <ul class="mt-3 flex flex-wrap gap-2" aria-label="Peran Anda">
+                @forelse ($profile?->accessLabels() ?? [] as $role)
+                    <li class="rounded-md border border-on-brand-line bg-white/10 px-2.5 py-1 text-sm font-medium text-on-brand">{{ $role }}</li>
+                @empty
+                    <li class="text-sm text-on-brand-muted">Hak akses belum diatur</li>
+                @endforelse
+            </ul>
         </div>
+        <p class="shrink-0 border-t border-on-brand-line pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:text-right">
+            @if ($week)
+                <span class="block text-sm text-on-brand-muted">Minggu ke</span>
+                <span class="tabular text-[2rem] font-semibold leading-none tracking-tight">{{ $week }}</span><span class="tabular text-on-brand-muted"> / {{ $period->displayWeeks() }}</span>
+            @else
+                <span class="block text-sm text-on-brand-muted">Periode</span>
+                <span class="font-semibold">{{ $period?->name ?? 'Belum ada periode aktif' }}</span>
+            @endif
+        </p>
+    </section>
+    @if ($quota)
+        <div class="relative inline-flex">
+            <p class="rounded-bl-lg bg-brand-deep pb-3 pl-5 pr-1 pt-1 text-sm text-on-brand-muted sm:pl-8">
+                Kuota: <span class="tabular font-semibold text-on-brand">{{ $quota['pembimbing']['default'] }}</span> tim bimbingan
+                <span class="mx-1.5 text-on-brand-line" aria-hidden="true">|</span>
+                <span class="tabular font-semibold text-on-brand">{{ $quota['penguji']['default'] }}</span> tim uji
+            </p>
+            {{-- Sisi kanan tab melengkung miring seperti "/" (kurva S) ke sisi bawah kartu --}}
+            <svg class="pointer-events-none absolute left-full top-0 h-full w-12 fill-brand-deep" viewBox="0 0 48 40" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M0 0 H48 C30 0 26 40 6 40 H0 Z" />
+            </svg>
+        </div>
+    @endif
     </div>
 
-    <div class="panel mb-6 grid divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <x-stat label="Tim pelamar menunggu" :value="$counts['applications']" :href="route('dosen.applications.index')" tone="alert" />
-        <x-stat label="Log bimbingan menunggu" :value="$counts['logbooks']" :href="route('dosen.logbooks.index')" tone="alert" />
-        <x-stat label="Komponen nilai belum diisi" :value="$counts['assessments']" :href="route('dosen.assessments.index')" tone="alert" />
-    </div>
+    {{-- Ringkasan (bukan tautan) --}}
+    <x-stat-row class="mb-6" :stats="[
+        ['value' => $supervisedCount, 'label' => 'Tim bimbingan'],
+        ['value' => $examinedCount, 'label' => 'Tim uji'],
+        ['value' => $counts['logbooks'], 'label' => 'Log menunggu'],
+        ['value' => $counts['assessments'], 'label' => 'Nilai belum diisi'],
+    ]" />
 
-    @if ($period && $period->milestones->isNotEmpty())
-        <section class="panel mb-6">
-            <div class="panel-head"><h2 class="panel-title">Alur Capstone</h2></div>
-            <div class="panel-body"><x-week-ruler :period="$period" /></div>
-        </section>
+    <x-todo-card class="mb-6" :actions="$todo" />
+
+    @if ($period)
+        <x-capstone-timeline class="mb-6" :period="$period" />
     @endif
 
-    @foreach (['Tim bimbingan' => $supervised, 'Tim uji' => $examined] as $heading => $teams)
-        <section class="panel mb-6">
-            <div class="panel-head"><h2 class="panel-title">{{ $heading }}</h2><span class="tabular text-sm text-muted">{{ $teams->count() }} tim</span></div>
-            @if ($teams->isEmpty())
-                <p class="panel-body text-sm text-muted">Belum ada tim.</p>
-            @else
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead><tr><th>Tim</th><th>Topik final</th><th>Anggota</th><th>Dokumen</th><th>Log bimbingan</th><th></th></tr></thead>
-                        <tbody>
-                            @foreach ($teams as $team)
-                                <tr>
-                                    <td><span class="code font-medium">{{ $team->code }}</span><p class="text-sm">{{ $team->name }}</p></td>
-                                    <td class="max-w-[18rem] text-sm">{{ $team->finalTopic?->title ?? '—' }}</td>
-                                    <td class="text-sm">{{ $team->activeUsers->pluck('name')->implode(', ') }}</td>
-                                    <td class="tabular text-sm">{{ $team->document_count }}<span class="text-muted">/{{ $docMilestones }} milestone</span></td>
-                                    <td class="min-w-[10rem]"><x-gate-cells :approved="$team->logbook_approved" :min="$minLogbooks" :pending="$team->logbook_pending" /></td>
-                                    <td class="text-right"><a href="{{ route('dosen.teams.show', $team) }}" class="btn btn-secondary btn-sm">Detail</a></td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </section>
-    @endforeach
+    {{-- Tim mahasiswa (bimbingan & uji): 3 tim dengan aktivitas terbaru; selengkapnya lewat "Lihat semua" --}}
+    <section class="panel mb-6 overflow-hidden" aria-labelledby="judul-tim">
+        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+            <h2 id="judul-tim" class="text-lg font-semibold text-ink">Tim Mahasiswa</h2>
+            <a href="{{ route('dosen.teams.index') }}" class="link -my-2 inline-flex min-h-[44px] items-center gap-1.5 text-sm">Lihat semua <x-heroicon-o-arrow-right class="h-4 w-4" /></a>
+        </div>
+        @include('dosen._team-table', ['teams' => $recentTeams])
+    </section>
 </x-layouts.app>

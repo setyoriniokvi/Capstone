@@ -57,6 +57,12 @@ return [
         'poster' => 'Poster',
     ],
 
+    // Jenis milestone: "dokumen" masuk ke pengumpulan (submission) mahasiswa; "lainnya" hanya tampil di dashboard & timeline.
+    'milestone_categories' => [
+        'dokumen' => 'Dokumen',
+        'lainnya' => 'Lainnya',
+    ],
+
     'milestone_kinds' => [
         'registrasi_tim' => 'Registrasi Tim',
         'pengajuan_topik' => 'Pengajuan Topik Mandiri',
@@ -75,10 +81,29 @@ return [
     // F27 — minimal sesi bimbingan disetujui sebagai syarat presentasi akhir
     'min_approved_logbooks' => 8,
 
-    // NFR — tipe file unggahan
+    // F19 — tenggat dalam N hari ditandai "segera" di dashboard mahasiswa
+    'dashboard_soon_days' => 7,
+
+    // F19 — tahap pada timeline dashboard mahasiswa. Setiap tahap merangkum milestone menurut
+    // kind atau "dokumen:<document_type>". Milestone yang tidak disebut (mis. bimbingan) tidak tampil.
+    'dashboard_stages' => [
+        'Registrasi Tim' => ['registrasi_tim'],
+        'Penentuan Topik' => ['pengajuan_topik', 'apply_topik_dosen'],
+        'Proposal' => ['dokumen:proposal'],
+        'Laporan Progress' => ['dokumen:laporan_progress'],
+        'Laporan Akhir' => ['dokumen:laporan_akhir', 'dokumen:materi_presentasi', 'sidang'],
+        'Pameran' => ['dokumen:poster', 'pameran', 'peer_review'],
+    ],
+
+    // Pilihan tipe file yang dapat diizinkan admin per milestone dokumen (ekstensi => label)
+    'document_file_types' => [
+        'pdf' => 'PDF', 'docx' => 'DOCX', 'pptx' => 'PPTX', 'xlsx' => 'XLSX', 'jpg' => 'JPG', 'png' => 'PNG', 'zip' => 'ZIP',
+    ],
+
+    // NFR — tipe file unggahan (document_mimes = bawaan milestone yang belum diatur admin)
     'upload' => [
-        'document_mimes' => ['pdf', 'docx', 'pptx', 'jpg', 'jpeg'],
-        'document_max_kb' => 51200,
+        'document_mimes' => ['pdf', 'docx', 'pptx', 'jpg'],
+        'document_max_kb' => 10240,
         'attachment_mimes' => ['pdf', 'jpg', 'jpeg', 'png'],
         'attachment_max_kb' => 5120,
     ],

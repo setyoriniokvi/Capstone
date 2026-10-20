@@ -36,6 +36,17 @@ class Document extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    public function feedbackBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'feedback_by');
+    }
+
+    /** Tautan file di Google Drive, bila sudah tersinkron. */
+    public function driveUrl(): ?string
+    {
+        return $this->drive_file_id ? "https://drive.google.com/file/d/{$this->drive_file_id}/view" : null;
+    }
+
     public function versions(): HasMany
     {
         return $this->hasMany(DocumentVersion::class)->orderByDesc('revision_no');

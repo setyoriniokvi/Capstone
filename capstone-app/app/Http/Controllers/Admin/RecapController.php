@@ -50,7 +50,7 @@ class RecapController extends Controller
 
     private function results(Request $request, ScoreCalculator $calculator): Collection
     {
-        $period = Period::active();
+        $period = Period::workspace();
         if (! $period) {
             return collect();
         }

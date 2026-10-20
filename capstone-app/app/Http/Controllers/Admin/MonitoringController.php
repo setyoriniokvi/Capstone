@@ -19,7 +19,7 @@ class MonitoringController extends Controller
 {
     public function progress(Request $request): View
     {
-        $period = Period::active()?->load('milestones');
+        $period = Period::workspace()?->load('milestones');
         $teams = $period ? Team::query()->where('period_id', $period->id)
             ->when($request->filled('prodi'), fn ($q) => $q->where('prodi_code', $request->string('prodi')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
@@ -45,7 +45,7 @@ class MonitoringController extends Controller
 
     public function assessments(Request $request, ReminderService $reminders): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
         $rows = $period ? $reminders->incompleteAssessments($period) : collect();
 
         $byLecturer = $rows->groupBy(fn ($r) => $r['lecturer']->id)->map(function ($items) {

@@ -17,7 +17,7 @@ class QuotaController extends Controller
 {
     public function index(): View
     {
-        $period = Period::active();
+        $period = Period::workspace();
 
         return view('admin.quotas', [
             'period' => $period,
@@ -28,7 +28,7 @@ class QuotaController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $period = Period::active() ?? abort(409, 'Belum ada periode aktif.');
+        $period = Period::workspace() ?? abort(409, 'Buka dashboard periode terlebih dahulu.');
         $fields = ['supervise_default', 'supervise_min', 'supervise_max', 'examine_default', 'examine_min', 'examine_max'];
 
         $data = $request->validate([

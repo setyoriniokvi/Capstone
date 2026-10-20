@@ -11,23 +11,29 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
-/** F46 — approval log bimbingan oleh dosen pembimbing. */
+/**
+ * F46 — log bimbingan untuk dosen pembimbing. Tab "Pengajuan Log Bimbingan": log menunggu keputusan (setujui/tolak);
+ * tab "Log Bimbingan": seluruh log tim bimbingan, disaring per tim dan pencarian di browser.
+ */
 class LogbookController extends Controller
 {
     public function index(Request $request): View
     {
         $teams = Team::query()->whereHas('supervisor', fn ($q) => $q->where('lecturer_id', $request->user()->id))
             ->whereHas('period', fn ($q) => $q->where('is_active', true))
-            ->with(['logbooks' => fn ($q) => $q->orderByRaw("case status when 'menunggu' then 0 when 'revisi' then 1 else 2 end")->orderBy('session_no')->with('author', 'histories.actor')])
-            ->orderBy('code')->get();
-
-        if ($request->filled('tim')) {
-            $teams = $teams->where('id', $request->integer('tim'))->values();
-        }
+            ->with(['members' => fn ($q) => $q->where('invite_status', 'diterima')->with('user:id,name')])
+            ->withCount(['logbooks as approved_count' => fn ($q) => $q->where('status', 'disetujui')])
+            ->orderBy('name')->get(['teams.id', 'teams.name']);
+        $tab = $request->query('tab') === 'log' ? 'log' : 'pengajuan';
 
         return view('dosen.logbooks', [
+            'tab' => $tab,
             'teams' => $teams,
-            'pendingTotal' => $teams->sum(fn ($t) => $t->logbooks->where('status', 'menunggu')->count()),
+            'logs' => $tab === 'log' ? Logbook::query()->whereIn('team_id', $teams->pluck('id'))
+                ->latest('session_date')->latest('id')->get() : collect(),
+            // Log yang menunggu keputusan dari semua tim bimbingan, yang terlama diajukan lebih dulu
+            'pending' => Logbook::query()->where('status', 'menunggu')->whereIn('team_id', $teams->pluck('id'))
+                ->with('team:id,name', 'histories')->oldest('updated_at')->get(),
             'minLogbooks' => config('capstone.min_approved_logbooks'),
         ]);
     }
@@ -37,8 +43,8 @@ class LogbookController extends Controller
         abort_unless($logbook->team->supervisor?->lecturer_id === $request->user()->id, 403, 'Hanya dosen pembimbing tim ini yang dapat meninjau log.');
         $data = $request->validate([
             'decision' => ['required', 'in:approve,reject'],
-            'notes' => ['nullable', 'required_if:decision,reject', 'string', 'max:3000'],
-        ], ['notes.required_if' => 'Tuliskan alasan / catatan revisi.']);
+            'notes' => ['nullable', 'string', 'max:3000'],
+        ]);
 
         if ($logbook->status !== 'menunggu') {
             return back()->withErrors(['logbook' => 'Log ini sudah ditinjau.']);
@@ -59,10 +65,10 @@ class LogbookController extends Controller
         SystemNotice::sendTo(
             $team->activeUsers,
             $approve ? "Log sesi {$logbook->session_no} disetujui" : "Log sesi {$logbook->session_no} perlu revisi",
-            $approve ? "{$approved} dari ".config('capstone.min_approved_logbooks').' sesi minimal telah disetujui.' : (string) $data['notes'],
+            $approve ? "{$approved} dari ".config('capstone.min_approved_logbooks').' sesi minimal telah disetujui.' : (($data['notes'] ?? '') ?: 'Perbaiki log lalu kirim ulang.'),
             route('mahasiswa.logbooks.index')
         );
 
-        return back()->with('status', $approve ? "Sesi {$logbook->session_no} {$team->code} disetujui." : 'Permintaan revisi dikirim ke tim.');
+        return back()->with('status', $approve ? "Sesi {$logbook->session_no} {$team->name} disetujui." : "Log sesi {$logbook->session_no} {$team->name} ditolak.");
     }
 }

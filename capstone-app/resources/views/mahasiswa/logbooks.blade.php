@@ -1,72 +1,112 @@
+{{-- F27 — Log bimbingan tim. Judul "Log Bimbingan", nama tim di bawahnya; "Tambah sesi baru" membuka formulir (tanggal + catatan) di atas;
+     kartu progres "x sesi disetujui"; daftar sesi: catatan, tanggal, status (Menunggu/Disetujui/Ditolak),
+     Ubah / Hapus (nonaktif bila disetujui), dan feedback dosen (opsional). --}}
+@php
+    // Status "revisi" di basis data ditampilkan sebagai "Ditolak".
+    $statusLabel = ['menunggu' => 'Menunggu', 'disetujui' => 'Disetujui', 'revisi' => 'Ditolak'];
+@endphp
 <x-layouts.app title="Log Bimbingan" section="Mahasiswa · Log bimbingan">
-    <x-page-head title="Log bimbingan" lede="Catat setiap sesi bimbingan. Minimal {{ $minLogbooks }} log harus disetujui dosen pembimbing sebelum presentasi akhir." />
-
     @if (! $team || $team->status !== 'diterima')
+        <x-page-head title="Log Bimbingan" :lede="$team?->name" />
         <div class="panel"><x-empty title="Log bimbingan tersedia setelah tim diterima" icon="clipboard-document-check" /></div>
     @else
-        <div class="mb-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <section class="panel">
-                <div class="panel-head"><h2 class="panel-title">Syarat presentasi akhir</h2></div>
-                <div class="panel-body"><x-gate-cells :approved="$approved" :min="$minLogbooks" :pending="$team->logbooks->where('status', 'menunggu')->count()" /></div>
-                <p class="border-t border-rule px-4 py-3 text-sm text-muted sm:px-6">Pembimbing: <span class="text-ink">{{ $team->supervisor?->lecturer->name ?? 'belum ditetapkan' }}</span></p>
-            </section>
-            <section class="panel">
-                <div class="panel-head"><h2 class="panel-title">Sesi <span class="tabular">{{ $nextSession }}</span></h2></div>
-                @if ($team->supervisor)
-                    <form method="POST" action="{{ route('mahasiswa.logbooks.store') }}" class="panel-body">
+        @php $canAdd = (bool) $team->supervisor; @endphp
+        <div x-data="registrationForm" data-open="{{ $errors->hasAny(['session_date', 'activity']) && ! old('_log') ? 'true' : 'false' }}">
+            <x-page-head title="Log Bimbingan" :lede="$team->name">
+                <x-slot:actions>
+                    <button type="button" class="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50" @click="toggle" aria-controls="form-sesi"
+                            @disabled(! $canAdd) @unless ($canAdd) title="Dapat diisi setelah dosen pembimbing ditetapkan" @endunless>
+                        <x-heroicon-o-plus class="h-5 w-5" /> Tambah sesi baru
+                    </button>
+                </x-slot:actions>
+            </x-page-head>
+
+            @error('logbook')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
+
+            @if ($canAdd)
+<x-modal>
+    <x-slot:heading>Tambah sesi bimbingan</x-slot:heading>
+                    <form method="POST" action="{{ route('mahasiswa.logbooks.store') }}" class="space-y-4">
                         @csrf
                         @include('mahasiswa._logbook-fields', ['log' => null])
-                        <button class="btn btn-primary mt-4" data-once>Kirim ke pembimbing</button>
+                        <div class="flex flex-wrap justify-end gap-3 border-t border-rule pt-4">
+                            <button type="button" class="btn btn-ghost" @click="close">Batal</button>
+                            <button class="btn btn-primary" data-once>Kirim ke pembimbing</button>
+                        </div>
                     </form>
+                </x-modal>
+            @endif
+
+            {{-- Progres sesi disetujui --}}
+            <section class="panel mb-6 p-5 sm:p-6" aria-label="Sesi disetujui">
+                <p class="text-lg font-semibold text-ink"><span class="tabular">{{ $approved }}</span> sesi disetujui</p>
+                <x-progress-bar class="mt-4" :value="$approved" :max="$minLogbooks" label="Sesi bimbingan disetujui" />
+            </section>
+
+            <section class="panel" aria-label="Riwayat sesi bimbingan">
+                @if ($team->logbooks->isEmpty())
+                    <x-empty title="Belum ada sesi bimbingan" icon="clipboard-document-check" />
                 @else
-                    <p class="panel-body text-sm text-muted">Dapat diisi setelah dosen pembimbing ditetapkan.</p>
+                    <ol class="divide-y divide-rule px-5 sm:px-6">
+                        @foreach ($team->logbooks->sortByDesc('session_no') as $log)
+                            @php $locked = $log->status === 'disetujui'; @endphp
+                            <li x-data="registrationForm" data-open="{{ $errors->hasAny(['session_date', 'activity']) && old('_log') == $log->id ? 'true' : 'false' }}" class="grid gap-x-4 gap-y-3 py-5 sm:grid-cols-[3.5rem_minmax(0,1fr)]">
+                                <span class="hidden h-14 w-14 place-items-center rounded-xl bg-brand-wash text-brand sm:grid" title="Sesi {{ $log->session_no }}">
+                                    <x-icons.hand-book class="h-8 w-8" />
+                                </span>
+                                <div class="min-w-0">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <p class="whitespace-pre-line font-semibold leading-snug text-ink">{{ $log->activity }}</p>
+                                            <p class="mt-1 text-sm text-muted"><time datetime="{{ $log->session_date->toDateString() }}">{{ $log->session_date->translatedFormat('j M Y') }}</time><span class="sr-only"> · sesi {{ $log->session_no }}</span></p>
+                                        </div>
+                                        <x-badge :status="$log->status" :label="$statusLabel[$log->status] ?? ucfirst($log->status)" class="shrink-0" />
+                                    </div>
+
+                                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                                        <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" @click="toggle" :aria-expanded="expanded" aria-controls="ubah-{{ $log->id }}"
+                                                @disabled($locked) @if ($locked) title="Sesi yang sudah disetujui tidak dapat diubah" @endif>
+                                            <x-heroicon-o-pencil-square class="h-4 w-4" /> Ubah
+                                        </button>
+                                        <form method="POST" action="{{ route('mahasiswa.logbooks.destroy', $log) }}" data-confirm="Hapus log bimbingan ini?" data-confirm-label="Hapus">
+                                            @csrf @method('DELETE')
+                                            <button class="btn btn-ghost btn-sm text-bad-ink disabled:cursor-not-allowed disabled:opacity-50" @disabled($locked) @if ($locked) title="Sesi yang sudah disetujui tidak dapat dihapus" @endif>
+                                                <x-heroicon-o-trash class="h-4 w-4" /> Hapus
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                    @unless ($locked)
+                                        <x-modal>
+                                        <x-slot:heading>Ubah sesi bimbingan</x-slot:heading>
+                                        <form id="ubah-{{ $log->id }}" method="POST" action="{{ route('mahasiswa.logbooks.update', $log) }}" class="space-y-4">
+                                            @csrf @method('PUT')
+                                            <input type="hidden" name="_log" value="{{ $log->id }}">
+                                            @include('mahasiswa._logbook-fields', ['log' => $log])
+                                            <div class="flex flex-wrap justify-end gap-3">
+                                                <button type="button" class="btn btn-ghost" @click="close">Batal</button>
+                                                <button class="btn btn-primary">Simpan</button>
+                                            </div>
+                                        </form>
+                                        </x-modal>
+                                    @endunless
+
+                                    {{-- Feedback dosen (opsional) --}}
+                                    <div class="mt-4 rounded-lg border border-rule px-4 py-3">
+                                        <p class="text-sm font-medium text-ink">Feedback dosen</p>
+                                        @if ($log->feedback)
+                                            <p class="mt-1 whitespace-pre-line text-sm text-ink">{{ $log->feedback }}</p>
+                                            <p class="mt-1 text-caption text-muted">{{ $log->reviewer?->name }}@if ($log->reviewed_at) · {{ $log->reviewed_at->translatedFormat('j M Y, H:i') }}@endif</p>
+                                        @else
+                                            <p class="mt-1 text-sm text-muted">Belum ada feedback.</p>
+                                        @endif
+                                    </div>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ol>
                 @endif
             </section>
         </div>
-
-        <section class="panel">
-            <div class="panel-head"><h2 class="panel-title">Riwayat sesi</h2><span class="text-sm text-muted">{{ $team->logbooks->count() }} sesi</span></div>
-            @if ($team->logbooks->isEmpty())
-                <x-empty title="Belum ada log" icon="clipboard-document-check" />
-            @else
-                <ol class="divide-y divide-rule">
-                    @foreach ($team->logbooks->sortByDesc('session_no') as $log)
-                        <li x-data="disclosure" class="px-4 py-4 sm:px-6">
-                            <div class="flex flex-wrap items-start gap-3">
-                                <span class="w-12 shrink-0 tabular text-lg font-medium text-brand-deep">#{{ $log->session_no }}</span>
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-sm text-muted">{{ $log->session_date->translatedFormat('l, j F Y') }} · {{ $log->responsible_person }}</p>
-                                    <p class="mt-1 whitespace-pre-line">{{ $log->activity }}</p>
-                                    <p class="mt-1 text-sm"><span class="text-muted">Luaran:</span> {{ $log->output }}</p>
-                                    @if ($log->feedback)
-                                        <p class="mt-2 rounded border px-3 py-2 text-sm {{ $log->status === 'revisi' ? 'border-bad-line bg-bad-tint text-bad-ink' : 'border-rule bg-sunken' }}"><span class="font-medium">Feedback dosen:</span> {{ $log->feedback }}</p>
-                                    @endif
-                                </div>
-                                <x-badge :status="$log->status" />
-                            </div>
-                            @if ($log->status !== 'disetujui')
-                                <div class="mt-3 flex gap-1 pl-[3.75rem]">
-                                    <button type="button" class="btn btn-ghost btn-sm" @click="toggle">{{ $log->status === 'revisi' ? 'Revisi log' : 'Ubah' }}</button>
-                                    <form method="POST" action="{{ route('mahasiswa.logbooks.destroy', $log) }}" data-confirm="Hapus log bimbingan ini?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
-                                </div>
-                                <form x-cloak x-show="expanded" method="POST" action="{{ route('mahasiswa.logbooks.update', $log) }}" class="mt-3 rounded-lg border border-rule bg-sunken p-4">
-                                    @csrf @method('PUT')
-                                    @include('mahasiswa._logbook-fields', ['log' => $log])
-                                    <button class="btn btn-primary mt-3">Simpan & kirim ulang</button>
-                                </form>
-                            @endif
-                            @if ($log->histories->count() > 1)
-                                <details class="mt-2 pl-[3.75rem] text-sm">
-                                    <summary class="cursor-pointer text-muted">Histori ({{ $log->histories->count() }})</summary>
-                                    <ul class="mt-1 space-y-0.5 text-muted">
-                                        @foreach ($log->histories as $h)<li>{{ $h->created_at->translatedFormat('j M H:i') }} · {{ $h->event }} · {{ $h->actor?->name }}</li>@endforeach
-                                    </ul>
-                                </details>
-                            @endif
-                        </li>
-                    @endforeach
-                </ol>
-            @endif
-        </section>
     @endif
 </x-layouts.app>

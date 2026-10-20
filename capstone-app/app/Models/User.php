@@ -49,7 +49,7 @@ class User extends Authenticatable
     public function homeRoute(): string
     {
         return match ($this->role) {
-            'admin' => 'admin.dashboard',
+            'admin' => 'admin.periods.index',
             'dosen' => 'dosen.dashboard',
             default => 'mahasiswa.dashboard',
         };

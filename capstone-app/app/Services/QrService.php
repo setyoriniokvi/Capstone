@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\TeamQrToken;
 use App\Models\User;
 use chillerlan\QRCode\Common\EccLevel;
+use chillerlan\QRCode\Output\QRGdImagePNG;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Collection;
@@ -45,6 +46,21 @@ class QrService
             'svgAddXmlHeader' => $standalone,
             'drawLightModules' => false,
             'connectPaths' => true,
+        ]);
+
+        return (new QRCode($options))->render($this->url($token));
+    }
+
+    /** Gambar PNG (biner) untuk diunduh anggota tim — latar putih, cukup besar untuk dicetak. */
+    public function png(TeamQrToken $token): string
+    {
+        $options = new QROptions([
+            'outputInterface' => QRGdImagePNG::class,
+            'outputBase64' => false,
+            'eccLevel' => EccLevel::M,
+            'addQuietzone' => true,
+            'scale' => 12,
+            'bgColor' => [255, 255, 255],
         ]);
 
         return (new QRCode($options))->render($this->url($token));

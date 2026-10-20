@@ -24,4 +24,10 @@ class RegistrationRule extends Model
     {
         return $this->hasMany(PrerequisiteCourse::class);
     }
+
+    /** Peminatan pada periode ini — pilihan "Kompetensi yang diharapkan" pada topik dosen. */
+    public function specializations(): HasMany
+    {
+        return $this->hasMany(RuleSpecialization::class)->orderBy('name');
+    }
 }

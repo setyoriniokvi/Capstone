@@ -1,4 +1,4 @@
-<x-layouts.app title="Sinkronisasi Dokumen" section="Admin · Sinkronisasi dokumen">
+<x-layouts.app title="Sinkronisasi Dokumen">
     <x-page-head title="Sinkronisasi Google Drive" lede="Setiap unggahan mahasiswa disalin otomatis ke folder Drive miliknya. Status hanya berhasil setelah Drive mengonfirmasi." />
 
     @unless ($driveEnabled)
@@ -27,7 +27,7 @@
                                 <td class="whitespace-nowrap text-sm">{{ $v->created_at->translatedFormat('j M H:i') }}</td>
                                 <td><p class="font-medium">{{ $doc->owner->name }}</p><p class="text-caption text-muted">{{ $doc->owner_email }}</p></td>
                                 <td class="code">{{ $doc->team->code }}</td>
-                                <td class="text-sm"><a class="link" href="{{ route('documents.download', $v) }}">{{ $doc->typeLabel() }}</a><p class="text-caption text-muted">{{ $v->stored_name }}</p></td>
+                                <td class="text-sm"><a download class="link" href="{{ route('documents.download', $v) }}">{{ $doc->typeLabel() }}</a><p class="text-caption text-muted">{{ $v->stored_name }}</p></td>
                                 <td class="tabular">r{{ $v->revision_no }}</td>
                                 <td class="text-sm">{{ $v->sync_action === 'update' ? 'Perbarui file' : 'Buat file' }}@if ($doc->drive_file_id)<p class="code text-caption text-muted">{{ \Illuminate\Support\Str::limit($doc->drive_file_id, 14) }}</p>@endif</td>
                                 <td><x-badge :status="$v->sync_status" />@if ($v->sync_error)<p class="mt-1 max-w-[16rem] text-caption text-muted">{{ $v->sync_error }}</p>@endif<p class="text-caption text-muted">{{ $v->sync_attempts }} percobaan</p></td>

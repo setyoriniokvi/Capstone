@@ -17,6 +17,17 @@ class SupportFileController extends Controller
         ]);
     }
 
+    /** Tampilkan file di tab browser (Content-Disposition: inline) — hanya PDF & gambar. */
+    public function show(SupportFile $file): StreamedResponse
+    {
+        abort_unless($file->isPreviewable() && Storage::disk('local')->exists($file->path), 404);
+
+        return Storage::disk('local')->response($file->path, $file->original_name, [
+            'Content-Type' => SupportFile::PREVIEW_TYPES[$file->extension()],
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function download(SupportFile $file): StreamedResponse
     {
         abort_unless(Storage::disk('local')->exists($file->path), 404);

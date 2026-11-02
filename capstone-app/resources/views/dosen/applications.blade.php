@@ -1,5 +1,5 @@
-{{-- F43 — Approval Pengajuan Topik (dosen): kuota topik milik dosen → kartu "Pengajuan Topik" berisi pengajuan aktif
-     (Terima / Tolak dengan alasan opsional) dan, dipisah garis, riwayat keputusan 3 per halaman.
+{{-- F43 — Approval Pengajuan Topik (dosen): kuota topik milik dosen → kartu "Pengajuan Topik" berisi filter peminatan tim,
+     pengajuan aktif (Detail tim di modal; Terima / Tolak dengan alasan opsional) dan, dipisah garis, riwayat keputusan 3 per halaman.
      Semua tabel pas selebar layar (bukan .table-wrap, tanpa geser ke samping). --}}
 @php
     // Judul kolom hijau hanya untuk tabel di bawah judul kartu ("Pengajuan Topik").
@@ -9,7 +9,7 @@
     // Portofolio selalu jadi tautan: isian tanpa skema diberi https://
     $portfolioHref = fn (string $value) => preg_match('#^https?://#i', $value) ? $value : 'https://'.ltrim($value, '/');
 @endphp
-<x-layouts.app title="Approval Pengajuan Topik" section="Dosen · Approval pengajuan topik">
+<x-layouts.app title="Approval Pengajuan Topik">
     <x-page-head title="Approval Pengajuan Topik" lede="Menerima tim menjadikan Anda dosen pembimbing tim tersebut secara otomatis. Kuota tidak dapat dilampaui." />
 
     {{-- Kuota topik milik dosen --}}
@@ -44,17 +44,27 @@
 
     {{-- Pengajuan Topik: pengajuan aktif, lalu riwayat keputusan (satu kartu, dipisah garis) --}}
     <section class="panel overflow-hidden" aria-labelledby="pelamar-judul">
-        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+        {{-- Judul kiri · jumlah menunggu di tengah · filter peminatan kanan --}}
+        <div class="grid gap-3 px-5 py-4 sm:grid-cols-3 sm:items-center sm:px-6">
             <h2 id="pelamar-judul" class="text-lg font-semibold text-ink">Pengajuan Topik</h2>
-            <span class="text-sm text-muted">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></span>
+            <p class="text-sm text-muted sm:text-center">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></p>
+            {{-- Filter peminatan anggota tim yang mengajukan --}}
+            <form method="GET" action="{{ route('dosen.applications.index') }}" x-data="autoSubmit" class="sm:justify-self-end">
+                <label for="peminatan" class="sr-only">Filter peminatan tim</label>
+                <select id="peminatan" name="peminatan" class="input w-full sm:w-64" @change="submit">
+                    <option value="">Semua peminatan</option>
+                    @foreach ($specializations as $spec)<option value="{{ $spec }}" @selected($peminatan === $spec)>{{ $spec }}</option>@endforeach
+                </select>
+                <noscript><button class="btn btn-secondary mt-2">Terapkan</button></noscript>
+            </form>
         </div>
 
         @if ($pending->isEmpty())
-            <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada pengajuan topik yang menunggu.</p>
+            <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">{{ $peminatan !== '' ? 'Tidak ada pengajuan dari tim berpeminatan '.$peminatan.'.' : 'Tidak ada pengajuan topik yang menunggu.' }}</p>
         @else
             <table class="data-table w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                 <colgroup><col class="w-[18%]"><col class="w-[24%]"><col class="w-[18%]"><col class="w-[12%]"><col class="w-[14%]"><col class="w-[14%]"></colgroup>
-                <thead class="{{ $greenHead }}"><tr><th>Nama tim</th><th>Topik yang diajukan</th><th>Anggota</th><th>Portofolio</th><th>Waktu pengajuan</th><th class="text-center">Aksi</th></tr></thead>
+                <thead class="{{ $greenHead }}"><tr><th>Nama tim</th><th>Topik yang diajukan</th><th>Anggota</th><th>Portofolio</th><th>Detail tim</th><th class="text-center">Aksi</th></tr></thead>
                 <tbody>
                     @foreach ($pending as $app)
                         @php $remaining = max(0, $app->topic->quota - $app->topic->accepted_count); @endphp
@@ -64,11 +74,11 @@
                             <td class="text-sm">
                                 <ul class="space-y-0.5 text-ink">
                                     @foreach ($app->team->members->where('invite_status', 'diterima') as $m)
-                                        <li>{{ $m->user->name }}</li>
+                                        <li>{{ $m->user->name }}@if ($m->user->specialization)<span class="block text-caption text-muted">{{ $m->user->specialization }}</span>@endif</li>
                                     @endforeach
                                 </ul>
                             </td>
-                            <td>
+                            <td class="!align-middle">
                                 @if ($app->portfolio_url)
                                     <a href="{{ $portfolioHref($app->portfolio_url) }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" title="{{ $app->portfolio_url }}">
                                         <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4" /> Lihat
@@ -77,7 +87,15 @@
                                     <span class="text-sm text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="text-sm text-ink">{{ $app->created_at->translatedFormat('j M Y, H:i') }}</td>
+                            <td class="!align-middle">
+                                <div x-data="disclosure">
+                                    <button type="button" class="btn btn-secondary btn-sm" @click="toggle">Detail tim</button>
+                                    <x-modal width="sm:max-w-3xl">
+                                        <x-slot:heading>Detail {{ $app->team->name }}</x-slot:heading>
+                                        @include('dosen._application-detail', ['app' => $app])
+                                    </x-modal>
+                                </div>
+                            </td>
                             <td class="!align-middle">
                                 <div class="mx-auto flex max-w-[8rem] flex-col gap-2">
                                     <form method="POST" action="{{ route('dosen.applications.decide', $app) }}" data-confirm="Terima {{ $app->team->name }}? Anda otomatis menjadi dosen pembimbing tim ini." data-confirm-label="Terima" data-confirm-tone="positive">
@@ -132,27 +150,7 @@
                         @endforeach
                     </tbody>
                 </table>
-                @if ($decided->hasPages())
-                    <nav class="flex items-center justify-end gap-1 border-t border-rule px-5 py-3 sm:px-6" aria-label="Halaman riwayat">
-                        @if ($decided->onFirstPage())
-                            <span class="grid h-9 w-9 place-items-center rounded-md text-faint" aria-hidden="true"><x-heroicon-o-chevron-left class="h-4 w-4" /></span>
-                        @else
-                            <a href="{{ $decided->previousPageUrl() }}" class="grid h-9 w-9 place-items-center rounded-md text-ink hover:bg-sunken" rel="prev" aria-label="Halaman sebelumnya"><x-heroicon-o-chevron-left class="h-4 w-4" /></a>
-                        @endif
-                        @foreach (range(1, $decided->lastPage()) as $page)
-                            @if ($page === $decided->currentPage())
-                                <span class="grid h-9 min-w-[2.25rem] place-items-center rounded-md bg-brand px-2 text-sm font-semibold text-white tabular" aria-current="page">{{ $page }}</span>
-                            @else
-                                <a href="{{ $decided->url($page) }}" class="grid h-9 min-w-[2.25rem] place-items-center rounded-md px-2 text-sm text-ink tabular hover:bg-sunken">{{ $page }}</a>
-                            @endif
-                        @endforeach
-                        @if ($decided->hasMorePages())
-                            <a href="{{ $decided->nextPageUrl() }}" class="grid h-9 w-9 place-items-center rounded-md text-ink hover:bg-sunken" rel="next" aria-label="Halaman berikutnya"><x-heroicon-o-chevron-right class="h-4 w-4" /></a>
-                        @else
-                            <span class="grid h-9 w-9 place-items-center rounded-md text-faint" aria-hidden="true"><x-heroicon-o-chevron-right class="h-4 w-4" /></span>
-                        @endif
-                    </nav>
-                @endif
+                <x-history-pager :paginator="$decided" />
             @endif
         </div>
     </section>

@@ -1,4 +1,4 @@
-<x-layouts.app title="File Pendukung" section="Admin · File pendukung">
+<x-layouts.app title="File Pendukung">
     <x-page-head title="File pendukung" lede="Panduan Capstone, slide sosialisasi, dan materi lain yang dapat dibaca mahasiswa dan dosen." />
     <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
         <section class="panel">
@@ -14,7 +14,12 @@
                                     <p class="font-medium">{{ $file->title }}</p>
                                     <p class="text-caption text-muted">{{ $file->category }} · {{ $file->original_name }} · {{ \App\Support\Format::bytes($file->size) }}</p>
                                 </div>
-                                <a href="{{ route('files.download', $file) }}" class="btn btn-ghost btn-sm">Unduh</a>
+                                @if ($file->isPreviewable())
+                                    <a href="{{ route('files.show', $file) }}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><x-heroicon-o-eye class="h-4 w-4" />Lihat<span class="sr-only"> {{ $file->title }}</span></a>
+                                @else
+                                    <button type="button" class="btn btn-ghost btn-sm disabled:cursor-not-allowed disabled:opacity-50" disabled title="Pratinjau hanya untuk PDF & gambar — silakan unduh"><x-heroicon-o-eye class="h-4 w-4" />Lihat</button>
+                                @endif
+                                <a download href="{{ route('files.download', $file) }}" class="btn btn-ghost btn-sm">Unduh</a>
                                 <button type="button" class="btn btn-ghost btn-sm" @click="toggle">Ubah</button>
                                 <form method="POST" action="{{ route('admin.files.destroy', $file) }}" data-confirm="Hapus file pendukung “{{ $file->title }}”?">@csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink">Hapus</button></form>
                             </div>

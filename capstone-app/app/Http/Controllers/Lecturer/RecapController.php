@@ -22,10 +22,8 @@ class RecapController extends Controller
         return view('shared.recap', [
             'results' => $results,
             'clos' => $calculator->clos(),
-            'prodis' => collect(),
             'exportRoute' => 'dosen.recap.export',
             'complete' => $results->where('complete', true)->count(),
-            'showProdiFilter' => false,
         ]);
     }
 

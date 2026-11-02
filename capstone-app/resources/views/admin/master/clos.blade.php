@@ -1,4 +1,4 @@
-<x-layouts.app title="Resume CLO" section="Admin · Master penilaian">
+<x-layouts.app title="Resume CLO">
     <x-page-head title="Resume penilaian per CLO" lede="Kode, deskripsi, skema penilaian, dan pembagian bobot CLO ke setiap bentuk penilaian. Bobot CLO dihitung dari jumlah pembagiannya." />
     @include('admin.master._weights-summary')
 

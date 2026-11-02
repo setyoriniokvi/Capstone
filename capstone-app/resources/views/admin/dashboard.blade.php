@@ -1,4 +1,4 @@
-<x-layouts.app title="Ringkasan" section="Admin">
+<x-layouts.app title="Dashboard">
     @if (! $period)
         <x-page-head title="Selamat datang di Capstone" lede="Mulai dengan membuat periode Capstone, lalu atur timeline, aturan registrasi, dan impor data dosen serta mahasiswa." />
         <div class="panel">
@@ -7,63 +7,43 @@
             </x-empty>
         </div>
     @else
-        <x-page-head :title="$period->name" :lede="'Tahun akademik '.$period->academic_year.' · semester '.$period->semester.' · '.$period->starts_on->translatedFormat('j M').' – '.$period->ends_on->translatedFormat('j M Y')">
-            <x-slot:actions>
-                <a href="{{ route('admin.periods.edit', $period) }}" class="btn btn-secondary">Atur timeline</a>
-            </x-slot:actions>
-        </x-page-head>
+        {{-- Sambutan (sama dengan dashboard mahasiswa & dosen) + minggu berjalan --}}
+        @php $week = $period->currentWeek(); @endphp
+        <section class="hero-panel mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between" aria-labelledby="sambutan">
+            <div class="min-w-0">
+                <p class="text-sm text-on-brand-muted"><time datetime="{{ now()->toDateString() }}">{{ now()->translatedFormat('l, j F Y') }}</time></p>
+                <h1 id="sambutan" class="mt-1 text-h1 font-semibold">Selamat datang, Admin.</h1>
+                <p class="mt-2 max-w-[60ch] text-[0.9375rem] text-on-brand-muted">{{ $period->name }} · Tahun akademik {{ $period->academic_year }} · semester {{ $period->semester }}</p>
+            </div>
+            <p class="shrink-0 border-t border-on-brand-line pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:text-right">
+                @if ($week)
+                    <span class="block text-sm text-on-brand-muted">Minggu ke</span>
+                    <span class="tabular text-[2rem] font-semibold leading-none tracking-tight">{{ $week }}</span><span class="tabular text-on-brand-muted"> / {{ $period->displayWeeks() }}</span>
+                @else
+                    <span class="block text-sm text-on-brand-muted">Periode</span>
+                    <span class="font-semibold">{{ $period->name }}</span>
+                @endif
+            </p>
+        </section>
 
-        <x-capstone-timeline class="mb-6" :period="$period" :edit-href="route('admin.periods.edit', $period)" />
+        <x-capstone-timeline class="mb-6" :period="$period" with-assessments :bold-assessments="false" />
+
+        <x-todo-card class="mb-6" :actions="$todo" />
 
         <div class="grid gap-6 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-            <section class="panel">
-                <div class="panel-head"><h2 class="panel-title">Perlu tindakan</h2></div>
-                <ul class="divide-y divide-rule">
-                    @foreach ($actions as $action)
-                        <li>
-                            <a href="{{ $action['route'] }}" class="flex min-h-[52px] items-center justify-between gap-4 px-4 hover:bg-brand-wash sm:px-6">
-                                <span class="{{ $action['count'] ? 'text-ink' : 'text-muted' }}">{{ $action['label'] }}</span>
-                                <span class="tabular text-lg {{ $action['count'] ? 'font-medium text-ink' : 'text-faint' }}">{{ $action['count'] }}</span>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
+            {{-- Registrasi Tim + status mahasiswa (bar bertumpuk, tooltip saat disorot) --}}
+            <section class="panel divide-y divide-rule self-start" aria-label="Registrasi tim dan status mahasiswa">
+                <x-stacked-bar title="Registrasi Tim" :total="$registration['teamTotal'].' tim'" :href="route('admin.teams.index')" :counts="$registration['teams']"
+                               :items="['diterima' => ['Diterima', 'bg-brand'], 'menunggu' => ['Menunggu', 'bg-warn'], 'ditolak' => ['Ditolak', 'bg-bad']]" />
+                <x-stacked-bar title="Status Mahasiswa" :total="$registration['studentTotal'].' mahasiswa'" :href="route('admin.students.index')" :counts="$registration['students']"
+                               :items="['tergabung' => ['Tergabung tim', 'bg-brand'], 'menunggu' => ['Menunggu approval', 'bg-warn'], 'belum' => ['Belum ada tim', 'bg-rule-strong']]" />
             </section>
 
-            <div class="space-y-6">
-                <section class="panel">
-                    <div class="panel-head"><h2 class="panel-title">Registrasi tim</h2><span class="tabular text-sm text-muted">{{ $teamTotal }} tim</span></div>
-                    <div class="panel-body space-y-3">
-                        @php $statuses = ['diterima' => 'bg-brand', 'menunggu' => 'bg-warn', 'draft' => 'bg-rule-strong', 'ditolak' => 'bg-bad']; @endphp
-                        <div class="flex h-3 overflow-hidden rounded-sm bg-sunken" role="img" aria-label="Distribusi status registrasi tim">
-                            @foreach ($statuses as $status => $color)
-                                @if (($statusCounts[$status] ?? 0) > 0)
-                                    <span class="{{ $color }}" style="width: {{ $statusCounts[$status] / max(1, $teamTotal) * 100 }}%"></span>
-                                @endif
-                            @endforeach
-                        </div>
-                        <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                            @foreach ($statuses as $status => $color)
-                                <div class="flex items-center justify-between gap-2">
-                                    <dt class="flex items-center gap-2 text-muted"><span class="h-2 w-2 rounded-sm {{ $color }}"></span>{{ ucfirst($status) }}</dt>
-                                    <dd class="tabular">{{ $statusCounts[$status] ?? 0 }}</dd>
-                                </div>
-                            @endforeach
-                        </dl>
-                    </div>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-head"><h2 class="panel-title">Aktivitas dosen</h2></div>
-                    <dl class="kv panel-body">
-                        <dt>Log bimbingan menunggu</dt><dd class="tabular">{{ $pipeline['logbook_pending'] }}</dd>
-                        <dt>Lamaran topik menunggu</dt><dd class="tabular">{{ $pipeline['applications_pending'] }}</dd>
-                        <dt>Komponen nilai terisi</dt>
-                        <dd><span class="tabular">{{ $pipeline['assessment_done'] }}</span><span class="text-muted"> / {{ $pipeline['assessment_total'] }}</span>
-                            <a href="{{ route('admin.monitoring.assessments') }}" class="link ml-2 text-sm">Pantau</a></dd>
-                    </dl>
-                </section>
-            </div>
+            {{-- Status Dosen: peran dosen pada tim periode ini --}}
+            <section class="panel self-start" aria-label="Status dosen">
+                <x-stacked-bar title="Status Dosen" :total="$lecturers['total'].' dosen'" :href="route('admin.lecturers.index')" :counts="$lecturers['counts']"
+                               :items="['keduanya' => ['Pembimbing dan Penguji', 'bg-brand'], 'pembimbing' => ['Pembimbing saja', 'bg-accent'], 'penguji' => ['Penguji saja', 'bg-ink'], 'belum' => ['Belum ada role', 'bg-rule-strong']]" />
+            </section>
         </div>
     @endif
 </x-layouts.app>

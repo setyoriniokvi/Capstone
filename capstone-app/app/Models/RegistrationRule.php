@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class RegistrationRule extends Model
 {
     protected $fillable = [
-        'period_id', 'prodi_code', 'min_sks', 'min_members', 'max_members',
+        'period_id', 'min_sks', 'min_members', 'max_members',
         'require_distinct_region', 'require_distinct_specialization',
     ];
 

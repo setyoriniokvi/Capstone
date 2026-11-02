@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Period extends Model
 {
-    protected $fillable = ['name', 'academic_year', 'semester', 'prodi_name', 'starts_on', 'ends_on', 'is_active', 'drive_root_folder_id'];
+    protected $fillable = ['name', 'academic_year', 'semester', 'prodi_name', 'starts_on', 'ends_on', 'is_active',
+        'min_approved_logbooks'];
 
     protected function casts(): array
     {
@@ -16,7 +17,14 @@ class Period extends Model
             'starts_on' => 'date',
             'ends_on' => 'date',
             'is_active' => 'boolean',
+            'min_approved_logbooks' => 'integer',
         ];
+    }
+
+    /** Minimal log bimbingan disetujui (aturan tambahan periode); nilai config bila belum ada periode. */
+    public static function minLogbooks(?self $period): int
+    {
+        return $period?->min_approved_logbooks ?? (int) config('capstone.min_approved_logbooks');
     }
 
     public static function active(): ?self
@@ -46,11 +54,6 @@ class Period extends Model
     public function assessmentWindows(): HasMany
     {
         return $this->hasMany(AssessmentWindow::class);
-    }
-
-    public function driveFolders(): HasMany
-    {
-        return $this->hasMany(PeriodDriveFolder::class);
     }
 
     public function registrationRules(): HasMany
@@ -92,10 +95,10 @@ class Period extends Model
         return max(1, (int) ceil(($this->starts_on->diffInDays($this->ends_on) + 1) / 7));
     }
 
-    /** Jumlah minggu pada timeline: minimal 16 (PRD §10.3). */
+    /** Jumlah minggu pada timeline: mengikuti tanggal mulai & selesai periode. */
     public function displayWeeks(): int
     {
-        return max(16, $this->totalWeeks());
+        return $this->totalWeeks();
     }
 
     /** Minggu berjalan, atau null bila hari ini di luar rentang periode. */
@@ -104,10 +107,10 @@ class Period extends Model
         return now()->between($this->starts_on, $this->ends_on->copy()->endOfDay()) ? $this->weekOf(now()) : null;
     }
 
-    /** Minggu milestone: week_no isian admin, atau dihitung dari tenggatnya. */
+    /** Minggu milestone, dihitung dari deadlinenya. */
     public function weekOfMilestone(Milestone $milestone): int
     {
-        return $milestone->week_no ?: min($this->displayWeeks(), $this->weekOf($milestone->due_at));
+        return min($this->displayWeeks(), $this->weekOf($milestone->due_at));
     }
 
     public function milestoneOfKind(string $kind): ?Milestone

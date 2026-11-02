@@ -12,9 +12,9 @@
         $supervisor = $team->supervisor?->lecturer;
         $accepted = $team->applications->firstWhere('status', 'diterima');
         $pending = $team->applications->firstWhere('status', 'menunggu');
-        // Alur: done | current | upcoming
+        // Alur: done | current | upcoming. Topik mandiri & topik dosen diajukan paralel (keduanya opsional).
         $steps = [
-            ['label' => 'Pengajuan Topik Mandiri Tim', 'state' => $independent?->status === 'diterima' ? 'done' : 'current'],
+            ['label' => 'Pengajuan Topik Mandiri Tim (opsional)', 'state' => $independent?->status === 'diterima' ? 'done' : ($independent?->status === 'menunggu' ? 'current' : 'upcoming')],
             ['label' => 'Pengajuan Topik Dosen (opsional)', 'state' => $accepted ? 'done' : ($pending ? 'current' : 'upcoming')],
             ['label' => 'Topik Final', 'state' => $final ? 'done' : 'upcoming'],
         ];
@@ -79,7 +79,8 @@
                         <dt class="text-on-brand-muted">Objek Capstone</dt><dd>{{ $final->object }}</dd>
                         @if ($final->source === 'dosen')
                             @if ($final->competencies)<dt class="text-on-brand-muted">Kompetensi</dt><dd class="whitespace-pre-line">{{ $final->competencies }}</dd>@endif
-                            <dt class="text-on-brand-muted">Dosen pengusul</dt><dd>{{ $final->lecturer?->name }}</dd>
+                            @if ($final->specializations)<dt class="text-on-brand-muted">Peminatan</dt><dd>{{ implode(', ', $final->specializations) }}</dd>@endif
+                            <dt class="text-on-brand-muted">Dosen pengusul</dt><dd>{{ $final->proposers->isEmpty() ? $final->lecturer?->name : $final->proposers->pluck('name')->implode(', ') }}</dd>
                         @endif
                     </dl>
                 </div>

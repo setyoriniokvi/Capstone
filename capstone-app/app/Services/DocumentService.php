@@ -8,7 +8,6 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DriveOperation;
 use App\Models\Milestone;
-use App\Models\StudentDriveFolder;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\Drive\DriveGateway;
@@ -177,11 +176,11 @@ class DocumentService
         try {
             if ($document->drive_file_id) {
                 $action = 'update';
-                $this->drive->update($document->drive_file_id, $version->stored_name, $version->mime, $localPath);
+                $this->drive->update($document->drive_file_id, $this->driveName($document, $version), $version->mime, $localPath);
             } else {
                 $action = 'create';
-                $folderId = $this->studentFolder($document);
-                $fileId = $this->drive->upload($folderId, $version->stored_name, $version->mime, $localPath);
+                $folderId = $this->milestoneFolder($document);
+                $fileId = $this->drive->upload($folderId, $this->driveName($document, $version), $version->mime, $localPath);
                 $document->update(['drive_file_id' => $fileId, 'drive_folder_id' => $folderId]);
 
                 if (config('capstone.drive.share_with_owner')) {
@@ -200,35 +199,19 @@ class DocumentService
         $this->log($document, $version, $action, 'berhasil');
     }
 
-    /** F35 — folder per mahasiswa, dibuat saat unggahan pertama, ID disimpan. */
-    private function studentFolder(Document $document): string
+    /** F35 — dokumen diunggah ke folder Google Drive Database milestone dokumennya (diatur admin di halaman periode). */
+    private function milestoneFolder(Document $document): string
     {
-        $owner = $document->owner;
-        $period = $document->team->period;
+        $milestone = $document->milestone;
 
-        $existing = StudentDriveFolder::query()->where('user_id', $owner->id)->where('period_id', $period->id)->first();
-        if ($existing) {
-            return $existing->folder_id;
-        }
+        return $milestone?->drive_folder_id
+            ?? throw new RuntimeException('Folder Google Drive Database untuk milestone '.($milestone?->name ?? 'ini').' belum diisi.');
+    }
 
-        $parent = $period->driveFolders()->where('prodi_code', $owner->prodi_code)->value('folder_id')
-            ?? $period->drive_root_folder_id;
-
-        if (! $parent) {
-            throw new RuntimeException("Folder Drive untuk prodi {$owner->prodi_code} pada periode ini belum dikonfigurasi.");
-        }
-
-        $name = trim(($owner->nim ? $owner->nim.' - ' : '').$owner->name);
-        $folderId = $this->drive->createFolder($name, $parent);
-
-        StudentDriveFolder::create([
-            'user_id' => $owner->id,
-            'period_id' => $period->id,
-            'folder_id' => $folderId,
-            'folder_name' => $name,
-        ]);
-
-        return $folderId;
+    /** Nama file di Drive diawali kode tim agar file seluruh tim dalam satu folder milestone mudah dibedakan. */
+    private function driveName(Document $document, DocumentVersion $version): string
+    {
+        return $document->team->code.'_'.$version->stored_name;
     }
 
     private function log(Document $document, ?DocumentVersion $version, string $action, string $status, ?string $error = null, ?User $actor = null): void

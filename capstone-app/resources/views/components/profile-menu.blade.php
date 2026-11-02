@@ -21,8 +21,8 @@
                 <p class="truncate text-sm text-muted" title="{{ $user->email }}">{{ $user->email }}</p>
                 @if ($user->nim)
                     <p class="code truncate text-caption text-muted">{{ $user->nim }}</p>
-                @elseif ($user->prodi_code)
-                    <p class="truncate text-caption text-muted">{{ $user->roleLabel() }} · {{ $user->prodi_code }}</p>
+                @else
+                    <p class="truncate text-caption text-muted">{{ $user->roleLabel() }}</p>
                 @endif
             </div>
         </div>

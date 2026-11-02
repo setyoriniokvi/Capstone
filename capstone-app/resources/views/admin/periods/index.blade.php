@@ -1,6 +1,6 @@
 {{-- Dashboard awal admin (tanpa sidebar): kelola periode, lalu buka "Dashboard Periode" untuk mengelola isinya.
      Periode aktif = periode yang dipakai mahasiswa & dosen; membuka dashboard periode tidak mengubahnya. --}}
-<x-layouts.app title="Kelola Periode" section="Admin · Kelola periode">
+<x-layouts.app title="Kelola Periode">
     <x-page-head title="Kelola Periode" lede="Atur periode, timeline, dan aturan registrasinya di sini. Buka dashboard periode untuk mengelola tim, topik, penilaian, dan data lain pada periode tersebut.">
         <x-slot:actions><a href="{{ route('admin.periods.create') }}" class="btn btn-primary"><x-heroicon-o-plus class="h-5 w-5" />Periode baru</a></x-slot:actions>
     </x-page-head>

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 /*
-| F48 — notifikasi tenggat yang mendekat bagi mahasiswa (dalam aplikasi).
+| F48 — notifikasi deadline yang mendekat bagi mahasiswa (dalam aplikasi).
 | Pengingat dosen dikirim lewat workflow n8n (lihat ReminderService).
 | Jalankan scheduler di server: * * * * * php artisan schedule:run
 */
@@ -37,7 +37,7 @@ Artisan::command('capstone:notify-deadlines {--hours=48}', function () {
                     continue;
                 }
 
-                SystemNotice::sendTo([$student], 'Tenggat mendekat: '.$milestone->name,
+                SystemNotice::sendTo([$student], 'Deadline mendekat: '.$milestone->name,
                     'Batas waktu '.$milestone->due_at->translatedFormat('l, j F Y H:i').' WIB ('.$milestone->due_at->diffForHumans().').',
                     route($milestone->kind === 'dokumen' ? 'mahasiswa.documents.index' : 'mahasiswa.peer.index'));
                 $sent++;
@@ -45,7 +45,7 @@ Artisan::command('capstone:notify-deadlines {--hours=48}', function () {
         }
     }
 
-    $this->info("{$sent} notifikasi tenggat dikirim.");
-})->purpose('Kirim notifikasi tenggat milestone yang mendekat ke mahasiswa');
+    $this->info("{$sent} notifikasi deadline dikirim.");
+})->purpose('Kirim notifikasi deadline milestone yang mendekat ke mahasiswa');
 
 Schedule::command('capstone:notify-deadlines')->hourly()->withoutOverlapping();

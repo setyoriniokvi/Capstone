@@ -13,8 +13,8 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * F1 — login dengan email + password. Akun dibuat admin (impor / input manual);
- * peran diambil dari data akun.
+ * F1 — login dengan email + password. Akun dibuat admin (impor / input manual) atau lewat
+ * registrasi tim mahasiswa (F21); peran diambil dari data akun.
  */
 class LoginController extends Controller
 {
@@ -34,6 +34,11 @@ class LoginController extends Controller
         ]);
 
         $user = User::query()->where('email', Str::lower($credentials['email']))->first();
+
+        // Akun anggota yang dibuat ketua belum punya password sampai tim diterima admin (tautan atur password).
+        if ($user?->isStudent() && $user->awaitingActivation()) {
+            return back()->withErrors(['email' => 'Akun Anda belum memiliki password. Atur password lewat tautan di email yang dikirim saat tim Anda diterima admin.'])->onlyInput('email');
+        }
 
         if (! $user || ! $user->password || ! Hash::check($credentials['password'], $user->password)) {
             return back()->withErrors(['email' => 'Email atau password salah.'])->onlyInput('email');

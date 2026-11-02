@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Milestone;
+use App\Models\Period;
 use App\Models\Team;
 use App\Services\DocumentService;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,7 @@ use Illuminate\View\View;
  */
 class DocumentController extends StudentController
 {
-    /** Pilihan rentang tampilan: semua milestone, atau tenggat dalam 7 / 30 hari ke depan. */
+    /** Pilihan rentang tampilan: semua milestone, atau deadline dalam 7 / 30 hari ke depan. */
     public const RANGES = ['semua' => 'Semua', '7' => '7 hari ke depan', '30' => '30 hari ke depan'];
 
     public function index(Request $request, DocumentService $documents): View
@@ -44,7 +45,7 @@ class DocumentController extends StudentController
             'gate' => $this->gate($team),
             'driveEnabled' => $documents->driveEnabled(),
             'approvedLogbooks' => $team?->approvedLogbookCount() ?? 0,
-            'minLogbooks' => config('capstone.min_approved_logbooks'),
+            'minLogbooks' => Period::minLogbooks($team?->period),
         ]);
     }
 
@@ -56,8 +57,9 @@ class DocumentController extends StudentController
         if ($error = $this->gate($team)) {
             throw ValidationException::withMessages(['file' => $error]);
         }
-        if ($milestone->document_type === 'materi_presentasi' && $team->approvedLogbookCount() < config('capstone.min_approved_logbooks')) {
-            throw ValidationException::withMessages(['file' => 'Minimal '.config('capstone.min_approved_logbooks').' logbook harus disetujui sebelum presentasi akhir.']);
+        $minLogbooks = Period::minLogbooks($team->period);
+        if ($milestone->requiresLogbookMinimum() && $team->approvedLogbookCount() < $minLogbooks) {
+            throw ValidationException::withMessages(['file' => 'Minimal '.$minLogbooks.' log bimbingan harus disetujui sebelum mengumpulkan '.$milestone->name.'.']);
         }
 
         $request->validate([
@@ -79,14 +81,6 @@ class DocumentController extends StudentController
         }
 
         return back()->with('status', $message);
-    }
-
-    public function destroy(Request $request, Document $document, DocumentService $documents): RedirectResponse
-    {
-        $this->authorizeTeam($document);
-        $documents->delete($document, $request->user());
-
-        return back()->with('status', 'Pengumpulan dihapus (file dipindahkan ke Trash).');
     }
 
     public function retry(Request $request, DocumentVersion $version, DocumentService $documents): RedirectResponse

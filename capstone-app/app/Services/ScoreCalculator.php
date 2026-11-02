@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Assessment;
+use App\Models\AssessmentComponent;
 use App\Models\Clo;
 use App\Models\Indicator;
 use App\Models\PeerReview;
@@ -16,6 +17,7 @@ use Illuminate\Support\Collection;
  *   nilai CLO       = Σ nilai indikator milik CLO tersebut (poin dari total 100)
  *   nilai akhir     = Σ nilai CLO
  * CLO yang bersumber dari peer review bersifat individual (Alur §6.6).
+ * Bentuk penilaian yang dinilai pembimbing & penguji sekaligus: nilai keduanya wajib final, poinnya dirata-rata.
  */
 class ScoreCalculator
 {
@@ -43,7 +45,7 @@ class ScoreCalculator
     public function lecturerComponents(): array
     {
         return collect(config('capstone.components'))
-            ->reject(fn ($c) => $c['role'] === 'mahasiswa')
+            ->reject(fn ($c) => in_array('mahasiswa', $c['roles'] ?? [$c['role']], true))
             ->keys()
             ->filter(fn ($key) => $this->indicatorsFor($key)->isNotEmpty())
             ->values()
@@ -56,6 +58,37 @@ class ScoreCalculator
     }
 
     /**
+     * Hasil penilaian dosen per bentuk penilaian untuk satu tim: status (final / draft / belum) dan poin
+     * yang diperoleh dari bobot maksimal komponen — memakai rumus yang sama dengan forTeam().
+     *
+     * @return Collection<int, array{component: string, label: string, role: string, status: string, points: float, max: float}>
+     */
+    public function componentSummary(Team $team): Collection
+    {
+        $team->loadMissing('assessments.scores');
+
+        return collect($this->lecturerComponents())->map(function (string $component) use ($team) {
+            $indicators = $this->indicatorsFor($component);
+            $finals = $this->finalsFor($team, $component);
+            $complete = ! $finals->contains(null);
+
+            return [
+                'component' => $component,
+                'label' => config("capstone.components.{$component}.label"),
+                'role' => config("capstone.components.{$component}.role"),
+                'roles' => AssessmentComponent::rolesOf($component),
+                'status' => match (true) {
+                    $complete => 'final',
+                    $team->assessments->contains('component', $component) => 'draft',
+                    default => 'belum',
+                },
+                'points' => round($complete ? $finals->avg(fn (Assessment $a) => $this->assessmentPoints($a, $component, $indicators)) : 0, 2),
+                'max' => round($indicators->sum(fn (Indicator $i) => $i->weightFor($component)), 2),
+            ];
+        });
+    }
+
+    /**
      * Nilai per mahasiswa dalam satu tim.
      *
      * @return array{rows: Collection, missing: list<string>, complete: bool}
@@ -63,25 +96,26 @@ class ScoreCalculator
     public function forTeam(Team $team): array
     {
         $team->loadMissing(['activeUsers', 'assessments.scores', 'lecturers']);
-        $finals = $team->assessments->where('status', 'final')->keyBy('component');
         $missing = [];
 
         $teamPoints = []; // clo_id => poin dari penilaian dosen
         foreach ($this->lecturerComponents() as $component) {
-            /** @var Assessment|null $assessment */
-            $assessment = $finals->get($component);
-            if (! $assessment) {
+            $finals = $this->finalsFor($team, $component);
+            if ($finals->contains(null)) {
                 $missing[] = $component;
 
                 continue;
             }
-            foreach ($assessment->scores as $score) {
-                $indicator = $this->indicators()->firstWhere('id', $score->indicator_id);
-                if (! $indicator) {
-                    continue;
+            // Dinilai beberapa penilai → poin tiap penilai dirata-rata.
+            foreach ($finals as $assessment) {
+                foreach ($assessment->scores as $score) {
+                    $indicator = $this->indicators()->firstWhere('id', $score->indicator_id);
+                    if (! $indicator) {
+                        continue;
+                    }
+                    $teamPoints[$indicator->clo_id] = ($teamPoints[$indicator->clo_id] ?? 0)
+                        + $this->indicatorValue($indicator, $component, $score->score, $score->factor) / $finals->count();
                 }
-                $teamPoints[$indicator->clo_id] = ($teamPoints[$indicator->clo_id] ?? 0)
-                    + $this->indicatorValue($indicator, $component, $score->score, $score->factor);
             }
         }
 
@@ -125,15 +159,47 @@ class ScoreCalculator
         return ['rows' => $rows, 'missing' => $missing, 'complete' => $missing === []];
     }
 
+    /**
+     * Penilaian final per penilai bentuk penilaian (null bila penilai tersebut belum final).
+     *
+     * @return Collection<int, ?Assessment>
+     */
+    private function finalsFor(Team $team, string $component): Collection
+    {
+        $finals = $team->assessments->where('component', $component)->where('status', 'final');
+        $roles = AssessmentComponent::rolesOf($component);
+
+        // Satu penilai: penilaian final mana pun untuk bentuk ini (data lama mungkin tanpa kecocokan peran).
+        return count($roles) <= 1
+            ? collect([$finals->first()])
+            : collect($roles)->map(fn ($role) => $finals->firstWhere('assessor_role', $role))->values();
+    }
+
+    private function assessmentPoints(Assessment $assessment, string $component, Collection $indicators): float
+    {
+        return $assessment->scores->sum(function ($score) use ($component, $indicators) {
+            $indicator = $indicators->firstWhere('id', $score->indicator_id);
+
+            return $indicator ? $this->indicatorValue($indicator, $component, $score->score, $score->factor) : 0;
+        });
+    }
+
     public function grade(float $total): string
     {
-        foreach (config('capstone.grade_scale') as $step) {
-            if ($total >= $step['min']) {
-                return $step['grade'];
-            }
-        }
+        return $this->gradeInfo($total)['grade'];
+    }
 
-        return '-';
+    /**
+     * Indeks nilai dari nilai akhir (NSM 0–100): A bila NSM > 85, AB bila 75 < NSM ≤ 85, dst. (config capstone.grade_scale).
+     *
+     * @return array{grade: string, point: float, label: string}
+     */
+    public function gradeInfo(float $total): array
+    {
+        $scale = config('capstone.grade_scale');
+        $step = collect($scale)->first(fn (array $s) => $s['above'] === null || $total > $s['above']) ?? end($scale);
+
+        return ['grade' => $step['grade'], 'point' => (float) $step['point'], 'label' => $step['label']];
     }
 
     /** Ringkasan bobot master data untuk validasi F13 (total 100). */

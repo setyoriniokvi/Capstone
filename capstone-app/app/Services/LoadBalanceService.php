@@ -19,10 +19,7 @@ class LoadBalanceService
     public function quotaFor(User $lecturer, Period $period): array
     {
         $quotas = $this->quotas ??= LoadQuota::query()->where('period_id', $period->id)->get();
-        $category = $lecturer->lecturerProfile?->category();
-
         $quota = $quotas->first(fn ($q) => $q->scope === 'dosen' && $q->lecturer_id === $lecturer->id)
-            ?? $quotas->first(fn ($q) => $q->scope === 'kategori' && $q->category === $category)
             ?? $quotas->firstWhere('scope', 'global');
 
         $values = [
@@ -42,7 +39,7 @@ class LoadBalanceService
     /**
      * @return Collection<int, array{lecturer: User, counts: array, quota: array, flags: array}>
      */
-    public function rows(Period $period, ?string $prodi = null): Collection
+    public function rows(Period $period): Collection
     {
         $counts = TeamLecturer::query()
             ->whereHas('team', fn ($q) => $q->where('period_id', $period->id))
@@ -53,8 +50,6 @@ class LoadBalanceService
 
         return User::query()->lecturers()->where('is_active', true)
             ->with('lecturerProfile')
-            ->when($prodi, fn ($q) => $q->where('prodi_code', $prodi))
-            ->whereHas('lecturerProfile', fn ($q) => $q->where('can_supervise', true)->orWhere('can_examine', true))
             ->orderBy('name')
             ->get()
             ->map(function (User $lecturer) use ($counts, $period) {

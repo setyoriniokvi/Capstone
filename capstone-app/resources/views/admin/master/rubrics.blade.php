@@ -1,4 +1,4 @@
-<x-layouts.app title="Rubrik Dokumen" section="Admin · Master penilaian">
+<x-layouts.app title="Rubrik Dokumen">
     <x-page-head title="Rubrik penilaian dokumen" lede="Deskripsi tiap tingkat skor per indikator: 5 Sangat Baik (95), 4 Baik (80), 3 Cukup (70), 2 Kurang (50), 1 Sangat Kurang (40), 0 Tidak Mengumpulkan (0)." />
     <div class="panel">
         @if ($indicators->isEmpty())

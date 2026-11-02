@@ -1,10 +1,12 @@
 @php
     $editing = $period->exists;
     $dt = fn ($v) => $v ? $v->format('Y-m-d\TH:i') : '';
-    $components = collect(config('capstone.components'))->except('peer_review');
+    // Bentuk penilaian dosen (peer review diisi mahasiswa, tidak dijadwalkan di sini).
+    $components = \App\Models\AssessmentComponent::query()->orderBy('sort_order')->orderBy('id')->get()
+        ->reject(fn ($c) => in_array('mahasiswa', $c->roles, true));
 @endphp
-<x-layouts.app :title="$editing ? $period->name : 'Periode baru'" section="Admin · Periode">
-    <x-page-head :title="$editing ? $period->name : 'Periode baru'" lede="Atur rentang periode, jendela penilaian, folder Google Drive per prodi, serta milestone dan tenggat setiap tahapan.">
+<x-layouts.app :title="$editing ? $period->name : 'Periode baru'">
+    <x-page-head :title="$editing ? $period->name : 'Periode baru'" lede="Atur rentang periode, jendela penilaian, aturan tambahan, folder Google Drive, serta milestone dan deadline setiap tahapan.">
         <x-slot:actions>
             <a href="{{ route('admin.periods.index') }}" class="btn btn-ghost">Kembali</a>
             @if ($editing)
@@ -45,7 +47,7 @@
                 <x-field label="Tanggal mulai (minggu ke-1)" name="starts_on" required>
                     <input type="date" id="starts_on" form="period-form" name="starts_on" class="input" value="{{ old('starts_on', $period->starts_on?->format('Y-m-d')) }}" required>
                 </x-field>
-                <x-field label="Tanggal selesai (minggu ke-16)" name="ends_on" required>
+                <x-field label="Tanggal selesai" name="ends_on" required>
                     <input type="date" id="ends_on" form="period-form" name="ends_on" class="input" value="{{ old('ends_on', $period->ends_on?->format('Y-m-d')) }}" required>
                 </x-field>
             </div>
@@ -96,18 +98,19 @@
         </section>
 
         @if ($editing)
+        <x-capstone-timeline :period="$period" :list="false" />
+
         <section class="panel">
             <div class="panel-head">
                 <h2 class="panel-title">Milestone</h2>
                 <span class="text-sm text-muted">{{ $period->milestones->count() }} milestone</span>
             </div>
             @if ($period->milestones->isNotEmpty())
-                <div class="panel-body border-b border-rule"><x-week-ruler :period="$period" /></div>
                 <ul class="divide-y divide-rule">
                     @foreach ($period->milestones as $m)
                         <li x-data="disclosure" class="px-4 py-3 sm:px-6">
                             <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                <span class="w-14 shrink-0 tabular text-sm text-muted">{{ $m->week_no ? 'Mg '.$m->week_no : '—' }}</span>
+                                <span class="w-14 shrink-0 tabular text-sm text-muted">Mg {{ $period->weekOfMilestone($m) }}</span>
                                 <div class="min-w-0 flex-1">
                                     <p class="font-medium">{{ $m->name }}</p>
                                     <p class="text-sm text-muted"><span class="mr-1 rounded-md border border-rule bg-sunken px-1.5 py-0.5 text-caption font-medium">{{ config('capstone.milestone_categories.'.$m->category()) }}</span> @if ($m->document_type){{ config('capstone.document_types.'.$m->document_type) }} ({{ $m->fileTypesLabel() }})@else{{ $m->kindLabel() }}@endif · {{ $m->starts_at->translatedFormat('j M H:i') }} → {{ $m->due_at->translatedFormat('j M Y H:i') }}</p>
@@ -125,53 +128,107 @@
                     @endforeach
                 </ul>
             @endif
-            <div class="border-t border-rule bg-sunken px-4 py-4 sm:px-6">
-                <h3 class="mb-3 text-sm font-semibold">Tambah milestone</h3>
-                @include('admin.periods._milestone-fields', ['m' => new \App\Models\Milestone(['kind' => 'dokumen']), 'action' => route('admin.milestones.store', $period), 'method' => 'POST', 'submit' => 'Tambah'])
+            {{-- Tambah milestone lewat modal di atas halaman; terbuka lagi bila simpan gagal validasi. --}}
+            <div x-data="registrationForm" data-open="{{ $errors->hasAny(['category', 'kind', 'document_type', 'allowed_types', 'starts_at', 'due_at']) && old('_method') !== 'PUT' && ! old('_component') ? 'true' : 'false' }}"
+                 class="border-t border-rule px-4 py-4 sm:px-6">
+                <button type="button" class="btn btn-secondary" @click="open" :aria-expanded="expanded">
+                    <x-heroicon-o-plus class="h-5 w-5" /> Tambah Milestone
+                </button>
+                <x-modal width="sm:max-w-3xl">
+                    <x-slot:heading>Tambah milestone</x-slot:heading>
+                    @include('admin.periods._milestone-fields', ['m' => new \App\Models\Milestone(['kind' => 'dokumen']), 'action' => route('admin.milestones.store', $period), 'method' => 'POST', 'submit' => 'Tambah'])
+                </x-modal>
             </div>
         </section>
         @else
         <section class="panel"><div class="panel-head"><h2 class="panel-title">Milestone</h2></div><p class="panel-body text-sm text-muted">Simpan periode terlebih dahulu untuk menambahkan milestone.</p></section>
         @endif
 
+        {{-- Jadwal pengisian nilai dosen: CRUD bentuk penilaian dosen + jadwal di periode ini (modal tambah/ubah di atas halaman). --}}
         <section class="panel">
             <div class="panel-head">
                 <h2 class="panel-title">Jadwal pengisian nilai dosen</h2>
                 <p class="text-sm text-muted">Kapan dosen dapat mengisi nilai tiap bentuk penilaian; dipakai pengingat dosen dan QR penilaian.</p>
             </div>
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead><tr><th>Bentuk penilaian</th><th>Penilai</th><th>Dibuka</th><th>Tenggat</th></tr></thead>
-                    <tbody>
-                        @foreach ($components as $key => $meta)
-                            @php $w = $period->assessmentWindows?->firstWhere('component', $key); @endphp
-                            <tr>
-                                <td class="font-medium">{{ $meta['label'] }}</td>
-                                <td class="capitalize text-muted">{{ $meta['role'] }}</td>
-                                <td><label class="sr-only" for="w-{{ $key }}-o">Dibuka {{ $meta['label'] }}</label><input id="w-{{ $key }}-o" type="datetime-local" form="period-form" name="windows[{{ $key }}][opens_at]" class="input min-w-[13rem]" value="{{ old("windows.$key.opens_at", $dt($w?->opens_at)) }}"></td>
-                                <td><label class="sr-only" for="w-{{ $key }}-d">Tenggat {{ $meta['label'] }}</label><input id="w-{{ $key }}-d" type="datetime-local" form="period-form" name="windows[{{ $key }}][due_at]" class="input min-w-[13rem]" value="{{ old("windows.$key.due_at", $dt($w?->due_at)) }}"></td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            @if ($editing)
+                @error('component')<p class="mx-4 mb-4 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink sm:mx-6">{{ $message }}</p>@enderror
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>Bentuk penilaian</th><th>Penilai</th><th>Dibuka</th><th>Deadline</th><th><span class="sr-only">Aksi</span></th></tr></thead>
+                        <tbody>
+                            @foreach ($components as $c)
+                                @php $w = $period->assessmentWindows?->firstWhere('component', $c->key); @endphp
+                                <tr x-data="registrationForm" data-open="{{ old('_component') === (string) $c->id && $errors->any() ? 'true' : 'false' }}">
+                                    <td class="font-medium">{{ $c->label }}</td>
+                                    <td class="text-muted">{{ $c->rolesLabel() }}</td>
+                                    <td class="tabular {{ $w ? 'text-ink' : 'text-muted' }}">{{ $w ? $w->opens_at->translatedFormat('j M Y, H:i') : 'Belum diatur' }}</td>
+                                    <td class="tabular {{ $w ? 'text-ink' : 'text-muted' }}">{{ $w ? $w->due_at->translatedFormat('j M Y, H:i') : 'Belum diatur' }}</td>
+                                    <td>
+                                        <div class="flex justify-end gap-1">
+                                            <button type="button" class="btn btn-ghost btn-sm" @click="toggle" :aria-expanded="expanded">Ubah</button>
+                                            <form method="POST" action="{{ route('admin.periods.components.destroy', [$period, $c]) }}" data-confirm="Hapus bentuk penilaian “{{ $c->label }}”? Jadwal di semua periode dan bobotnya di CLO & indikator ikut terhapus.">@csrf @method('DELETE')
+                                                <button class="btn btn-ghost btn-sm text-bad-ink" aria-label="Hapus {{ $c->label }}">Hapus</button>
+                                            </form>
+                                        </div>
+                                        <x-modal width="sm:max-w-xl">
+                                            <x-slot:heading>Ubah bentuk penilaian · {{ $c->label }}</x-slot:heading>
+                                            @include('admin.periods._component-fields', ['c' => $c, 'w' => $w, 'action' => route('admin.periods.components.update', [$period, $c]), 'method' => 'PUT', 'submit' => 'Simpan'])
+                                        </x-modal>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                {{-- Tambah bentuk penilaian lewat modal di atas halaman; terbuka lagi bila simpan gagal validasi. --}}
+                <div x-data="registrationForm" data-open="{{ old('_component') === 'baru' && $errors->any() ? 'true' : 'false' }}" class="border-t border-rule px-4 py-4 sm:px-6">
+                    <button type="button" class="btn btn-secondary" @click="open" :aria-expanded="expanded">
+                        <x-heroicon-o-plus class="h-5 w-5" /> Tambah Jadwal Penilaian
+                    </button>
+                    <x-modal width="sm:max-w-xl">
+                        <x-slot:heading>Tambah jadwal penilaian</x-slot:heading>
+                        @include('admin.periods._component-fields', ['c' => new \App\Models\AssessmentComponent(['roles' => []]), 'w' => null, 'action' => route('admin.periods.components.store', $period), 'method' => 'POST', 'submit' => 'Tambah'])
+                    </x-modal>
+                </div>
+            @else
+                <p class="panel-body text-sm text-muted">Simpan periode terlebih dahulu untuk mengatur jadwal pengisian nilai.</p>
+            @endif
+        </section>
+
+        {{-- Aturan tambahan periode: syarat log bimbingan (dipakai berdasarkan jenis dokumen milestone). --}}
+        <section class="panel">
+            <div class="panel-head">
+                <h2 class="panel-title">Aturan tambahan</h2>
+            </div>
+            <div class="panel-body">
+                <x-field label="Minimal log bimbingan disetujui" name="min_approved_logbooks" required
+                         hint="Syarat sebelum tim dapat mengumpulkan dokumen berjenis Laporan Akhir dan Materi Presentasi, serta sebelum penilaian sidang. Isi 0 bila tanpa syarat.">
+                    <input id="min_approved_logbooks" form="period-form" type="number" min="0" max="50" name="min_approved_logbooks" class="input tabular sm:max-w-[10rem]"
+                           value="{{ old('min_approved_logbooks', $period->min_approved_logbooks ?? config('capstone.min_approved_logbooks')) }}" required>
+                </x-field>
             </div>
         </section>
 
+        {{-- F35 — satu folder Google Drive per milestone dokumen; isian bertambah/berkurang mengikuti milestone berjenis Dokumen. --}}
         <section class="panel">
             <div class="panel-head">
-                <h2 class="panel-title">Folder Google Drive</h2>
-                <p class="text-sm text-muted">Isi ID folder (bagian akhir URL folder). Folder per mahasiswa dibuat otomatis di dalamnya.</p>
+                <h2 class="panel-title">Folder Google Drive Database</h2>
+                <p class="text-sm text-muted">Isi tautan folder untuk setiap milestone dokumen. Dokumen tim diunggah ke folder milestone-nya.</p>
             </div>
-            <div class="panel-body grid gap-4 sm:grid-cols-2">
-                <x-field label="Folder induk (cadangan)" name="drive_root_folder_id" class="sm:col-span-2" hint="Dipakai bila prodi belum memiliki folder sendiri.">
-                    <input id="drive_root_folder_id" form="period-form" name="drive_root_folder_id" class="input tabular" value="{{ old('drive_root_folder_id', $period->drive_root_folder_id) }}">
-                </x-field>
-                @foreach ($prodis as $prodi)
-                    <x-field :label="'Prodi '.$prodi->code.' — '.$prodi->name" :name="'folders.'.$prodi->code">
-                        <input form="period-form" id="folders.{{ $prodi->code }}" name="folders[{{ $prodi->code }}]" class="input tabular" value="{{ old("folders.{$prodi->code}", $period->driveFolders?->firstWhere('prodi_code', $prodi->code)?->folder_id) }}">
-                    </x-field>
-                @endforeach
-            </div>
+            @php $documentMilestones = $editing ? $period->milestones->where('kind', 'dokumen')->values() : collect(); @endphp
+            @if ($documentMilestones->isEmpty())
+                <p class="panel-body text-sm text-muted">{{ $editing ? 'Belum ada milestone berjenis Dokumen. Isian folder muncul otomatis setelah milestone dokumen ditambahkan.' : 'Simpan periode dan tambahkan milestone dokumen terlebih dahulu.' }}</p>
+            @else
+                <div class="panel-body grid gap-4 sm:grid-cols-2">
+                    @foreach ($documentMilestones as $m)
+                        <x-field :label="$m->name" name="drive_folders.{{ $m->id }}"
+                                 :hint="$m->drive_folder_id ? null : 'Bila kosong, dokumen milestone ini belum disinkronkan ke Google Drive.'">
+                            <input id="drive_folders.{{ $m->id }}" form="period-form" name="drive_folders[{{ $m->id }}]" class="input" inputmode="url"
+                                   value="{{ old('drive_folders.'.$m->id, $m->driveFolderUrl()) }}" placeholder="https://drive.google.com/drive/folders/…">
+                        </x-field>
+                    @endforeach
+                </div>
+            @endif
         </section>
 
     </div>

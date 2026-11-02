@@ -18,29 +18,30 @@ class TopicController extends StudentController
     {
         $period = $this->period();
         $team = $this->team()?->load([
-            'independentTopic.reviewer', 'finalTopic.lecturer.lecturerProfile', 'supervisor.lecturer',
+            'independentTopic.reviewer', 'finalTopic.lecturer.lecturerProfile', 'finalTopic.proposers', 'supervisor.lecturer',
             'applications' => fn ($q) => $q->latest()->with('topic.lecturer'),
         ]);
 
-        // Bank topik dosen; peminatan = kompetensi yang diharapkan pada topik (dipilih dosen dari peminatan prodi periode).
+        // Bank topik dosen; peminatan dipilih dosen dari peminatan prodi periode.
         $all = Topic::query()->published()->where('period_id', $period->id)
-            ->with('lecturer.lecturerProfile', 'studyProgram')
+            ->with('lecturer.lecturerProfile', 'proposers')
             ->withCount(['applications as accepted_count' => fn ($q) => $q->where('status', 'diterima')])
             ->get();
-        $specializations = $all->pluck('competencies')->filter()->unique()->sort()->values();
+        $specializations = $all->pluck('specializations')->flatten()->filter()->unique()->sort()->values();
 
         $topics = Topic::filterBank($all, (string) $request->query('q'), (string) $request->query('peminatan'));
 
         $independent = $team?->independentTopic;
+        $acceptedByLecturer = (bool) $team?->applications->contains('status', 'diterima');
 
+        // Topik mandiri (opsional) dan topik dosen diajukan paralel; keduanya tertutup setelah tim diterima di topik dosen.
         return view('mahasiswa.topic', [
             'tab' => $request->query('tab') === 'dosen' ? 'dosen' : 'saya',
             'team' => $team,
             'independent' => $independent,
-            'canSubmitIndependent' => $team?->status === 'diterima' && $independent?->status !== 'diterima',
+            'canSubmitIndependent' => $team?->status === 'diterima' && $independent?->status !== 'diterima' && ! $acceptedByLecturer,
             // Boleh mengajukan beberapa topik selama belum ada yang diterima dosen.
-            'canApply' => $team?->status === 'diterima' && $independent?->status === 'diterima'
-                && ! $team->applications->contains('status', 'diterima'),
+            'canApply' => $team?->status === 'diterima' && ! $acceptedByLecturer,
             'topics' => $topics,
             'specializations' => $specializations,
         ]);

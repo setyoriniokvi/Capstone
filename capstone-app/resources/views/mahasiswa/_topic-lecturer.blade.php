@@ -41,7 +41,7 @@
     @if ($accepted)
         <p class="mb-6 flex items-center gap-3 rounded-lg border border-ok-line bg-ok-tint px-4 py-3 text-sm text-ok-ink"><x-heroicon-o-information-circle class="h-5 w-5 shrink-0" />Tim Anda sudah memiliki topik final. Pengajuan topik dosen dinonaktifkan.</p>
     @elseif (! $canApply)
-        <p class="mb-6 flex items-center gap-3 rounded-lg border border-rule bg-sunken px-4 py-3 text-sm text-muted"><x-heroicon-o-information-circle class="h-5 w-5 shrink-0" />Pengajuan topik dosen dibuka setelah registrasi tim dan topik mandiri diterima.</p>
+        <p class="mb-6 flex items-center gap-3 rounded-lg border border-rule bg-sunken px-4 py-3 text-sm text-muted"><x-heroicon-o-information-circle class="h-5 w-5 shrink-0" />Pengajuan topik dosen dibuka setelah registrasi tim diterima admin.</p>
     @endif
 
     {{-- Pencarian + filter peminatan (dropdown di samping kolom cari) --}}
@@ -63,7 +63,7 @@
     {{-- Keterangan warna baris --}}
     <ul class="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted" aria-label="Keterangan warna baris">
         <li class="flex items-center gap-2"><span class="h-4 w-4 rounded-[3px] border border-rule-strong bg-surface" aria-hidden="true"></span>Topik tersedia</li>
-        <li class="flex items-center gap-2"><span class="h-4 w-4 rounded-[3px] border border-rule-strong bg-sunken" aria-hidden="true"></span>Kuota penuh</li>
+        <li class="flex items-center gap-2"><span class="h-4 w-4 rounded-[3px] border border-bad bg-bad-tint" aria-hidden="true"></span>Kuota penuh</li>
         <li class="flex items-center gap-2"><span class="h-4 w-4 rounded-[3px] border border-brand bg-brand-tint" aria-hidden="true"></span>Topik yang saya ajukan</li>
     </ul>
     <p class="mb-6 text-caption text-muted">Tim boleh mengajukan lebih dari satu topik. Begitu satu topik diterima dosen, pengajuan lain yang masih menunggu otomatis dibatalkan.</p>
@@ -75,11 +75,11 @@
         @else
             {{-- Kolom berlebar lega; bila melebihi layar tabel digeser ke samping
                  (wrapper sengaja bukan .table-wrap agar tidak diubah ke tampilan kartu). --}}
-            <div class="overflow-x-auto">
-                <table class="data-table w-full min-w-[111rem] table-fixed [&_td]:px-4 [&_td]:py-4 [&_th]:px-4 [&_tbody_tr:hover_td]:bg-transparent">
+            <x-scroll-pager>
+                <table class="data-table w-full min-w-[127rem] table-fixed [&_td]:px-4 [&_td]:py-4 [&_th]:px-4 [&_tbody_tr:hover_td]:bg-transparent">
                     <colgroup>
-                        <col class="w-[4rem]"><col class="w-[14rem]"><col class="w-[20rem]"><col class="w-[12rem]"><col class="w-[12rem]">
-                        <col class="w-[11rem]"><col class="w-[8rem]"><col class="w-[12rem]"><col class="w-[8rem]"><col class="w-[10rem]">
+                        <col class="w-[4rem]"><col class="w-[14rem]"><col class="w-[20rem]"><col class="w-[16rem]"><col class="w-[11rem]"><col class="w-[12rem]">
+                        <col class="w-[11rem]"><col class="w-[8rem]"><col class="w-[13rem]"><col class="w-[8rem]"><col class="w-[10rem]">
                     </colgroup>
                     <thead class="bg-brand-deep">
                         <tr class="[&>th]:border-0 [&>th]:py-3.5 [&>th]:text-center [&>th]:align-middle [&>th]:text-[0.6875rem] [&>th]:font-semibold [&>th]:uppercase [&>th]:leading-snug [&>th]:tracking-wide [&>th]:text-on-brand">
@@ -87,6 +87,7 @@
                             <th>Topik</th>
                             <th>Deskripsi</th>
                             <th>Kompetensi yang diharapkan</th>
+                            <th>Peminatan</th>
                             <th>Instansi / Organisasi / Perusahaan Objek</th>
                             <th>Program Studi</th>
                             <th>Jumlah Tim yang Tersedia</th>
@@ -100,21 +101,30 @@
                             @php
                                 $remaining = max(0, $topic->quota - $topic->accepted_count);
                                 $mine = $applications->first(fn ($a) => $a->topic_id === $topic->id && $a->status !== 'dibatalkan');
-                                $lecturer = $topic->lecturer;
-                                // Hijau muda = diajukan tim, abu-abu = kuota penuh, putih = tersedia
-                                $rowTone = $mine ? 'bg-brand-tint' : ($remaining === 0 ? 'bg-sunken' : '');
+                                // Hijau muda = diajukan tim, merah muda = kuota penuh, putih = tersedia
+                                $rowTone = $mine ? 'bg-brand-tint' : ($remaining === 0 ? 'bg-bad-tint' : '');
                             @endphp
                             <tr class="align-top [&>td]:align-top {{ $rowTone }}">
                                 <td class="tabular text-muted">{{ $loop->iteration }}.</td>
                                 <td class="font-semibold leading-snug text-ink">{{ $topic->title }}</td>
                                 <td class="whitespace-pre-line leading-relaxed text-muted">{{ $topic->description }}</td>
-                                <td>@if ($topic->competencies)<span class="{{ $chip }} inline-block">{{ $topic->competencies }}</span>@else<span class="text-muted">—</span>@endif</td>
+                                <td class="whitespace-pre-line leading-relaxed text-muted">{{ $topic->competencies ?: '—' }}</td>
+                                <td>
+                                    @forelse ($topic->specializations ?? [] as $spec)<span class="{{ $chip }} mb-1.5 mr-1 inline-block">{{ $spec }}</span>@empty<span class="text-muted">—</span>@endforelse
+                                </td>
                                 <td class="text-ink">{{ $topic->object ?? '—' }}</td>
-                                <td class="text-ink">{{ $topic->studyProgram?->name ?? $topic->prodi_code ?? '—' }}</td>
+                                <td class="text-ink">@forelse ($topic->programNames() as $name)<p>{{ $name }}</p>@empty — @endforelse</td>
                                 <td class="text-center tabular text-ink">{{ $topic->quota }}</td>
                                 <td>
-                                    <p class="font-medium text-ink">{{ $lecturer->name }}</p>
-                                    @if ($lecturer->phone)<p class="text-caption text-muted tabular">WA {{ $phone($lecturer->phone) }}</p>@endif
+                                    {{-- Pengusul utama tercatat pertama --}}
+                                    <ul class="space-y-2">
+                                        @foreach ($topic->proposers->isEmpty() ? collect([$topic->lecturer]) : $topic->proposers as $proposer)
+                                            <li>
+                                                <p class="font-medium text-ink">{{ $proposer->name }}</p>
+                                                @if ($proposer->phone)<p class="text-caption text-muted tabular">WA {{ $phone($proposer->phone) }}</p>@endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
                                 </td>
                                 <td class="text-center tabular text-ink">{{ $topic->accepted_count }}</td>
                                 <td class="text-center !align-middle">
@@ -137,7 +147,7 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
+            </x-scroll-pager>
         @endif
     </section>
 </div>

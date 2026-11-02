@@ -1,6 +1,6 @@
-{{-- Kartu "To Do" dashboard (mahasiswa & dosen): daftar tindakan urut prioritas + proses yang menunggu pihak lain.
-     Dropdown kanan atas menyaring tenggat 7 / 30 hari ke depan langsung di browser (Alpine "todoFilter");
-     tindakan tanpa tenggat dan yang sudah terlambat selalu tampil.
+{{-- Kartu "To Do" dashboard (mahasiswa, dosen & admin): daftar tindakan urut prioritas + proses yang menunggu pihak lain.
+     Dropdown kanan atas menyaring deadline 7 / 30 hari ke depan langsung di browser (Alpine "todoFilter");
+     tindakan tanpa deadline dan yang sudah terlambat selalu tampil.
      actions: list of [title, detail, url, tone (bad|warn|neutral), icon (nama komponen ikon menu asal), due (Carbon|null), urgency (late|soon|null)]
      waiting: list of string --}}
 @use('App\Support\Format')
@@ -14,7 +14,7 @@
 <section x-data="todoFilter" data-range="7" {{ $attributes->merge(['class' => 'panel']) }} aria-labelledby="{{ $uid }}">
     <div class="panel-head">
         <h2 id="{{ $uid }}" class="panel-title">To Do</h2>
-        <label class="sr-only" for="{{ $uid }}-range">Rentang tenggat</label>
+        <label class="sr-only" for="{{ $uid }}-range">Rentang deadline</label>
         <select id="{{ $uid }}-range" class="input min-h-[40px] w-auto py-1.5 pl-3 pr-9 text-sm" @change="change">
             <option value="7" selected>7 hari ke depan</option>
             <option value="30">30 hari ke depan</option>
@@ -42,7 +42,7 @@
                         <x-heroicon-o-chevron-right class="mt-1 h-4 w-4 shrink-0 text-faint group-hover:text-ink" aria-hidden="true" />
                     </a>
                     @if ($action['due'])
-                        {{-- Layar sempit: tenggat di bawah judul agar tidak berdesakan --}}
+                        {{-- Layar sempit: deadline di bawah judul agar tidak berdesakan --}}
                         <p class="-mt-2 px-4 pb-3 pl-[4.25rem] text-caption xs:hidden {{ $urgencyClass[$action['urgency']] ?? 'text-muted' }}">{{ Format::dueIn($action['due']) }} · {{ $action['due']->translatedFormat('j M, H:i') }}</p>
                     @endif
                 </li>

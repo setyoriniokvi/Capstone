@@ -4,7 +4,6 @@ namespace App\Services\Import;
 
 use App\Models\LecturerProfile;
 use App\Models\Period;
-use App\Models\StudyProgram;
 use App\Models\Team;
 use App\Models\TeamMember;
 use App\Models\User;
@@ -20,22 +19,15 @@ use Illuminate\Support\Str;
 class ImportService
 {
     public const TEMPLATES = [
-        'dosen' => ['nip', 'nama', 'kode_dosen', 'email', 'no_wa', 'prodi', 'peminatan', 'hak_akses'],
-        'mahasiswa' => ['nim', 'nama', 'email', 'prodi', 'no_wa', 'sks_lulus', 'mk_lulus', 'daerah_asal', 'peminatan'],
-        'tim' => ['group_code', 'nama_tim', 'nim_ketua', 'nim_anggota_2', 'nim_anggota_3', 'prodi'],
+        'dosen' => ['nip', 'nama', 'kode_dosen', 'email', 'no_wa', 'peminatan'],
+        'mahasiswa' => ['nim', 'nama', 'email', 'no_wa', 'sks_lulus', 'mk_lulus', 'daerah_asal', 'peminatan'],
+        'tim' => ['group_code', 'nama_tim', 'nim_ketua', 'nim_anggota_2', 'nim_anggota_3'],
     ];
 
     public const REQUIRED = [
-        'dosen' => ['nama', 'kode_dosen', 'email', 'hak_akses'],
-        'mahasiswa' => ['nim', 'nama', 'email', 'prodi'],
-        'tim' => ['group_code', 'nim_ketua', 'nim_anggota_2', 'prodi'],
-    ];
-
-    public const ACCESS = [
-        'pengusul' => 'can_propose_topic',
-        'pembimbing' => 'can_supervise',
-        'penguji' => 'can_examine',
-        'dosen_kelas' => 'is_class_lecturer',
+        'dosen' => ['nama', 'kode_dosen', 'email'],
+        'mahasiswa' => ['nim', 'nama', 'email'],
+        'tim' => ['group_code', 'nim_ketua', 'nim_anggota_2'],
     ];
 
     public function __construct(private readonly ScreeningService $screening) {}
@@ -45,20 +37,15 @@ class ImportService
      */
     public function preview(string $type, array $rows, ?Period $period = null): array
     {
-        $prodis = StudyProgram::query()->pluck('code')->map(fn ($c) => strtoupper($c))->all();
         $seen = [];
 
-        return array_map(function (array $row) use ($type, $prodis, &$seen, $period) {
+        return array_map(function (array $row) use ($type, &$seen, $period) {
             $d = $row['data'];
             $errors = [];
             foreach (self::REQUIRED[$type] as $col) {
                 if (($d[$col] ?? '') === '') {
                     $errors[] = "Kolom {$col} wajib diisi.";
                 }
-            }
-
-            if (isset($d['prodi']) && $d['prodi'] !== '' && ! in_array(strtoupper($d['prodi']), $prodis, true)) {
-                $errors[] = "Prodi {$d['prodi']} tidak dikenal.";
             }
 
             $action = 'baru';
@@ -101,11 +88,6 @@ class ImportService
                 $errors[] = "Duplikat {$key} di dalam file.";
             }
             $seen["{$key}:{$value}"] = true;
-        }
-
-        $unknown = array_diff($this->accessList($d['hak_akses'] ?? ''), array_keys(self::ACCESS));
-        if ($unknown) {
-            $errors[] = 'Hak akses tidak dikenal: '.implode(', ', $unknown).'. Gunakan: '.implode(', ', array_keys(self::ACCESS)).'.';
         }
 
         $existing = User::query()->where('email', $email)->first();
@@ -180,11 +162,9 @@ class ImportService
 
     private function saveLecturer(array $d): void
     {
-        $access = $this->accessList($d['hak_akses']);
         $user = User::query()->updateOrCreate(['email' => Str::lower($d['email'])], [
             'name' => $d['nama'],
             'role' => 'dosen',
-            'prodi_code' => ($d['prodi'] ?? '') !== '' ? Str::upper($d['prodi']) : null,
             'phone' => ($d['no_wa'] ?? '') ?: null,
         ]);
         // F1 — password awal akun baru = kode dosen; dapat diganti admin di menu Data dosen.
@@ -196,7 +176,7 @@ class ImportService
             'lecturer_code' => Str::upper($d['kode_dosen']),
             'nip' => ($d['nip'] ?? '') ?: null,
             'specialization' => ($d['peminatan'] ?? '') ?: null,
-        ] + collect(self::ACCESS)->mapWithKeys(fn ($column, $name) => [$column => in_array($name, $access, true)])->all());
+        ]);
     }
 
     private function saveStudent(array $d): void
@@ -206,7 +186,6 @@ class ImportService
             'nim' => $d['nim'],
             'name' => $d['nama'],
             'email' => Str::lower($d['email']),
-            'prodi_code' => Str::upper($d['prodi']),
             'phone' => ($d['no_wa'] ?? '') ?: null,
             'sks_passed' => ($d['sks_lulus'] ?? '') !== '' ? (int) $d['sks_lulus'] : null,
             'passed_courses' => ($d['mk_lulus'] ?? '') !== '' ? array_values(array_filter(array_map(fn ($c) => Str::upper(trim($c)), preg_split('/[;,|]/', $d['mk_lulus'])))) : null,
@@ -230,7 +209,6 @@ class ImportService
             'period_id' => $period->id,
             'code' => $d['group_code'],
             'name' => ($d['nama_tim'] ?? '') ?: $d['group_code'],
-            'prodi_code' => Str::upper($d['prodi']),
             'leader_id' => $leader->id,
             'status' => 'menunggu',
             'submitted_at' => now(),
@@ -248,14 +226,4 @@ class ImportService
         $this->screening->apply($team);
     }
 
-    private function accessList(string $value): array
-    {
-        $map = ['keduanya' => ['pembimbing', 'penguji']];
-
-        return collect(preg_split('/[;,|]/', Str::lower($value)))
-            ->map(fn ($v) => str_replace([' ', '-'], '_', trim($v)))
-            ->filter()
-            ->flatMap(fn ($v) => $map[$v] ?? [$v])
-            ->unique()->values()->all();
-    }
 }

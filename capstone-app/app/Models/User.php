@@ -15,8 +15,8 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password', 'google_id', 'avatar_url', 'role', 'prodi_code', 'phone', 'is_active',
-        'nim', 'sks_passed', 'passed_courses', 'origin_region', 'specialization', 'last_login_at',
+        'name', 'email', 'password', 'google_id', 'avatar_url', 'role', 'phone', 'is_active',
+        'nim', 'sks_passed', 'passed_courses', 'course_grades', 'origin_region', 'specialization', 'last_login_at',
     ];
 
     protected $hidden = ['password', 'remember_token', 'google_id'];
@@ -27,8 +27,31 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'passed_courses' => 'array',
+            'course_grades' => 'array',
             'last_login_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Simpan indeks nilai mata kuliah prasyarat ({kode: nilai}) dan selaraskan passed_courses: kode yang dinilai
+     * lulus (config capstone.passing_grades) ditambahkan, yang dinilai tidak lulus dihapus. Kode lain tetap.
+     */
+    public function setCourseGrades(array $grades): static
+    {
+        $grades = collect($grades)->filter(fn ($g) => filled($g))->mapWithKeys(fn ($g, $code) => [mb_strtoupper((string) $code) => $g]);
+        $passing = $grades->filter(fn ($g) => in_array($g, config('capstone.passing_grades'), true))->keys();
+        $others = collect($this->passed_courses ?? [])->reject(fn ($c) => $grades->has(mb_strtoupper((string) $c)));
+
+        $this->course_grades = array_merge($this->course_grades ?? [], $grades->all());
+        $this->passed_courses = $others->merge($passing)->unique()->values()->all();
+
+        return $this;
+    }
+
+    /** Akun dibuat lewat registrasi ketua dan belum mengatur password (belum dapat masuk). */
+    public function awaitingActivation(): bool
+    {
+        return blank($this->password);
     }
 
     public function isAdmin(): bool
@@ -49,7 +72,8 @@ class User extends Authenticatable
     public function homeRoute(): string
     {
         return match ($this->role) {
-            'admin' => 'admin.periods.index',
+            // Admin di dalam Dashboard Periode kembali ke dashboard periode itu, bukan ke Kelola Periode.
+            'admin' => Period::workspace() ? 'admin.dashboard' : 'admin.periods.index',
             'dosen' => 'dosen.dashboard',
             default => 'mahasiswa.dashboard',
         };
@@ -58,11 +82,6 @@ class User extends Authenticatable
     public function lecturerProfile(): HasOne
     {
         return $this->hasOne(LecturerProfile::class);
-    }
-
-    public function studyProgram()
-    {
-        return $this->belongsTo(StudyProgram::class, 'prodi_code', 'code');
     }
 
     public function memberships(): HasMany

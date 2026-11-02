@@ -1,5 +1,29 @@
-{{-- Kartu tim: nama, status registrasi, topik, anggota, dosen. Butuh $team, $supervisor, $examiner. --}}
-@php $members = $team->members->where('invite_status', 'diterima'); @endphp
+{{-- Kartu tim: nama, status registrasi, topik, anggota, dosen. Butuh $team, $supervisor, $examiner.
+     Belum bertim: susunan kartu sama, isinya keterangan "belum memiliki tim" + tautan ke halaman Tim. --}}
+@php $members = $team?->members->where('invite_status', 'diterima') ?? collect(); @endphp
+@if (! $team)
+<section class="panel flex min-w-0 flex-col p-5 sm:p-6" aria-labelledby="tim-judul">
+    <div class="flex items-start justify-between gap-3">
+        <h2 id="tim-judul" class="min-w-0 text-lg font-semibold">Tim Capstone</h2>
+        <x-badge status="belum_ada" label="Belum ada tim" class="shrink-0" />
+    </div>
+
+    <p class="mt-4 text-[0.9375rem] text-muted">Anda belum memiliki tim. Buat tim baru atau terima undangan dari teman untuk mulai mendaftar.</p>
+
+    <a href="{{ route('mahasiswa.team.show') }}" class="group -mx-2 mt-3 flex min-h-[44px] items-center gap-3 rounded px-2 hover:bg-sunken focus-visible:bg-sunken">
+        <span class="grid h-8 w-8 place-items-center rounded-full border border-dashed border-rule-strong text-faint" aria-hidden="true"><x-heroicon-o-user-plus class="h-4 w-4" /></span>
+        <span class="min-w-0 flex-1 text-sm font-medium text-brand">Buat atau gabung tim</span>
+        <x-heroicon-o-chevron-right class="h-4 w-4 shrink-0 text-faint group-hover:text-ink" aria-hidden="true" />
+    </a>
+
+    <dl class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 border-t border-rule pt-4 text-sm">
+        @foreach (['Pembimbing', 'Penguji'] as $role)
+            <dt class="text-muted">{{ $role }}</dt>
+            <dd class="min-w-0 truncate text-muted">Belum ditetapkan</dd>
+        @endforeach
+    </dl>
+</section>
+@else
 <section class="panel flex min-w-0 flex-col p-5 sm:p-6" aria-labelledby="tim-judul">
     <div class="flex items-start justify-between gap-3">
         <h2 id="tim-judul" class="min-w-0 text-lg font-semibold">{{ $team->name }}</h2>
@@ -26,3 +50,4 @@
         @endforeach
     </dl>
 </section>
+@endif

@@ -1,5 +1,5 @@
 @php $editing = $indicator->exists; @endphp
-<x-layouts.app :title="$editing ? $indicator->code : 'Indikator baru'" section="Admin · Master penilaian">
+<x-layouts.app :title="$editing ? $indicator->code : 'Indikator baru'">
     <x-page-head :title="$editing ? 'Ubah indikator '.$indicator->code : 'Indikator baru'" lede="Bobot indikator dihitung dari jumlah pembagian bobot ke setiap bentuk penilaian." />
     <form method="POST" action="{{ $editing ? route('admin.indicators.update', $indicator) : route('admin.indicators.store') }}" class="panel max-w-4xl">
         @csrf

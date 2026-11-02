@@ -3,7 +3,7 @@
     $valid = collect($rows)->where('errors', [])->count();
     $columns = \App\Services\Import\ImportService::TEMPLATES[$type];
 @endphp
-<x-layouts.app :title="'Pratinjau impor '.$label" section="Admin · Impor">
+<x-layouts.app :title="'Pratinjau impor '.$label">
     <x-page-head :title="'Pratinjau impor '.strtolower($label)" :lede="$data['file'].' · '.count($rows).' baris. Baris bermasalah tidak akan disimpan.'">
         <x-slot:actions>
             <a href="{{ url()->previous() }}" class="btn btn-ghost">Batal</a>

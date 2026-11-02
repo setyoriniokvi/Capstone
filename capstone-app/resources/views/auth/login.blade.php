@@ -26,8 +26,11 @@
                         <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri" width="178" height="40">
                     </div>
                     <h1 class="login-title">Masuk ke Capstone</h1>
-                    <p class="login-lede">Gunakan email dan password akun yang didaftarkan admin program studi.</p>
+                    <p class="login-lede">Gunakan email dan password akun Capstone Anda.</p>
 
+                    @if (session('status'))
+                        <div role="status" class="mt-4 rounded-lg border border-ok-line bg-ok-tint px-4 py-3 text-sm text-ok-ink">{{ session('status') }}</div>
+                    @endif
                     @if ($errors->any())
                         <div role="alert" class="mt-4 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $errors->first() }}</div>
                     @endif
@@ -48,6 +51,7 @@
                         <span>Ingat saya</span>
                     </label>
                     <button class="btn btn-primary w-full text-base" type="submit">Masuk</button>
+                    <p class="text-center text-sm text-muted">Belum punya akun? <a href="{{ route('register') }}" class="link">Registrasi akun &amp; tim</a></p>
                 </form>
 
                 {{-- DATA DEMO — daftar akun dummy. Hapus blok ini saat implementasi riil (atau set DEV_LOGIN=false). --}}
@@ -71,5 +75,6 @@
             </div>
         </main>
     </div>
+    <x-page-loader />
 </body>
 </html>

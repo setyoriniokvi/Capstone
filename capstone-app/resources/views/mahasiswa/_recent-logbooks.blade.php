@@ -1,4 +1,4 @@
-{{-- Tiga log bimbingan terbaru, hanya daftar (baris tidak dapat diklik); "Lihat semua" membuka menu Log Bimbingan. Butuh $recentLogbooks dan $supervisor (StudentDashboard).
+{{-- Tiga log bimbingan terbaru, hanya daftar (baris tidak dapat diklik); "Lihat semua" membuka menu Log Bimbingan. Butuh $team, $recentLogbooks dan $supervisor (StudentDashboard).
      Alasan log belum bisa diisi sudah tampil di kartu ringkasan, jadi tidak diulang di sini. --}}
 <section class="panel mb-6" aria-labelledby="log-judul">
     <div class="flex flex-wrap items-center justify-between gap-x-3 px-5 pt-5 sm:px-6 sm:pt-6">
@@ -6,7 +6,9 @@
         <a href="{{ route('mahasiswa.logbooks.index') }}" class="link -my-2 inline-flex min-h-[44px] items-center gap-1.5 text-sm">{{ $recentLogbooks->isEmpty() && $supervisor ? 'Isi log pertama' : 'Lihat semua' }} <x-heroicon-o-arrow-right class="h-4 w-4" /></a>
     </div>
 
-    @if ($recentLogbooks->isEmpty())
+    @if (! $team)
+        <p class="px-5 pb-5 pt-3 text-sm text-muted sm:px-6">Anda belum memiliki tim. Log bimbingan akan tampil di sini setelah tim terbentuk dan sesi bimbingan dicatat.</p>
+    @elseif ($recentLogbooks->isEmpty())
         <p class="px-5 pb-5 pt-3 text-sm text-muted sm:px-6">Belum ada log bimbingan.</p>
     @else
         <ul class="mx-5 mt-3 divide-y divide-rule border-t border-rule pb-2 sm:mx-6">

@@ -5,7 +5,7 @@
     // Status "revisi" di basis data ditampilkan sebagai "Ditolak".
     $statusLabel = ['menunggu' => 'Menunggu', 'disetujui' => 'Disetujui', 'revisi' => 'Ditolak'];
 @endphp
-<x-layouts.app title="Log Bimbingan" section="Mahasiswa · Log bimbingan">
+<x-layouts.app title="Log Bimbingan">
     @if (! $team || $team->status !== 'diterima')
         <x-page-head title="Log Bimbingan" :lede="$team?->name" />
         <div class="panel"><x-empty title="Log bimbingan tersedia setelah tim diterima" icon="clipboard-document-check" /></div>
@@ -39,8 +39,13 @@
 
             {{-- Progres sesi disetujui --}}
             <section class="panel mb-6 p-5 sm:p-6" aria-label="Sesi disetujui">
-                <p class="text-lg font-semibold text-ink"><span class="tabular">{{ $approved }}</span> sesi disetujui</p>
+                <p class="text-lg text-muted"><span class="tabular text-2xl font-semibold text-ink">{{ $approved }}</span> / <span class="tabular">{{ $minLogbooks }}</span> sesi minimal</p>
                 <x-progress-bar class="mt-4" :value="$approved" :max="$minLogbooks" label="Sesi bimbingan disetujui" />
+                @if ($approved >= $minLogbooks)
+                    <p class="mt-3 text-sm font-medium text-ok-ink">Syarat minimal terpenuhi</p>
+                @else
+                    <p class="mt-3 text-sm font-medium text-bad-ink">Syarat minimal belum terpenuhi</p>
+                @endif
             </section>
 
             <section class="panel" aria-label="Riwayat sesi bimbingan">

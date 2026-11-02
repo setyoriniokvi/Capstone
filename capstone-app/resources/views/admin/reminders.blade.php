@@ -1,4 +1,4 @@
-<x-layouts.app title="Notifikasi Otomatis" section="Admin · Notifikasi otomatis">
+<x-layouts.app title="Notifikasi Otomatis">
     <x-page-head title="Notifikasi otomatis" lede="Sistem memantau pekerjaan dosen yang belum selesai. Saat ambang waktu tercapai, pengingat dikirim melalui workflow n8n ke email dan WhatsApp dosen, lalu hasilnya dicatat di sini." />
 
     @unless ($automationReady)
@@ -16,7 +16,7 @@
                     @forelse ($rules as $rule)
                         <tr x-data="disclosure">
                             <td class="font-medium">{{ config('capstone.reminder_job_types.'.$rule->job_type) }}</td>
-                            <td class="tabular">{{ $rule->hours_before }} jam sebelum tenggat</td>
+                            <td class="tabular">{{ $rule->hours_before }} jam sebelum deadline</td>
                             <td>{{ collect($rule->channels)->map(fn ($c) => $c === 'email' ? 'Email' : 'WhatsApp')->implode(', ') }}</td>
                             <td>@if ($rule->is_active)<x-badge status="aktif" />@else<x-badge status="nonaktif" />@endif</td>
                             <td class="text-right">
@@ -42,7 +42,7 @@
             <x-field label="Jenis pekerjaan" name="job_type">
                 <select id="job_type" name="job_type" class="input">@foreach (config('capstone.reminder_job_types') as $k => $l)<option value="{{ $k }}">{{ $l }}</option>@endforeach</select>
             </x-field>
-            <x-field label="Jam sebelum tenggat" name="hours_before"><input id="hours_before" type="number" min="1" max="720" name="hours_before" class="input tabular" value="{{ old('hours_before', 48) }}" required></x-field>
+            <x-field label="Jam sebelum deadline" name="hours_before"><input id="hours_before" type="number" min="1" max="720" name="hours_before" class="input tabular" value="{{ old('hours_before', 48) }}" required></x-field>
             <fieldset class="flex items-center gap-4">
                 <legend class="sr-only">Kanal</legend>
                 <label class="flex min-h-[44px] items-center gap-2"><input type="checkbox" class="checkbox" name="channels[]" value="email" checked>Email</label>

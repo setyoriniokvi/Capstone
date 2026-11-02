@@ -1,4 +1,4 @@
-<x-layouts.app title="Dashboard Dosen" section="Dosen · Dashboard">
+<x-layouts.app title="Dashboard Dosen">
     {{-- Sambutan (sama dengan dashboard mahasiswa) + minggu berjalan --}}
     @php $week = $period?->currentWeek(); @endphp
     {{-- Kartu hijau dengan "tab" menjorok di kiri bawah berisi kuota --}}
@@ -9,11 +9,9 @@
             <h1 id="sambutan" class="mt-1 text-h1 font-semibold">Selamat datang, Bapak/Ibu {{ $profile?->lecturer_code ?? auth()->user()->name }}.</h1>
             {{-- Peran dosen sebagai kotak-kotak kecil --}}
             <ul class="mt-3 flex flex-wrap gap-2" aria-label="Peran Anda">
-                @forelse ($profile?->accessLabels() ?? [] as $role)
+                @foreach ($profile?->accessLabels() ?? ['Dosen'] as $role)
                     <li class="rounded-md border border-on-brand-line bg-white/10 px-2.5 py-1 text-sm font-medium text-on-brand">{{ $role }}</li>
-                @empty
-                    <li class="text-sm text-on-brand-muted">Hak akses belum diatur</li>
-                @endforelse
+                @endforeach
             </ul>
         </div>
         <p class="shrink-0 border-t border-on-brand-line pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:text-right">
@@ -52,7 +50,7 @@
     <x-todo-card class="mb-6" :actions="$todo" />
 
     @if ($period)
-        <x-capstone-timeline class="mb-6" :period="$period" />
+        <x-capstone-timeline class="mb-6" :period="$period" with-assessments />
     @endif
 
     {{-- Tim mahasiswa (bimbingan & uji): 3 tim dengan aktivitas terbaru; selengkapnya lewat "Lihat semua" --}}

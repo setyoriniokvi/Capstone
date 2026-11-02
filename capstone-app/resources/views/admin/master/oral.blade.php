@@ -1,4 +1,4 @@
-<x-layouts.app title="Rubrik Lisan" section="Admin · Master penilaian">
+<x-layouts.app title="Rubrik Lisan">
     <x-page-head title="Rubrik penilaian lisan" lede="Level 1–5 dengan faktor pemahaman 0,25–1,00. Faktor dikalikan ke nilai indikator berskema Lisan atau Dokumen + Lisan." />
     <div class="space-y-4">
         @foreach ($levels as $level)

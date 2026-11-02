@@ -38,16 +38,15 @@ class Navigation
 
         return [
             ['label' => null, 'items' => [
-                self::item('Ringkasan', 'admin.dashboard', 'home'),
+                self::item('Dashboard', 'admin.dashboard', 'home'),
             ]],
-            ['label' => 'Data', 'items' => [
+            ['label' => 'User', 'items' => [
                 self::item('Dosen', 'admin.lecturers.index', 'academic-cap', 'admin.lecturers.*'),
                 self::item('Mahasiswa', 'admin.students.index', 'users', 'admin.students.*'),
             ]],
             ['label' => 'Proses', 'items' => [
-                self::item('Registrasi Tim', 'admin.teams.index', 'user-group', 'admin.teams.*'),
+                self::item('Approval Registrasi Tim', 'admin.teams.index', 'user-group', 'admin.teams.*'),
                 self::item('Approval Topik', 'admin.topics.index', 'light-bulb', 'admin.topics.index'),
-                self::item('Rekap Topik Final', 'admin.topics.recap', 'clipboard-document-list'),
                 self::item('Kuota Dosen', 'admin.quotas.index', 'scale', 'admin.quotas.*'),
                 self::item('Plotting Dosen', 'admin.plotting.index', 'arrows-right-left', 'admin.plotting.*'),
             ]],
@@ -79,8 +78,8 @@ class Navigation
                 self::item('Log Bimbingan', 'mahasiswa.logbooks.index', 'clipboard-document-check', 'mahasiswa.logbooks.*'),
             ]],
             ['label' => 'Penilaian', 'items' => [
+                self::item('Penilaian', 'mahasiswa.assessments.index', 'star', 'mahasiswa.assessments.*'),
                 self::item('Peer Review', 'mahasiswa.peer.index', 'users', 'mahasiswa.peer.*'),
-                self::item('Hasil Penilaian', 'mahasiswa.results.index', 'star', 'mahasiswa.results.*'),
                 self::item('QR Code Tim', 'mahasiswa.qr.show', 'qr-code', 'mahasiswa.qr.*'),
             ]],
             ['label' => 'Informasi', 'items' => [
@@ -95,10 +94,11 @@ class Navigation
             ['label' => null, 'items' => [
                 self::item('Dashboard', 'dosen.dashboard', 'home', 'dosen.dashboard'),
                 self::item('Topik Dosen', 'dosen.topics.index', 'light-bulb', 'dosen.topics.*'),
+                self::item('Tim Bimbingan', 'dosen.teams.supervised', 'user-group', 'dosen.teams.supervised'),
+                self::item('Tim Uji', 'dosen.teams.examined', 'academic-cap', 'dosen.teams.examined'),
                 self::item('Approval Pengajuan Topik', 'dosen.applications.index', 'inbox-arrow-down', 'dosen.applications.*'),
                 self::item('Approval Bimbingan', 'dosen.logbooks.index', 'clipboard-document-check', 'dosen.logbooks.*'),
                 self::item('Penilaian', 'dosen.assessments.index', 'pencil-square', 'dosen.assessments.*'),
-                self::item('Rekap Nilai', 'dosen.recap.index', 'table-cells', 'dosen.recap.*'),
             ]],
             ['label' => 'Informasi', 'items' => [
                 self::item('File Pendukung', 'files.index', 'folder', 'files.*'),

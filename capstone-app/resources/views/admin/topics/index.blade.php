@@ -1,80 +1,34 @@
-<x-layouts.app title="Approval Topik" section="Admin · Approval topik">
-    <x-page-head title="Approval topik" lede="Topik mandiri wajib diajukan setiap tim. Topik dosen baru terbit di bank topik setelah disetujui. Sistem menandai kata kunci yang tidak diperbolehkan." />
+{{-- F7 — Approval Topik admin (pola Approval Registrasi Tim): kartu tab (Approval Topik Mandiri / Approval Topik Dosen)
+     paling atas, lalu isi tab: kata kunci terlarang jenis topik tersebut (admin/topics/_keywords), kemudian
+     admin/topics/_mandiri (menunggu approval + riwayat) atau admin/topics/_dosen (menunggu approval + bank topik dosen
+     yang dapat ditambah/diubah/dihapus admin). --}}
+@php
+    // Judul kolom hijau & sel selebar kartu (sama dengan Approval Registrasi Tim)
+    $greenHead = 'bg-brand-tint [&>tr>th]:border-0 [&>tr>th]:py-3.5 [&>tr>th]:text-sm [&>tr>th]:font-semibold [&>tr>th]:text-brand-deep';
+    $cells = '[&_td]:break-words [&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:last-child]:pr-5 sm:[&_td:first-child]:pl-6 sm:[&_th:first-child]:pl-6 sm:[&_td:last-child]:pr-6 sm:[&_th:last-child]:pr-6';
+@endphp
+<x-layouts.app title="Approval Topik">
+    <x-page-head title="Approval Topik" lede="Topik mandiri bersifat opsional dan dapat diajukan tim bersamaan dengan lamaran topik dosen. Topik dosen terbit di bank topik setelah disetujui. Sistem menandai kata kunci yang tidak diperbolehkan." />
 
-    <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_18rem]">
-        <div class="min-w-0">
-            <div class="mb-4 flex flex-wrap items-center gap-2">
-                @foreach (['mandiri' => 'Topik mandiri', 'dosen' => 'Topik dosen'] as $k => $l)
-                    <a href="{{ route('admin.topics.index', ['sumber' => $k, 'status' => $status]) }}" class="btn btn-sm {{ $source === $k ? 'btn-primary' : 'btn-secondary' }}">{{ $l }} <span class="tabular">{{ $pending[$k] ?? 0 }}</span></a>
-                @endforeach
-                <span class="mx-1 h-6 w-px bg-rule"></span>
-                @foreach (['menunggu' => 'Menunggu', 'diterima' => 'Diterima', 'ditolak' => 'Ditolak', 'semua' => 'Semua'] as $k => $l)
-                    <a href="{{ route('admin.topics.index', ['sumber' => $source, 'status' => $k]) }}" class="btn btn-sm {{ $status === $k ? 'btn-ghost bg-brand-tint' : 'btn-ghost' }}">{{ $l }}</a>
-                @endforeach
-            </div>
+    @error('topic')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
+    @error('notes')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
+    @error('topics')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
-            <div class="panel">
-                @if ($topics->isEmpty())
-                    <x-empty title="Tidak ada topik pada filter ini" icon="light-bulb" />
-                @else
-                    <ul class="divide-y divide-rule">
-                        @foreach ($topics as $topic)
-                            <li class="px-4 py-4 sm:px-6">
-                                <div class="flex flex-wrap items-start justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <p class="text-sm text-muted">
-                                            @if ($topic->source === 'mandiri')
-                                                <span class="code">{{ $topic->team?->code }}</span> · {{ $topic->team?->name }}
-                                            @else
-                                                <span class="code">{{ $topic->lecturer?->lecturerProfile?->lecturer_code }}</span> · {{ $topic->lecturer?->name }} · kuota <span class="tabular">{{ $topic->quota }}</span> tim
-                                            @endif
-                                            @if ($topic->field) · {{ $topic->field }}@endif
-                                        </p>
-                                        <h2 class="mt-1 font-semibold">{{ $topic->title }}</h2>
-                                    </div>
-                                    <x-badge :status="$topic->status" />
-                                </div>
-                                <p class="mt-2 max-w-[75ch] whitespace-pre-line text-sm text-ink">{{ $topic->description }}</p>
-                                @if ($topic->object)<p class="mt-2 text-sm"><span class="text-muted">Objek Capstone:</span> {{ $topic->object }}</p>@endif
-                                @if ($topic->keyword_hits)
-                                    <p class="mt-3 flex flex-wrap items-center gap-2 text-sm text-bad-ink"><x-heroicon-o-flag class="h-4 w-4" />Kata kunci terlarang: @foreach ($topic->keyword_hits as $hit)<span class="rounded bg-bad-tint px-1.5 tabular text-caption">{{ $hit }}</span>@endforeach</p>
-                                @endif
-                                @if ($topic->review_notes)
-                                    <p class="mt-2 text-sm text-muted">Catatan: {{ $topic->review_notes }}</p>
-                                @endif
-                                @if ($topic->status === 'menunggu')
-                                    <div class="mt-3">
-                                        <x-decision :action="route('admin.topics.decide', $topic)" title="Keputusan topik" approve-label="Setujui topik" reject-label="Tolak" trigger="Putuskan">“{{ $topic->title }}”</x-decision>
-                                    </div>
-                                @endif
-                            </li>
-                        @endforeach
-                    </ul>
-                    {{ $topics->links() }}
-                @endif
-            </div>
-        </div>
+    {{-- Tab --}}
+    <section class="panel mb-6 p-2" aria-label="Jenis topik">
+        <nav class="grid gap-1 sm:grid-cols-2">
+            @foreach (['mandiri' => 'Approval Topik Mandiri', 'dosen' => 'Approval Topik Dosen'] as $key => $label)
+                <a href="{{ route('admin.topics.index', ['tab' => $key]) }}" @if ($tab === $key) aria-current="page" @endif
+                   class="flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium {{ $tab === $key ? 'bg-brand-tint text-brand-deep' : 'text-muted hover:bg-sunken hover:text-ink' }}">
+                    {{ $label }}
+                    @if ($pendingCount[$key] ?? 0)<span class="rounded-full bg-bad-ink px-2 text-caption font-semibold leading-5 text-white tabular">{{ $pendingCount[$key] }}</span>@endif
+                </a>
+            @endforeach
+        </nav>
+    </section>
 
-        <aside class="panel h-fit">
-            <div class="panel-head"><h2 class="panel-title">Kata kunci terlarang</h2></div>
-            <div class="panel-body">
-                <form method="POST" action="{{ route('admin.keywords.store') }}" class="flex gap-2">
-                    @csrf
-                    <label for="keyword" class="sr-only">Kata kunci</label>
-                    <input id="keyword" name="keyword" class="input" placeholder="mis. sistem informasi akademik" required>
-                    <button class="btn btn-secondary">Tambah</button>
-                </form>
-                <ul class="mt-3 flex flex-wrap gap-1.5">
-                    @forelse ($keywords as $k)
-                        <li class="flex items-center gap-1 rounded bg-sunken py-0.5 pl-2 text-sm">
-                            {{ $k->keyword }}
-                            <form method="POST" action="{{ route('admin.keywords.destroy', $k) }}" data-confirm="Hapus kata kunci “{{ $k->keyword }}”?">@csrf @method('DELETE')<button class="grid h-7 w-7 place-items-center text-muted hover:text-bad-ink" aria-label="Hapus {{ $k->keyword }}"><x-heroicon-o-x-mark class="h-4 w-4" /></button></form>
-                        </li>
-                    @empty
-                        <li class="text-sm text-muted">Belum ada kata kunci.</li>
-                    @endforelse
-                </ul>
-            </div>
-        </aside>
-    </div>
+    {{-- Kata kunci terlarang khusus jenis topik pada tab ini --}}
+    @include('admin.topics._keywords')
+
+    @include($tab === 'dosen' ? 'admin.topics._dosen' : 'admin.topics._mandiri')
 </x-layouts.app>

@@ -1,8 +1,8 @@
-{{-- F21 / F24 — Tim Saya. Belum bertim: tombol "Registrasi Tim" membuka formulir di atas halaman.
-     Sudah bertim: ringkasan tim → tabel anggota → hasil screening otomatis (aturan registrasi periode).
-     Formulir ada di mahasiswa/_team-form.blade.php. --}}
-<x-layouts.app title="Tim Saya" section="Mahasiswa · Tim saya">
-    <div x-data="registrationForm" data-open="{{ $errors->any() && (! $team || $editable) ? 'true' : 'false' }}">
+{{-- F21 / F24 — Tim Saya. Belum bertim: tombol "Registrasi Tim" membuka formulir (sama dengan registrasi publik, ketua = akun
+     yang masuk), mis. bila tim terhapus admin. Sudah bertim: ringkasan tim → tabel anggota → hasil screening otomatis;
+     tombol tetap tampil tetapi nonaktif, dan perubahan tim dilakukan admin. Formulir ada di mahasiswa/_team-form.blade.php. --}}
+<x-layouts.app title="Tim Saya">
+    <div x-data="registrationForm" data-open="{{ $errors->any() && ! $team && ! $errors->has('team') ? 'true' : 'false' }}">
         <x-page-head title="Tim Saya" :lede="$team ? null : 'Anda belum tergabung dalam tim. Ketua mendaftarkan tim beserta seluruh anggotanya ('.$teamSize['min'].'–'.$teamSize['max'].' orang).'">
             <x-slot:actions>
                 {{-- Tetap tampil setelah tim terdaftar, tetapi nonaktif --}}
@@ -17,9 +17,9 @@
             @error($key)<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
         @endforeach
 
-        @if (! $team || $editable)
+        @unless ($team)
             @include('mahasiswa._team-form')
-        @endif
+        @endunless
 
         @if (! $team)
             <section class="panel">
@@ -36,7 +36,7 @@
         @else
             @if ($team->status === 'ditolak')
                 <div class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">
-                    <p class="font-medium">Registrasi ditolak — perbaiki lalu ajukan kembali.</p>
+                    <p class="font-medium">Registrasi ditolak. Silakan lakukan registrasi ulang.</p>
                     @if ($team->review_notes)<p class="mt-1">Catatan admin: {{ $team->review_notes }}</p>@endif
                 </div>
             @endif
@@ -61,17 +61,10 @@
 
             {{-- Anggota tim --}}
             <section class="panel mb-6 overflow-hidden" aria-labelledby="anggota-judul">
-                {{-- Nama tim (kiri) · status registrasi (tengah) · Edit (kanan; aktif bagi ketua selama menunggu/ditolak) --}}
-                <div class="grid gap-3 border-b border-rule px-5 py-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-6">
+                {{-- Nama tim (kiri) · status registrasi (kanan) --}}
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-5 py-4 sm:px-6">
                     <h2 id="anggota-judul" class="min-w-0 truncate text-lg font-semibold text-ink">{{ $team->name }}</h2>
                     <p class="flex items-center gap-2 text-sm text-muted">Status <x-badge :status="$team->status" :label="$team->statusLabel()" /></p>
-                    <div class="sm:justify-self-end">
-                        <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" @click="toggle" aria-controls="form-registrasi"
-                                @disabled(! $editable)
-                                @unless ($editable) title="{{ $team->leader_id !== auth()->id() ? 'Hanya ketua tim yang dapat mengubah registrasi' : 'Registrasi yang sudah diterima tidak dapat diubah' }}" @endunless>
-                            <x-heroicon-o-pencil-square class="h-4 w-4" /> Edit
-                        </button>
-                    </div>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table">
@@ -85,6 +78,7 @@
                                             <div class="min-w-0">
                                                 <p class="font-medium text-ink">{{ $m->user->name }}@if ($m->is_leader) <span class="ml-1.5 rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted">Ketua</span>@endif</p>
                                                 <p class="text-sm text-muted"><span class="tabular">{{ $m->user->nim }}</span> · {{ $m->user->email }}</p>
+                                                @if ($m->user->awaitingActivation())<p class="text-caption text-muted">{{ $team->status === 'diterima' ? 'Belum mengatur password — cek tautan di email' : 'Akun aktif setelah tim disetujui admin' }}</p>@endif
                                             </div>
                                         </div>
                                     </td>

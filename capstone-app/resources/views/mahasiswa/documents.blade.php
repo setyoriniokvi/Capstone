@@ -1,23 +1,24 @@
-{{-- F26 / F33–F41 — Dokumen milestone tim. Judul "Dokumen Tim", nama tim di bawahnya; dropdown rentang tenggat; satu kartu berisi
-     milestone dokumen (dibuat admin) dikelompokkan per tanggal tenggat. Pengumpulan per tim: unggahan satu
+{{-- F26 / F33–F41 — Dokumen milestone tim. Judul "Dokumen Tim", nama tim di bawahnya; dropdown rentang deadline; satu kartu berisi
+     milestone dokumen (dibuat admin) dikelompokkan per tanggal deadline. Pengumpulan per tim: unggahan satu
      anggota menyelesaikan milestone untuk seluruh tim. Kanan: tombol unggah (nonaktif "Sudah Dikumpulkan" setelah
-     terkumpul); di bawahnya, selebar kartu: info pengumpulan, Lihat file / Edit / Hapus, dan feedback dosen. --}}
+     terkumpul); di bawahnya, selebar kartu: info pengumpulan, Lihat file / Unggah file ulang, dan feedback dosen.
+     Mahasiswa tidak dapat menghapus pengumpulan (penghapusan hanya oleh admin). --}}
 @php
     $locked = fn ($m) => match (true) {
-        $m->document_type === 'materi_presentasi' && $approvedLogbooks < $minLogbooks => "Terkunci — minimal {$minLogbooks} log bimbingan disetujui ({$approvedLogbooks}/{$minLogbooks}).",
+        $m->requiresLogbookMinimum() && $approvedLogbooks < $minLogbooks => "Terkunci — minimal {$minLogbooks} log bimbingan disetujui ({$approvedLogbooks}/{$minLogbooks}).",
         ! $m->hasStarted() => 'Dibuka '.$m->starts_at->translatedFormat('j M Y, H:i').'.',
         default => null,
     };
 @endphp
-<x-layouts.app title="Dokumen" section="Mahasiswa · Dokumen">
+<x-layouts.app title="Dokumen">
     <x-page-head title="Dokumen Tim" :lede="$team?->name" />
 
     @if ($gate)
         <div class="panel"><x-empty :title="$gate" icon="lock-closed" /></div>
     @else
-        {{-- Filter rentang tenggat (dropdown) --}}
+        {{-- Filter rentang deadline (dropdown) --}}
         <form method="GET" action="{{ route('mahasiswa.documents.index') }}" x-data="autoSubmit" class="mb-6">
-            <label for="rentang" class="sr-only">Rentang tenggat</label>
+            <label for="rentang" class="sr-only">Rentang deadline</label>
             <select id="rentang" name="rentang" class="input min-h-[48px] w-full rounded-xl sm:w-64" @change="submit">
                 @foreach (\App\Http\Controllers\Student\DocumentController::RANGES as $key => $label)
                     <option value="{{ $key }}" @selected($range === $key)>{{ $label }}</option>
@@ -47,7 +48,7 @@
                                 <div class="min-w-0">
                                     <h3 class="font-semibold leading-snug text-ink">{{ $m->name }}</h3>
                                     <p class="mt-1 text-sm text-muted">{{ $team->name }}</p>
-                                    <p class="mt-2 text-sm tabular {{ ! $doc && $m->isPast() ? 'font-medium text-bad-ink' : 'text-muted' }}">{{ $m->due_at->format('H:i') }}@if (! $doc && $m->isPast()) · tenggat terlewat @endif</p>
+                                    <p class="mt-2 text-sm tabular {{ ! $doc && $m->isPast() ? 'font-medium text-bad-ink' : 'text-muted' }}">{{ $m->due_at->format('H:i') }}@if (! $doc && $m->isPast()) · deadline terlewat @endif</p>
                                 </div>
 
                                 {{-- Kanan: tombol unggah (popup pilih file); setelah terkumpul tetap tampil tetapi nonaktif --}}
@@ -78,12 +79,8 @@
                                         <div class="mt-3 flex flex-wrap items-center gap-2">
                                             <a href="{{ $fileUrl }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><x-heroicon-o-eye class="h-4 w-4" /> Lihat file</a>
                                             <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" @click="toggle" :aria-expanded="expanded" aria-controls="edit-{{ $m->id }}" @disabled($reason) @if ($reason) title="{{ $reason }}" @endif>
-                                                <x-heroicon-o-pencil-square class="h-4 w-4" /> Edit
+                                                <x-heroicon-o-arrow-up-tray class="h-4 w-4" /> Unggah file ulang
                                             </button>
-                                            <form method="POST" action="{{ route('mahasiswa.documents.destroy', $doc) }}" data-confirm="Hapus pengumpulan “{{ $m->name }}”? File dipindahkan ke Trash dan milestone kembali belum dikumpulkan." data-confirm-label="Hapus">
-                                                @csrf @method('DELETE')
-                                                <button class="btn btn-ghost btn-sm text-bad-ink"><x-heroicon-o-trash class="h-4 w-4" /> Hapus</button>
-                                            </form>
                                         </div>
                                         @if ($driveEnabled && $latest->sync_status === 'gagal')
                                             <div class="mt-2 flex flex-wrap items-center gap-2 text-caption text-bad-ink">Sinkronisasi ke Google Drive gagal.
@@ -93,10 +90,10 @@
                                             <p class="mt-2 text-caption text-muted">Sedang disinkronkan ke Google Drive…</p>
                                         @endif
 
-                                        {{-- Edit = unggah file pengganti --}}
+                                        {{-- Unggah file ulang = file pengganti (revisi baru); mahasiswa tidak dapat menghapus pengumpulan --}}
                                         <x-modal width="sm:max-w-lg">
-                                            <x-slot:heading>Ganti file · {{ $m->name }}</x-slot:heading>
-                                            @include('mahasiswa._document-upload', ['milestone' => $m, 'button' => 'Simpan perubahan'])
+                                            <x-slot:heading>Unggah file ulang · {{ $m->name }}</x-slot:heading>
+                                            @include('mahasiswa._document-upload', ['milestone' => $m, 'button' => 'Unggah file ulang'])
                                         </x-modal>
 
                                         {{-- Feedback dosen (opsional) --}}
@@ -116,7 +113,7 @@
                     </ul>
                 </div>
             @empty
-                <x-empty :title="$range === 'semua' ? 'Belum ada milestone pengumpulan dokumen' : 'Tidak ada tenggat dalam '.$range.' hari ke depan'" icon="document-arrow-up" />
+                <x-empty :title="$range === 'semua' ? 'Belum ada milestone pengumpulan dokumen' : 'Tidak ada deadline dalam '.$range.' hari ke depan'" icon="document-arrow-up" />
             @endforelse
         </section>
     @endif

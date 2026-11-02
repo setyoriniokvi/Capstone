@@ -1,0 +1,40 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /** Satu periode untuk satu prodi (periods.prodi_name), jadi prodi hanya tersisa pada topik dosen. */
+    public function up(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropIndex(['prodi_code']);
+            $table->dropColumn('prodi_code');
+        });
+        Schema::table('teams', function (Blueprint $table) {
+            $table->dropIndex(['prodi_code']);
+            $table->dropColumn('prodi_code');
+        });
+        Schema::table('registration_rules', function (Blueprint $table) {
+            // Foreign key period_id tetap punya indeks setelah unique (period_id, prodi_code) dihapus.
+            $table->index('period_id');
+            $table->dropUnique(['period_id', 'prodi_code']);
+            $table->dropColumn('prodi_code');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('prodi_code', 10)->nullable()->index();
+        });
+        Schema::table('teams', function (Blueprint $table) {
+            $table->string('prodi_code', 10)->nullable()->index();
+        });
+        Schema::table('registration_rules', function (Blueprint $table) {
+            $table->string('prodi_code', 10)->nullable();
+        });
+    }
+};

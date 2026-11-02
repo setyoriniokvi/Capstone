@@ -1,13 +1,14 @@
 {{-- F46 — Approval Bimbingan (dosen pembimbing) dengan dua tab.
      "Pengajuan Log Bimbingan": log yang menunggu keputusan dari semua tim bimbingan.
      "Log Bimbingan": seluruh log per tim (dropdown tim + pencarian, Alpine "logTable"), tabel dapat digeser ke samping.
-     Pada tab pengajuan: Dropdown di tengah judul menyaring per tim langsung di browser (Alpine "rowFilter").
+     Pada tab pengajuan: Dropdown di tengah judul menyaring per tim langsung di browser; kotak centang per baris +
+     "pilih semua" (log yang tampil) untuk "Setujui pilihan" sekaligus (Alpine "bulkApproval").
      Setujui = konfirmasi; Tolak = popup feedback opsional (status tersimpan "revisi", tampil "Ditolak" di mahasiswa). --}}
 @php
     $greenHead = 'bg-brand-tint [&>tr>th]:border-0 [&>tr>th]:py-3.5 [&>tr>th]:text-sm [&>tr>th]:font-semibold [&>tr>th]:text-brand-deep';
     $cells = '[&_td]:break-words [&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:last-child]:pr-5 sm:[&_td:first-child]:pl-6 sm:[&_th:first-child]:pl-6 sm:[&_td:last-child]:pr-6 sm:[&_th:last-child]:pr-6';
 @endphp
-<x-layouts.app title="Approval Bimbingan" section="Dosen · Approval bimbingan">
+<x-layouts.app title="Approval Bimbingan">
     <x-page-head title="Approval Bimbingan" lede="Setujui log bimbingan tim atau tolak dengan feedback. Setiap tim perlu minimal {{ $minLogbooks }} log disetujui sebelum presentasi akhir." />
 
     @error('logbook')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
@@ -24,7 +25,7 @@
     @elseif ($tab === 'log')
         @include('dosen._logbook-history')
     @else
-        <section x-data="rowFilter" class="panel overflow-hidden" aria-labelledby="log-judul">
+        <section x-data="bulkApproval" class="panel overflow-hidden" aria-labelledby="log-judul">
             {{-- Judul · filter tim · jumlah menunggu --}}
             <div class="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:px-6">
                 <h2 id="log-judul" class="text-lg font-semibold text-ink">Pengajuan Log Bimbingan</h2>
@@ -41,12 +42,25 @@
             @if ($pending->isEmpty())
                 <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada log bimbingan yang menunggu.</p>
             @else
-                <table class="data-table w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
-                    <colgroup><col class="w-[17%]"><col class="w-[8%]"><col class="w-[14%]"><col class="w-[31%]"><col class="w-[14%]"><col class="w-[16%]"></colgroup>
-                    <thead class="{{ $greenHead }}"><tr><th>Nama tim</th><th class="text-center">Sesi</th><th>Tanggal</th><th>Catatan bimbingan</th><th>Waktu pengajuan</th><th class="text-center">Aksi</th></tr></thead>
+                {{-- Setujui sekaligus: kotak centang baris terhubung ke formulir ini lewat atribut form --}}
+                <form id="setujui-terpilih" method="POST" action="{{ route('dosen.logbooks.approve-many') }}" data-confirm="Setujui semua log bimbingan yang dipilih?" data-confirm-label="Setujui" data-confirm-tone="positive"
+                      class="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-sunken px-5 py-3 sm:px-6">
+                    @csrf
+                    <p class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="selected">0</span> log dipilih</p>
+                    <button class="btn btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-50" :disabled="noneSelected" disabled title="Pilih log terlebih dahulu">
+                        <x-heroicon-o-check class="h-4 w-4" /> Setujui pilihan
+                    </button>
+                </form>
+                <table class="data-table w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent" @change="pick">
+                    <colgroup><col class="w-[6%]"><col class="w-[16%]"><col class="w-[7%]"><col class="w-[13%]"><col class="w-[29%]"><col class="w-[13%]"><col class="w-[16%]"></colgroup>
+                    <thead class="{{ $greenHead }}"><tr>
+                        <th><input type="checkbox" class="checkbox" data-select-all :checked="allSelected" aria-label="Pilih semua log yang tampil"></th>
+                        <th>Nama tim</th><th class="text-center">Sesi</th><th>Tanggal</th><th>Catatan bimbingan</th><th>Waktu pengajuan</th><th class="text-center">Aksi</th>
+                    </tr></thead>
                     <tbody>
                         @foreach ($pending as $log)
                             <tr x-data="disclosure" data-team="{{ $log->team_id }}" class="[&>td]:py-4 [&>td]:align-top">
+                                <td class="!align-middle"><input type="checkbox" class="checkbox" form="setujui-terpilih" name="logbooks[]" value="{{ $log->id }}" data-select-row aria-label="Pilih log sesi {{ $log->session_no }} {{ $log->team->name }}"></td>
                                 <td class="font-semibold text-ink">{{ $log->team->name }}</td>
                                 <td class="text-center tabular text-ink">{{ $log->session_no }}</td>
                                 <td class="text-sm text-ink">{{ $log->session_date->translatedFormat('j M Y') }}</td>

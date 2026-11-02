@@ -1,4 +1,4 @@
-<x-layouts.app title="File Pendukung" section="File pendukung">
+<x-layouts.app title="File Pendukung">
     <x-page-head title="File pendukung" lede="Panduan Capstone, slide sosialisasi, dan materi pendukung dari admin." />
     @forelse ($groups as $category => $files)
         <section class="panel mb-4">
@@ -12,7 +12,12 @@
                             @if ($file->description)<p class="text-sm text-muted">{{ $file->description }}</p>@endif
                             <p class="text-caption text-muted">{{ strtoupper(pathinfo($file->original_name, PATHINFO_EXTENSION)) }} · {{ \App\Support\Format::bytes($file->size) }} · {{ $file->created_at->translatedFormat('j M Y') }}</p>
                         </div>
-                        <a href="{{ route('files.download', $file) }}" class="btn btn-secondary btn-sm"><x-heroicon-o-arrow-down-tray class="h-4 w-4" />Unduh</a>
+                        @if ($file->isPreviewable())
+                            <a href="{{ route('files.show', $file) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><x-heroicon-o-eye class="h-4 w-4" />Lihat<span class="sr-only"> {{ $file->title }}</span></a>
+                        @else
+                            <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" disabled title="Pratinjau hanya untuk PDF & gambar — silakan unduh"><x-heroicon-o-eye class="h-4 w-4" />Lihat</button>
+                        @endif
+                        <a download href="{{ route('files.download', $file) }}" class="btn btn-secondary btn-sm"><x-heroicon-o-arrow-down-tray class="h-4 w-4" />Unduh</a>
                     </li>
                 @endforeach
             </ul>

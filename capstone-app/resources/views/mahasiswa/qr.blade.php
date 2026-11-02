@@ -1,4 +1,4 @@
-<x-layouts.app title="QR Code Penilaian Pameran Tim" section="Mahasiswa · QR Code">
+<x-layouts.app title="QR Code Penilaian Pameran Tim">
     <x-page-head title="QR Code Penilaian Pameran Tim" lede="Tunjukkan QR ini kepada dosen penguji saat pameran. Dosen dapat langsung masuk ke halaman penilaian pameran tim." />
     @if (! $token)
         <div class="panel"><x-empty title="QR Code tersedia setelah registrasi tim diterima" icon="qr-code" /></div>
@@ -12,7 +12,7 @@
                         @csrf
                         <button class="btn btn-secondary w-full"><x-heroicon-o-arrow-path class="h-5 w-5" />Generate QR baru</button>
                     </form>
-                    <a href="{{ route('mahasiswa.qr.download') }}" class="btn btn-primary w-full"><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Unduh PNG</a>
+                    <a download href="{{ route('mahasiswa.qr.download') }}" class="btn btn-primary w-full"><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Unduh PNG</a>
                 </div>
                 <p class="field-hint mt-4">QR hanya berisi kode acak. Identitas tim diverifikasi oleh sistem.</p>
             </div>

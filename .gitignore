@@ -1,0 +1,5 @@
+
+# npm yang tidak sengaja dijalankan di root (proyek JS ada di capstone-app/)
+/node_modules/
+/package.json
+/package-lock.json

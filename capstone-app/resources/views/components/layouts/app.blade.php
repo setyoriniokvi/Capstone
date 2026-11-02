@@ -1,4 +1,4 @@
-@props(['title' => 'Capstone', 'section' => null])
+@props(['title' => 'Capstone'])
 @php
     $user = auth()->user();
     $nav = \App\Support\Navigation::for($user);
@@ -7,6 +7,8 @@
     $workspace = $user->isAdmin() ? \App\Models\Period::workspace() : null;
     // Dashboard awal admin (Kelola Periode) tanpa sidebar: menunya hanya satu.
     $withSidebar = ! ($user->isAdmin() && ! $workspace);
+    // Sidebar desktop disembunyikan pengguna (cookie tanpa enkripsi, ditulis app.js) — dirender di server agar tidak berkedip.
+    $sidebarCollapsed = $withSidebar && request()->cookie('sidebar') === 'collapsed';
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -17,7 +19,7 @@
     <title>{{ $title ?? 'Capstone' }} · Capstone FRI</title>
     <x-head-assets />
 </head>
-<body x-data="shell" class="min-h-screen">
+<body x-data="shell" data-sidebar="{{ $sidebarCollapsed ? 'collapsed' : 'open' }}" :data-sidebar="sidebarState" class="min-h-screen">
     <a href="#konten" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-4 focus:py-2">Lewati ke konten</a>
 
     @if ($withSidebar)
@@ -75,19 +77,25 @@
     </aside>
     @endif
 
-    <div class="{{ $withSidebar ? 'md:pl-[17rem]' : '' }}">
+    <div class="{{ $withSidebar ? 'shell-main md:pl-[17rem]' : '' }}">
         <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-rule bg-paper px-4 sm:px-8">
             @if ($withSidebar)
-                <button type="button" @click="toggleNav" class="-ml-2 grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken md:hidden" aria-controls="sidebar" aria-label="Buka menu">
-                    <x-heroicon-o-bars-3 class="h-6 w-6" />
+                {{-- Layar sempit: buka/tutup laci menu. Desktop: sembunyikan/tampilkan sidebar. --}}
+                <button type="button" @click="toggleSidebar" class="menu-toggle -ml-2 grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken"
+                        aria-controls="sidebar" :aria-expanded="sidebarExpanded" :aria-label="sidebarLabel" :title="sidebarLabel"
+                        aria-label="{{ $sidebarCollapsed ? 'Tampilkan menu' : 'Sembunyikan menu' }}">
+                    {{-- Ikon garis bertingkat; saat kursor di atas tombol semua garis memanjang penuh --}}
+                    <span class="menu-bars" aria-hidden="true">
+                        <span></span><span></span><span></span>
+                    </span>
                 </button>
-                <img src="{{ Vite::asset('resources/images/telu-mark.png') }}" alt="" class="h-7 w-7 md:hidden" width="28" height="28">
+                <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="shell-mark h-8 w-auto md:hidden" width="143" height="32">
             @else
                 <a href="{{ route($user->homeRoute()) }}" class="shrink-0" aria-label="Kelola Periode">
                     <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-8 w-auto" width="143" height="32">
                 </a>
             @endif
-            <p class="min-w-0 flex-1 truncate text-sm text-muted">{{ $section ?? '' }}</p>
+            <div class="flex-1"></div>
             {{-- Topbar kanan: notifikasi, pemisah, menu profil --}}
             <div class="flex items-center gap-1 sm:gap-3">
                 <x-notification-menu :user="$user" />
@@ -103,5 +111,6 @@
     </div>
 
     <x-confirm-dialog />
+    <x-page-loader />
 </body>
 </html>

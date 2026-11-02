@@ -5,7 +5,7 @@
 @else
     <div class="table-wrap border-t border-rule">
         <table class="data-table [&_tbody_tr:hover_td]:bg-transparent">
-            <thead class="bg-brand-tint"><tr class="[&>th]:border-0 [&>th]:py-3.5 [&>th]:text-sm [&>th]:font-semibold [&>th]:text-brand-deep"><th>Tim</th><th>Peran</th><th>Log disetujui</th></tr></thead>
+            <thead class="bg-brand-tint"><tr class="[&>th]:border-0 [&>th]:py-3.5 [&>th]:text-sm [&>th]:font-semibold [&>th]:text-brand-deep"><th>Tim</th><th>Peran Anda</th><th>Log disetujui</th></tr></thead>
             <tbody>
                 @foreach ($teams as $team)
                     <tr class="[&>td]:py-4 [&>td]:align-top">

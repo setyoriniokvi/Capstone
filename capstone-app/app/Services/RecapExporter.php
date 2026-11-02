@@ -23,7 +23,7 @@ class RecapExporter
     public function toXlsx(Collection $results, bool $partial): string
     {
         $clos = $this->calculator->clos()->pluck('code')->all();
-        $header = array_merge(['NIM', 'Nama', 'Kode Kelompok', 'Prodi'], $clos, ['Total', 'Grade', 'Status']);
+        $header = array_merge(['NIM', 'Nama', 'Kode Kelompok'], $clos, ['Total', 'Grade', 'Status']);
 
         $sheet = (new Spreadsheet)->getActiveSheet();
         $sheet->setTitle('Rekap Nilai');
@@ -42,7 +42,6 @@ class RecapExporter
                     $row['student']->nim,
                     $row['student']->name,
                     $result['team']->code,
-                    $result['team']->prodi_code,
                 ];
                 foreach ($clos as $code) {
                     $values[] = $result['complete'] || $row['clos'][$code]['points'] > 0 ? $row['clos'][$code]['percent'] : null;

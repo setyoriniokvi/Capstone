@@ -36,8 +36,8 @@ class StudentDashboard
         ]);
         $eligibility = $this->screening->eligibility($user, $period->registrationRule);
         $uploadBlocker = $team?->documentUploadBlocker();
-        $documents = $team ? $this->documents($period, $team, $uploadBlocker !== null) : collect();
         $logbook = $team ? $this->logbookSummary($team) : null;
+        $documents = $team ? $this->documents($period, $team, $uploadBlocker !== null, $logbook['approved'] < $logbook['min']) : collect();
 
         return [
             'period' => $period,
@@ -85,7 +85,7 @@ class StudentDashboard
         };
     }
 
-    /** Tenggat terdekat yang masih relevan bagi tim (belum lewat dan belum dilalui), beserta tautan halamannya. */
+    /** Deadline terdekat yang masih relevan bagi tim (belum lewat dan belum dilalui), beserta tautan halamannya. */
     private function deadline(Period $period, ?Team $team): ?array
     {
         $milestone = $period->milestones
@@ -118,7 +118,7 @@ class StudentDashboard
 
     /**
      * Tahap timeline (config capstone.dashboard_stages) dengan status bagi tim:
-     * done (semua milestone dilalui), late (ada yang lewat tenggat tanpa dilalui),
+     * done (semua milestone dilalui), late (ada yang lewat deadline tanpa dilalui),
      * current (tahap pertama yang belum selesai), upcoming.
      *
      * @return Collection<int, array{name: string, weeks: array{0: int, 1: int}, state: string, open: bool, milestones: Collection<int, Milestone>}>
@@ -159,20 +159,21 @@ class StudentDashboard
 
     /**
      * Milestone dokumen beserta status kiriman tim. Bila unggah masih diblokir
-     * (Team::documentUploadBlocker), milestone yang sudah dibuka berstatus "locked".
+     * (Team::documentUploadBlocker) — atau milestone butuh minimal log bimbingan yang belum terpenuhi
+     * (Milestone::requiresLogbookMinimum) — milestone yang sudah dibuka berstatus "locked".
      *
      * @return Collection<int, array{milestone: Milestone, document: ?Document, state: string, urgency: ?string}>
      */
-    private function documents(Period $period, Team $team, bool $uploadBlocked): Collection
+    private function documents(Period $period, Team $team, bool $uploadBlocked, bool $logbookShort): Collection
     {
         return $period->milestones->where('kind', 'dokumen')->sortBy('due_at')->values()
-            ->map(function (Milestone $m) use ($team, $uploadBlocked) {
+            ->map(function (Milestone $m) use ($team, $uploadBlocked, $logbookShort) {
                 $document = $team->documents->firstWhere('milestone_id', $m->id);
 
                 $state = match (true) {
                     $document?->review_status === 'revisi' => 'revisi',
                     $document !== null => 'done',
-                    $uploadBlocked && $m->hasStarted() => 'locked',
+                    ($uploadBlocked || ($logbookShort && $m->requiresLogbookMinimum())) && $m->hasStarted() => 'locked',
                     $m->isPast() => 'missed',
                     $m->hasStarted() => 'open',
                     default => 'upcoming',
@@ -212,7 +213,7 @@ class StudentDashboard
             'approved' => (int) ($counts['disetujui'] ?? 0),
             'pending' => (int) ($counts['menunggu'] ?? 0),
             'revision' => (int) ($counts['revisi'] ?? 0),
-            'min' => (int) config('capstone.min_approved_logbooks'),
+            'min' => Period::minLogbooks($team->period),
         ];
     }
 
@@ -277,7 +278,7 @@ class StudentDashboard
             if ($row['state'] === 'revisi') {
                 $actions->push($this->action('Revisi '.$m->name, $row['document']->feedback ?: 'Dosen meminta revisi dokumen.', route('mahasiswa.documents.index'), 'bad'));
             } elseif (in_array($row['state'], ['open', 'missed'], true)) {
-                $actions->push($this->action('Kumpulkan '.$m->name, $row['state'] === 'missed' ? 'Tenggat terlewat — unggahan tetap diterima dan ditandai terlambat.' : '', route('mahasiswa.documents.index'), $row['state'] === 'missed' ? 'bad' : 'warn', $m->due_at));
+                $actions->push($this->action('Kumpulkan '.$m->name, $row['state'] === 'missed' ? 'Deadline terlewat — unggahan tetap diterima dan ditandai terlambat.' : '', route('mahasiswa.documents.index'), $row['state'] === 'missed' ? 'bad' : 'warn', $m->due_at));
             }
         }
 
@@ -302,7 +303,7 @@ class StudentDashboard
         return compact('title', 'detail', 'url', 'tone', 'due', 'icon') + ['urgency' => $due ? $this->urgency($due) : null];
     }
 
-    /** "late" bila tenggat lewat, "soon" bila dalam capstone.dashboard_soon_days hari. */
+    /** "late" bila deadline lewat, "soon" bila dalam capstone.dashboard_soon_days hari. */
     private function urgency(CarbonInterface $due): ?string
     {
         return match (true) {

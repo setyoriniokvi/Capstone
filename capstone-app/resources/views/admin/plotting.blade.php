@@ -1,4 +1,4 @@
-<x-layouts.app title="Plotting Dosen" section="Admin · Plotting">
+<x-layouts.app title="Plotting Dosen">
     <x-page-head title="Plotting pembimbing & penguji" lede="Flag OVER/UNDER bersifat informatif dan tidak memblokir plotting. Pilihan dosen ditandai hijau bila masih tersedia dan merah bila sudah mencapai batas maksimum." />
 
     @if (! $period)
@@ -7,13 +7,6 @@
         <section class="panel mb-6">
             <div class="panel-head">
                 <h2 class="panel-title">Load balancing dosen</h2>
-                <form method="GET" class="flex items-center gap-2">
-                    <label for="prodi_dosen" class="text-sm text-muted">Prodi</label>
-                    <select id="prodi_dosen" name="prodi_dosen" class="input w-auto">
-                        <option value="">Semua</option>@foreach ($prodis as $p)<option value="{{ $p->code }}" @selected(request('prodi_dosen') === $p->code)>{{ $p->code }}</option>@endforeach
-                    </select>
-                    <button class="btn btn-secondary btn-sm">Terapkan</button>
-                </form>
             </div>
             <div class="table-wrap max-h-[26rem] overflow-y-auto">
                 <table class="data-table">
@@ -21,7 +14,7 @@
                     <tbody>
                         @forelse ($rows as $r)
                             <tr>
-                                <td><p class="font-medium">{{ $r['lecturer']->name }}</p><p class="text-caption text-muted"><span class="code">{{ $r['lecturer']->lecturerProfile->lecturer_code }}</span> · {{ $r['lecturer']->prodi_code ?? '—' }}</p></td>
+                                <td><p class="font-medium">{{ $r['lecturer']->name }}</p><p class="text-caption text-muted"><span class="code">{{ $r['lecturer']->lecturerProfile->lecturer_code }}</span></p></td>
                                 <td class="text-right tabular">{{ $r['counts']['pembimbing'] }}</td><td><x-flag :value="$r['flags']['pembimbing']" /></td>
                                 <td class="text-right tabular">{{ $r['counts']['penguji'] }}</td><td><x-flag :value="$r['flags']['penguji']" /></td>
                                 <td class="text-right tabular font-medium">{{ $r['counts']['total'] }}</td><td><x-flag :value="$r['flags']['total']" /></td>
@@ -38,8 +31,6 @@
         <section class="panel">
             <div class="panel-head">
                 <x-filter-bar :action="route('admin.plotting.index')">
-                    <div><label class="field-label" for="prodi">Prodi tim</label>
-                        <select id="prodi" name="prodi" class="input"><option value="">Semua</option>@foreach ($prodis as $p)<option value="{{ $p->code }}" @selected(request('prodi') === $p->code)>{{ $p->code }}</option>@endforeach</select></div>
                     <div><label class="field-label" for="filter">Tampilkan</label>
                         <select id="filter" name="filter" class="input"><option value="">Semua tim</option><option value="tanpa_pembimbing" @selected(request('filter') === 'tanpa_pembimbing')>Belum ada pembimbing</option><option value="tanpa_penguji" @selected(request('filter') === 'tanpa_penguji')>Belum ada penguji</option></select></div>
                 </x-filter-bar>

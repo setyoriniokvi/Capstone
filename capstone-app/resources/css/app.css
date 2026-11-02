@@ -53,6 +53,56 @@
     }
 }
 
+/* Ikon menu: garis bertingkat (panjang → pendek), memanjang penuh saat tombol disorot */
+.menu-bars {
+    display: flex;
+    width: 1.25rem;
+    flex-direction: column;
+    gap: 0.3125rem;
+}
+.menu-bars > span {
+    display: block;
+    height: 2px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    transition: width 260ms var(--ease-out);
+}
+.menu-bars > span:nth-child(1) {
+    width: 100%;
+}
+.menu-bars > span:nth-child(2) {
+    width: 70%;
+    transition-delay: 40ms;
+}
+.menu-bars > span:nth-child(3) {
+    width: 45%;
+    transition-delay: 80ms;
+}
+.menu-toggle:hover .menu-bars > span,
+.menu-toggle:focus-visible .menu-bars > span {
+    width: 100%;
+}
+
+/* Sidebar desktop yang disembunyikan (body[data-sidebar], tombol menu di topbar) */
+@media (min-width: 768px) {
+    #sidebar {
+        transition: transform 200ms var(--ease-out), visibility 200ms;
+    }
+    .shell-main {
+        transition: padding-left 200ms var(--ease-out);
+    }
+    body[data-sidebar='collapsed'] #sidebar {
+        transform: translateX(-100%);
+        visibility: hidden;
+    }
+    body[data-sidebar='collapsed'] .shell-main {
+        padding-left: 0;
+    }
+    body[data-sidebar='collapsed'] .shell-mark {
+        display: block;
+    }
+}
+
 @layer components {
     /* Tombol — min 44px (NFR touch target) */
     .btn {
@@ -311,6 +361,9 @@
 .is-stacked .data-table tr {
     @apply grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-x-8 border-b border-rule px-4 py-3 sm:px-6;
 }
+.is-stacked .data-table tr[hidden] {
+    display: none;
+}
 .is-stacked .data-table tbody tr:last-child {
     @apply border-b-0;
 }
@@ -359,5 +412,117 @@
     from {
         opacity: 0;
         transform: translateY(12px);
+    }
+}
+
+/*
+ * Scrollbar horizontal yang selalu tampil (tidak menunggu digulir dulu seperti scrollbar overlay).
+ * Dipakai tabel lebar yang digeser ke samping, mis. daftar topik dosen.
+ */
+@layer components {
+    .scroll-x-visible {
+        overflow-x: scroll;
+    }
+    .scroll-x-visible::-webkit-scrollbar {
+        height: 12px;
+    }
+    .scroll-x-visible::-webkit-scrollbar-track {
+        @apply border-t border-rule bg-sunken;
+    }
+    .scroll-x-visible::-webkit-scrollbar-thumb {
+        @apply rounded-full border-[3px] border-solid border-transparent bg-rule-strong bg-clip-padding;
+    }
+    .scroll-x-visible::-webkit-scrollbar-thumb:hover {
+        @apply bg-faint;
+    }
+    @supports not selector(::-webkit-scrollbar) {
+        .scroll-x-visible {
+            scrollbar-width: auto;
+            scrollbar-color: var(--color-rule-strong) var(--color-sunken);
+        }
+    }
+}
+
+/*
+ * Loading antar halaman (<x-page-loader />): lapisan penuh layar, muncul memudar saat diberi .is-active.
+ * Logo FRI memantul seperti bola di atas bayangannya.
+ */
+@layer components {
+    .page-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+        backdrop-filter: blur(2px);
+        opacity: 0;
+        visibility: hidden;
+        transition:
+            opacity var(--dur-base) var(--ease-out),
+            visibility 0s linear var(--dur-base);
+    }
+    .page-loader.is-active {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity var(--dur-base) var(--ease-out);
+    }
+    .page-loader__logo {
+        transform-origin: 50% 100%;
+        animation: page-loader-bounce 0.9s infinite;
+    }
+    .page-loader__shadow {
+        margin-top: 10px;
+        width: 150px;
+        height: 10px;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, rgb(0 0 0 / 0.28), transparent);
+        animation: page-loader-shadow 0.9s infinite;
+    }
+    /* Gerak dikurangi: logo diam (bukan berulang 1ms tanpa henti dari aturan global). */
+    @media (prefers-reduced-motion: reduce) {
+        .page-loader__logo,
+        .page-loader__shadow {
+            animation: none;
+        }
+    }
+}
+
+/*
+ * Pantulan: naik melambat (ease-out) ke puncak, jatuh makin cepat (ease-in), lalu sedikit gepeng
+ * saat menyentuh lantai. Bayangan mengikuti: kecil & pudar di puncak, lebar & pekat saat mendarat.
+ */
+@keyframes page-loader-bounce {
+    0% {
+        transform: translateY(0) scale(1.08, 0.9);
+        animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0);
+    }
+    8% {
+        transform: translateY(0) scale(1, 1);
+        animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1);
+    }
+    50% {
+        transform: translateY(-48px) scale(1, 1);
+        animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+    }
+    92% {
+        transform: translateY(0) scale(1, 1);
+    }
+    100% {
+        transform: translateY(0) scale(1.08, 0.9);
+    }
+}
+
+@keyframes page-loader-shadow {
+    0%,
+    100% {
+        transform: scaleX(1.05);
+        opacity: 1;
+        animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1);
+    }
+    50% {
+        transform: scaleX(0.5);
+        opacity: 0.35;
+        animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
     }
 }

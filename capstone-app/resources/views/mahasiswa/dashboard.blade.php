@@ -1,9 +1,9 @@
 {{-- F19 — dashboard mahasiswa. Data disusun oleh App\Services\StudentDashboard; view ini hanya menampilkan.
-     Urutan: sambutan → ringkasan (log, dokumen, tenggat) → perlu dilakukan → timeline | tim → log bimbingan terbaru.
+     Urutan: sambutan → ringkasan (log, dokumen, deadline) → perlu dilakukan → timeline | tim → log bimbingan terbaru.
      Setiap blok ada di partial mahasiswa/_*.blade.php agar dapat diubah tanpa menyentuh blok lain.
      Hallmark · pre-emit critique: P4 H5 E4 S4 R5 V4 — tanpa eyebrow, ubin ikon, badge pojok, ornamen, atau kartu-dalam-kartu. --}}
 @php $firstName = \Illuminate\Support\Str::of(auth()->user()->name)->explode(' ')->first(); @endphp
-<x-layouts.app title="Dashboard Tim" section="Mahasiswa · Dashboard">
+<x-layouts.app title="Dashboard Tim">
     @if (! $period)
         <x-page-head title="Halo, {{ $firstName }}" />
         <div class="panel"><x-empty title="Belum ada periode Capstone yang aktif" icon="calendar-days">Informasi timeline akan muncul setelah admin membuka periode.</x-empty></div>
@@ -27,22 +27,17 @@
             </p>
         </section>
 
-        @if ($team)
-            @include('mahasiswa._summary-cards')
-        @endif
+        {{-- Kartu tetap lengkap walau belum bertim; isinya yang memberi tahu "belum ada tim". --}}
+        @include('mahasiswa._summary-cards')
 
         <x-todo-card class="mb-6" :actions="$actions" :waiting="$waiting" />
 
-        <div class="mb-6 grid gap-6 {{ $team ? 'lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]' : '' }}">
+        <div class="mb-6 grid gap-6 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
             <x-capstone-timeline id="timeline" :period="$period" />
 
-            @if ($team)
-                @include('mahasiswa._team-card')
-            @endif
+            @include('mahasiswa._team-card')
         </div>
 
-        @if ($team)
-            @include('mahasiswa._recent-logbooks')
-        @endif
+        @include('mahasiswa._recent-logbooks')
     @endif
 </x-layouts.app>

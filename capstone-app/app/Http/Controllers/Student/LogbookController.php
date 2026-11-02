@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Models\ActivityLog;
 use App\Models\Logbook;
+use App\Models\Period;
 use App\Notifications\SystemNotice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class LogbookController extends StudentController
         return view('mahasiswa.logbooks', [
             'team' => $team,
             'approved' => $team?->logbooks->where('status', 'disetujui')->count() ?? 0,
-            'minLogbooks' => config('capstone.min_approved_logbooks'),
+            'minLogbooks' => Period::minLogbooks($team?->period),
         ]);
     }
 

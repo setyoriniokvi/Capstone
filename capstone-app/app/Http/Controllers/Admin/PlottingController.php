@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\LecturerProfile;
 use App\Models\Period;
-use App\Models\StudyProgram;
 use App\Models\Team;
 use App\Models\TeamLecturer;
 use App\Models\User;
@@ -26,9 +26,8 @@ class PlottingController extends Controller
             return view('admin.plotting', ['period' => null]);
         }
 
-        $rows = $balance->rows($period, $request->input('prodi_dosen'));
+        $rows = $balance->rows($period);
         $teams = Team::query()->where('period_id', $period->id)->where('status', 'diterima')
-            ->when($request->filled('prodi'), fn ($q) => $q->where('prodi_code', $request->string('prodi')))
             ->when($request->input('filter') === 'tanpa_pembimbing', fn ($q) => $q->whereDoesntHave('supervisor'))
             ->when($request->input('filter') === 'tanpa_penguji', fn ($q) => $q->whereDoesntHave('examiner'))
             ->with(['finalTopic', 'supervisor.lecturer', 'examiner.lecturer'])
@@ -40,9 +39,9 @@ class PlottingController extends Controller
             'rows' => $rows,
             'teams' => $teams,
             'balance' => $balance,
-            'prodis' => StudyProgram::query()->orderBy('code')->get(),
-            'supervisors' => $rows->filter(fn ($r) => $r['lecturer']->lecturerProfile->can_supervise),
-            'examiners' => $rows->filter(fn ($r) => $r['lecturer']->lecturerProfile->can_examine),
+            // Semua dosen aktif dapat diplot; hak akses Pembimbing/Penguji tercentang otomatis setelah diplot.
+            'supervisors' => $rows,
+            'examiners' => $rows,
         ]);
     }
 
@@ -54,11 +53,7 @@ class PlottingController extends Controller
         ]);
         abort_unless($team->status === 'diterima', 409, 'Tim belum diterima.');
 
-        $lecturer = User::query()->with('lecturerProfile')->findOrFail($data['lecturer_id']);
-        $flag = $data['role'] === 'pembimbing' ? 'can_supervise' : 'can_examine';
-        if (! $lecturer->lecturerProfile?->{$flag}) {
-            return back()->withErrors(['lecturer_id' => "{$lecturer->name} tidak memiliki hak akses sebagai {$data['role']}."]);
-        }
+        $lecturer = User::query()->findOrFail($data['lecturer_id']);
 
         // Penguji ditentukan terpisah dari pembimbing demi objektivitas (PRD 6.4).
         $other = $data['role'] === 'pembimbing' ? 'penguji' : 'pembimbing';
@@ -70,9 +65,10 @@ class PlottingController extends Controller
             ['team_id' => $team->id, 'role' => $data['role']],
             ['lecturer_id' => $lecturer->id, 'source' => 'admin', 'assigned_by' => $request->user()->id]
         );
+        LecturerProfile::grant($lecturer->id, $data['role']);
         ActivityLog::record('plot_lecturer', $team, $data);
 
-        SystemNotice::sendTo([$lecturer], "Penugasan sebagai {$data['role']}", $team->name, route('dosen.teams.show', $team));
+        SystemNotice::sendTo([$lecturer], "Penugasan sebagai {$data['role']}", $team->name, route($data['role'] === 'pembimbing' ? 'dosen.teams.supervised' : 'dosen.teams.examined', ['tim' => $team->id]));
         SystemNotice::sendTo($team->activeUsers, "Dosen {$data['role']} ditetapkan", $lecturer->name, route('mahasiswa.dashboard'));
 
         return back()->with('status', ucfirst($data['role'])." {$team->code} disimpan.");

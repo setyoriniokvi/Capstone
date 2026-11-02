@@ -10,7 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-/** F2 — milestone & tenggat setiap tahapan. */
+/** F2 — milestone & deadline setiap tahapan. */
 class MilestoneController extends Controller
 {
     public function store(Request $request, Period $period): RedirectResponse
@@ -49,7 +49,6 @@ class MilestoneController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'kind' => ['required', Rule::in(array_keys(config('capstone.milestone_kinds'))), Rule::when($request->input('category') === 'lainnya', [Rule::notIn(['dokumen'])])],
             'document_type' => ['nullable', 'required_if:kind,dokumen', Rule::in(array_keys(config('capstone.document_types')))],
-            'week_no' => ['nullable', 'integer', 'between:1,20'],
             'starts_at' => ['required', 'date'],
             'due_at' => ['required', 'date', 'after:starts_at'],
             'sort_order' => ['nullable', 'integer', 'between:0,999'],
@@ -58,7 +57,7 @@ class MilestoneController extends Controller
         ], [
             'allowed_types.required_if' => 'Pilih minimal satu tipe file untuk milestone pengumpulan dokumen.',
             'document_type.required_if' => 'Pilih jenis dokumen untuk milestone pengumpulan dokumen.',
-            'due_at.after' => 'Tenggat harus setelah waktu mulai.',
+            'due_at.after' => 'Deadline harus setelah waktu mulai.',
         ]);
         unset($data['category']);
         $data['document_type'] = $data['kind'] === 'dokumen' ? $data['document_type'] : null;

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AssessmentComponent;
 use App\Models\Team;
 use App\Models\TeamQrToken;
 use App\Models\User;
@@ -98,7 +99,7 @@ class QrService
         }
 
         return $team->period->assessmentWindows()->get()
-            ->filter(fn ($w) => $w->isOpen() && config("capstone.components.{$w->component}.role") === $role)
+            ->filter(fn ($w) => $w->isOpen() && in_array($role, AssessmentComponent::rolesOf($w->component), true))
             ->pluck('component')
             ->values();
     }

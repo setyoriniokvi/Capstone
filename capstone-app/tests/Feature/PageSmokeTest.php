@@ -36,17 +36,18 @@ class PageSmokeTest extends TestCase
         $period = $team->period;
 
         foreach ([
-            route('admin.dashboard'), route('admin.periods.index'), route('admin.periods.create'), route('admin.periods.edit', $period),
-            route('admin.lecturers.index'), route('admin.lecturers.create'),
-            route('admin.lecturers.edit', User::query()->where('role', 'dosen')->first()),
-            route('admin.students.index'), route('admin.students.edit', User::query()->where('role', 'mahasiswa')->first()),
-            route('admin.teams.index'), route('admin.teams.show', $team), route('admin.topics.index'), route('admin.topics.index', ['sumber' => 'dosen', 'status' => 'semua']),
-            route('admin.topics.recap'), route('admin.quotas.index'), route('admin.plotting.index'),
+            route('admin.dashboard'),
+            route('admin.lecturers.index'),
+            route('admin.students.index'),
+            route('admin.teams.index'), route('admin.teams.index', ['tim' => $team->id]), route('admin.topics.index'), route('admin.topics.index', ['tab' => 'dosen']),
+            route('admin.quotas.index'), route('admin.plotting.index'),
             route('admin.monitoring.progress'), route('admin.monitoring.assessments'),
             route('admin.clos.index'), route('admin.indicators.index'), route('admin.indicators.create'),
             route('admin.indicators.edit', Indicator::first()), route('admin.rubrics.index'), route('admin.rubrics.edit', Indicator::first()),
             route('admin.oral.index'), route('admin.files.index'), route('admin.recap.index'), route('admin.reminders.index'),
             route('admin.documents.index'), route('files.index'),
+            // Kelola Periode terakhir: membukanya menutup Dashboard Periode
+            route('admin.periods.create'), route('admin.periods.edit', $period), route('admin.periods.index'),
         ] as $url) {
             $this->actingAs($admin)->get($url)->assertOk();
         }
@@ -58,7 +59,7 @@ class PageSmokeTest extends TestCase
             $student = User::query()->where('email', $email)->first();
             foreach ([
                 'mahasiswa.dashboard', 'mahasiswa.team.show', 'mahasiswa.topic.index', 'mahasiswa.documents.index',
-                'mahasiswa.logbooks.index', 'mahasiswa.peer.index', 'mahasiswa.results.index', 'mahasiswa.qr.show', 'files.index',
+                'mahasiswa.logbooks.index', 'mahasiswa.assessments.index', 'mahasiswa.peer.index', 'mahasiswa.qr.show', 'files.index',
             ] as $route) {
                 $this->actingAs($student)->get(route($route))->assertOk();
             }
@@ -82,7 +83,7 @@ class PageSmokeTest extends TestCase
 
         foreach ([
             route('dosen.dashboard'), route('dosen.topics.index'), route('dosen.topics.index', ['tambah' => 1]), route('dosen.applications.index'),
-            route('dosen.teams.index'), route('dosen.teams.show', $team), route('dosen.logbooks.index'), route('dosen.assessments.index'),
+            route('dosen.teams.index'), route('dosen.teams.supervised'), route('dosen.teams.examined'), route('dosen.teams.supervised', ['tim' => $team->id]), route('dosen.logbooks.index'), route('dosen.assessments.index'),
             route('dosen.assessments.edit', [$team, 'proposal']), route('dosen.recap.index'),
         ] as $url) {
             $this->actingAs($lecturer)->get($url)->assertOk();
@@ -105,6 +106,7 @@ class PageSmokeTest extends TestCase
         // Identitas periode wajib nama prodi; milestone berjenis Dokumen / Lainnya
         $identity = ['name' => $period->name, 'academic_year' => $period->academic_year, 'semester' => $period->semester,
             'starts_on' => $period->starts_on->toDateString(), 'ends_on' => $period->ends_on->toDateString(),
+            'min_approved_logbooks' => 6,
             'rule' => ['min_sks' => 100, 'min_members' => 2, 'max_members' => 3, 'require_distinct_region' => '1', 'require_distinct_specialization' => '0',
                 'courses' => "KP - Kerja Praktek
 MC1 - Micro-course Data", 'specializations' => "Enterprise Systems
@@ -112,6 +114,8 @@ Logistics"]];
         $this->actingAs($admin)->put(route('admin.periods.update', $period), $identity)->assertSessionHasErrors('prodi_name');
         $this->actingAs($admin)->put(route('admin.periods.update', $period), $identity + ['prodi_name' => 'S1 Teknik Industri'])->assertSessionHasNoErrors();
         $this->assertSame('S1 Teknik Industri', $period->fresh()->prodi_name);
+        // Aturan tambahan periode
+        $this->assertSame(6, $period->fresh()->min_approved_logbooks);
         $rule = $period->fresh()->registrationRule;
         $this->assertSame(1, $period->registrationRules()->count());
         $this->assertSame(100, $rule->min_sks);
@@ -127,6 +131,13 @@ Logistics"]];
         // Buka dashboard periode → menu lengkap + dropdown ganti periode
         $this->actingAs($admin)->post(route('admin.workspace.enter', $period))->assertRedirect(route('admin.dashboard'));
         $this->actingAs($admin)->get(route('admin.dashboard'))->assertOk()->assertSee('Keluar dari Dashboard Periode ini')->assertDontSee('Periode &amp; Timeline', false);
+
+        // Di dalam periode, logo/beranda kembali ke dashboard periode — bukan Kelola Periode
+        $this->actingAs($admin)->get('/')->assertRedirect(route('admin.dashboard'));
+        // Membuka Kelola Periode berarti keluar dari periode: sidebar periode tidak ikut tampil
+        $this->actingAs($admin)->get(route('admin.periods.index'))->assertOk()->assertSessionMissing(\App\Models\Period::WORKSPACE_KEY)
+            ->assertDontSee('Approval Registrasi Tim');
+        $this->actingAs($admin)->post(route('admin.workspace.enter', $period));
 
         $this->actingAs($admin)->post(route('admin.workspace.leave'))->assertRedirect(route('admin.periods.index'));
         $this->actingAs($admin)->get(route('admin.teams.index'))->assertRedirect(route('admin.periods.index'));

@@ -1,4 +1,4 @@
-<x-layouts.app title="Penilaian & Reminder" section="Admin · Monitoring penilaian">
+<x-layouts.app title="Penilaian & Reminder">
     <x-page-head title="Monitoring penilaian" lede="Dosen dengan komponen nilai yang belum diisi. Kirim pengingat per dosen atau massal melalui email dan WhatsApp; setiap pengiriman tercatat." />
 
     @if (! $period)
@@ -7,8 +7,6 @@
         <div class="panel">
             <div class="panel-head">
                 <x-filter-bar :action="route('admin.monitoring.assessments')">
-                    <div><label class="field-label" for="prodi">Prodi dosen</label>
-                        <select id="prodi" name="prodi" class="input"><option value="">Semua</option>@foreach ($prodis as $p)<option value="{{ $p->code }}" @selected(request('prodi') === $p->code)>{{ $p->code }}</option>@endforeach</select></div>
                     <div><label class="field-label" for="peran">Peran</label>
                         <select id="peran" name="peran" class="input"><option value="">Semua</option><option value="pembimbing" @selected(request('peran') === 'pembimbing')>Pembimbing</option><option value="penguji" @selected(request('peran') === 'penguji')>Penguji</option></select></div>
                     <div><label class="field-label" for="status">Status</label>
@@ -23,14 +21,13 @@
                     @csrf
                     <div class="table-wrap">
                         <table class="data-table">
-                            <thead><tr><th class="w-10"><span class="sr-only">Pilih</span></th><th>Dosen</th><th>Prodi</th><th>Tim ditangani</th><th>Komponen belum dinilai</th><th>Kontak</th><th>Reminder terakhir</th></tr></thead>
+                            <thead><tr><th class="w-10"><span class="sr-only">Pilih</span></th><th>Dosen</th><th>Tim ditangani</th><th>Komponen belum dinilai</th><th>Kontak</th><th>Reminder terakhir</th></tr></thead>
                             <tbody>
                                 @foreach ($rows as $row)
                                     @php $l = $row['lecturer']; @endphp
                                     <tr>
                                         <td>@unless ($row['complete'])<input type="checkbox" class="checkbox" name="lecturer_ids[]" value="{{ $l->id }}" aria-label="Pilih {{ $l->name }}">@endunless</td>
                                         <td class="font-medium">{{ $l->name }}</td>
-                                        <td>{{ $l->prodi_code ?? '—' }}</td>
                                         <td class="max-w-[14rem] text-sm"><span class="code">{{ $row['teams']->pluck('code')->implode(', ') }}</span></td>
                                         <td class="text-sm">
                                             @if ($row['complete'])

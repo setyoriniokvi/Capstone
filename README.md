@@ -27,6 +27,7 @@ Untuk mencoba cepat tanpa MySQL, ubah `.env`:
 DB_CONNECTION=sqlite        # lalu: touch database/database.sqlite
 APP_ENV=local
 DEV_LOGIN=true              # menampilkan daftar akun demo di bawah form login
+MAIL_MAILER=log             # bawaan: email (keputusan registrasi, tautan atur password) ditulis ke storage/logs/laravel.log
 ```
 
 ```bash
@@ -34,8 +35,8 @@ php artisan migrate --seed                      # master data: prodi, 8 CLO, rub
 php artisan db:seed --class=DemoSeeder          # opsional: data contoh untuk mencoba alur
 php artisan serve                               # http://127.0.0.1:8000
 php artisan queue:work                          # wajib bila sinkronisasi Google Drive aktif
-php artisan schedule:work                       # notifikasi tenggat mahasiswa (tiap jam)
-php artisan test                                # 36 test fitur & alur
+php artisan schedule:work                       # notifikasi deadline mahasiswa (tiap jam)
+php artisan test                                # 59 test fitur & alur
 ```
 
 ## Setelah `git pull`
@@ -47,6 +48,13 @@ composer install        # bila ada package PHP baru
 npm install             # bila ada package JS baru
 php artisan migrate     # bila ada migration baru
 npm run build           # wajib: bangun ulang CSS, JS, dan gambar
+```
+
+Bila `php artisan migrate` gagal pada database lama yang hanya berisi data demo, buat ulang databasenya (**semua data terhapus**):
+
+```bash
+php artisan migrate:fresh --seed
+php artisan db:seed --class=DemoSeeder
 ```
 
 Selama mengembangkan tampilan, `npm run dev` lebih praktis karena perubahan langsung terlihat tanpa build ulang. Jangan mengedit file di `public/build` — isinya ditimpa setiap build; yang diedit selalu `resources/`.
@@ -68,10 +76,11 @@ Akun demo (password semua akun `password`, daftarnya tampil di bawah form login 
 | --- | --- | --- |
 | Database (PRD §3.1) | `DB_CONNECTION=mysql`, `DB_*` | MySQL/MariaDB 8 |
 | Login (F1) | `DEV_LOGIN=false` | Login email + password. Password awal akun impor: mahasiswa = NIM, dosen = kode dosen; admin dapat menggantinya di form edit. `DEV_LOGIN=false` menyembunyikan daftar akun demo |
-| Google Drive (F33–F41) | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_CREDENTIALS` | Service account JSON. Folder tujuan sebaiknya di **Shared Drive** yang dibagikan ke email service account. ID folder per prodi diatur di menu Periode |
+| Google Drive (F33–F41) | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_CREDENTIALS` | Service account JSON. Folder tujuan sebaiknya di **Shared Drive** yang dibagikan ke email service account. ID folder Drive (satu per periode) diatur di menu Periode |
+| Email (F21) | `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` | Mengirim keputusan registrasi tim dan tautan atur password ke anggota. Tanpa SMTP (`MAIL_MAILER=log`) email hanya ditulis ke `storage/logs/laravel.log` |
 | n8n (F49–F57) | `AUTOMATION_TOKEN`, `N8N_REMINDER_WEBHOOK_URL` | Token acak panjang; URL webhook diambil dari node *Pemicu manual* |
 
-Hanya akun yang sudah terdaftar (diimpor / ditambah admin) yang bisa login. Peran dibaca dari data akun.
+Akun dosen dan admin dibuat lewat impor / ditambah admin. Mahasiswa dapat mendaftar sendiri di `/registrasi`: ketua membuat akunnya sekaligus mendaftarkan tim; anggota lain mengatur password lewat tautan di email keputusan admin. Peran dibaca dari data akun.
 
 ## Workflow n8n
 
@@ -86,7 +95,7 @@ Alurnya: n8n memanggil `POST /api/automation/reminders/claim` → backend mengem
 | FR | Lokasi di aplikasi |
 | --- | --- |
 | F1 | Login email + password, pengalihan ke dashboard sesuai peran |
-| F2 | Admin → Periode & Timeline (milestone, tenggat, jendela penilaian, folder Drive per prodi) |
+| F2 | Admin → Periode & Timeline (milestone, deadline, jendela penilaian, folder Google Drive Database) |
 | F3, F4 | Admin → Dosen / Mahasiswa / Registrasi Tim, termasuk impor Excel/CSV dengan pratinjau per baris |
 | F5, F6 | Admin → Aturan Registrasi; screening otomatis (flag + skor) di detail tim |
 | F7, F8 | Admin → Approval Topik (cek kata kunci terlarang), Rekap Topik Final |

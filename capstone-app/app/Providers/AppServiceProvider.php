@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\AssessmentComponent;
 use App\Services\Drive\DriveGateway;
 use App\Services\Drive\GoogleDriveClient;
 use Carbon\Carbon;
@@ -19,5 +20,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Carbon::setLocale('id');
         Paginator::defaultView('components.pagination');
+        AssessmentComponent::syncConfig();
     }
 }

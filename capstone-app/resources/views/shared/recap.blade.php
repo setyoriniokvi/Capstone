@@ -1,22 +1,16 @@
 @php $total = $results->count(); @endphp
-<x-layouts.app title="Rekap Nilai" section="Rekap nilai">
+<x-layouts.app title="Rekap Nilai">
     <x-page-head title="Rekap nilai akhir" lede="Dihitung otomatis berdasarkan bobot CLO. Nilai CLO ditampilkan dalam persen capaian; total adalah jumlah poin dari 100.">
         <x-slot:actions>
-            <a href="{{ route($exportRoute, array_filter(['prodi' => request('prodi'), 'mode' => 'parsial'])) }}" class="btn btn-secondary"><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Ekspor parsial</a>
+            <a download href="{{ route($exportRoute, ['mode' => 'parsial']) }}" class="btn btn-secondary"><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Ekspor parsial</a>
             @if ($exportRoute === 'admin.recap.export')
-                <a href="{{ route($exportRoute, array_filter(['prodi' => request('prodi')])) }}" class="btn btn-primary {{ $complete < $total || $total === 0 ? 'pointer-events-none opacity-50' : '' }}" @if ($complete < $total || $total === 0) aria-disabled="true" title="Aktif bila semua tim lengkap" @endif><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Ekspor penuh</a>
+                <a download href="{{ route($exportRoute) }}" class="btn btn-primary {{ $complete < $total || $total === 0 ? 'pointer-events-none opacity-50' : '' }}" @if ($complete < $total || $total === 0) aria-disabled="true" title="Aktif bila semua tim lengkap" @endif><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Ekspor penuh</a>
             @endif
         </x-slot:actions>
     </x-page-head>
 
     <div class="panel mb-6">
         <div class="panel-head">
-            @if ($showProdiFilter)
-                <x-filter-bar :action="url()->current()">
-                    <div><label class="field-label" for="prodi">Prodi</label>
-                        <select id="prodi" name="prodi" class="input"><option value="">Semua prodi</option>@foreach ($prodis as $p)<option value="{{ $p->code }}" @selected(request('prodi') === $p->code)>{{ $p->code }}</option>@endforeach</select></div>
-                </x-filter-bar>
-            @endif
             <p class="text-sm"><span class="tabular font-medium">{{ $complete }}</span><span class="text-muted"> dari {{ $total }} tim lengkap</span></p>
         </div>
         @if ($results->isEmpty())

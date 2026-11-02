@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Period;
-use App\Models\StudyProgram;
 use App\Models\Team;
 use App\Services\RecapExporter;
 use App\Services\ScoreCalculator;
@@ -25,10 +24,8 @@ class RecapController extends Controller
         return view('shared.recap', [
             'results' => $results,
             'clos' => $calculator->clos(),
-            'prodis' => StudyProgram::query()->orderBy('code')->get(),
             'exportRoute' => 'admin.recap.export',
             'complete' => $results->where('complete', true)->count(),
-            'showProdiFilter' => true,
         ]);
     }
 
@@ -42,8 +39,8 @@ class RecapController extends Controller
             return back()->withErrors(['export' => 'Masih ada tim yang komponen nilainya belum lengkap. Gunakan ekspor parsial atau lengkapi penilaian.']);
         }
 
-        ActivityLog::record('export_recap', null, ['mode' => $partial ? 'parsial' : 'penuh', 'prodi' => $request->input('prodi')]);
-        $name = 'rekap-nilai-capstone'.($request->filled('prodi') ? '-'.$request->input('prodi') : '').'-'.now()->format('Ymd-His').'.xlsx';
+        ActivityLog::record('export_recap', null, ['mode' => $partial ? 'parsial' : 'penuh']);
+        $name = 'rekap-nilai-capstone-'.now()->format('Ymd-His').'.xlsx';
 
         return response()->download($exporter->toXlsx($results, $partial), $name)->deleteFileAfterSend();
     }
@@ -56,7 +53,6 @@ class RecapController extends Controller
         }
 
         return Team::query()->where('period_id', $period->id)->where('status', 'diterima')
-            ->when($request->filled('prodi'), fn ($q) => $q->where('prodi_code', $request->string('prodi')))
             ->orderBy('code')->get()
             ->map(fn (Team $team) => ['team' => $team] + $calculator->forTeam($team));
     }

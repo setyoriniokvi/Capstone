@@ -1,4 +1,4 @@
-<x-layouts.app title="Indikator Penilaian" section="Admin · Master penilaian">
+<x-layouts.app title="Indikator Penilaian">
     <x-page-head title="Indikator penilaian" lede="Nilai indikator = (Skor ÷ 5) × Bobot × Faktor Pemahaman. Faktor pemahaman hanya berlaku pada skema Lisan dan Dokumen + Lisan.">
         <x-slot:actions><a href="{{ route('admin.indicators.create') }}" class="btn btn-primary"><x-heroicon-o-plus class="h-5 w-5" />Indikator baru</a></x-slot:actions>
     </x-page-head>

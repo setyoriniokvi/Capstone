@@ -17,17 +17,67 @@ function focusDialog(root) {
  * didefinisikan di sini lewat Alpine.data dan dipanggil dengan nama.
  */
 
-// Sidebar navigasi untuk layar sempit
+/*
+ * Komponen bersarang: Alpine memanggil method dengan "this" = gabungan scope elemen yang diklik,
+ * sehingga tombol di dalam komponen lain (mis. tombol "Registrasi Topik" milik registrationForm yang
+ * berada di dalam section x-data="disclosure") mengubah "expanded" milik komponen TERDALAM, bukan
+ * pemilik method — tombol beranimasi tetapi modal tidak muncul. Karena itu setiap method dikunci ke
+ * scope komponennya sendiri saat init ("this" di init = scope elemen akar komponen, termasuk $root/$refs).
+ */
+const defineData = Alpine.data.bind(Alpine);
+Alpine.data = (name, factory) =>
+    defineData(name, (...args) => {
+        const data = factory(...args);
+        const init = data.init;
+        data.init = function () {
+            const self = this;
+            Object.entries(Object.getOwnPropertyDescriptors(data)).forEach(([key, descriptor]) => {
+                if (key !== 'init' && typeof descriptor.value === 'function') {
+                    self[key] = descriptor.value.bind(self);
+                }
+            });
+            return init?.call(self);
+        };
+        return data;
+    });
+
+// Sidebar navigasi: laci di layar sempit, bisa disembunyikan/ditampilkan di desktop
+const desktopQuery = window.matchMedia('(min-width: 768px)');
 Alpine.data('shell', () => ({
     navOpen: false,
+    collapsed: false,
+    init() {
+        this.collapsed = this.$el.dataset.sidebar === 'collapsed';
+    },
     toggleNav() {
         this.navOpen = !this.navOpen;
     },
     closeNav() {
         this.navOpen = false;
     },
+    toggleSidebar() {
+        if (!desktopQuery.matches) {
+            this.toggleNav();
+            return;
+        }
+        this.collapsed = !this.collapsed;
+        // Cookie dibaca layout Blade agar halaman berikutnya langsung dirender dengan status yang sama.
+        document.cookie = `sidebar=${this.collapsed ? 'collapsed' : 'open'}; path=/; max-age=31536000; SameSite=Lax`;
+    },
     get navClass() {
         return this.navOpen ? '!translate-x-0' : '';
+    },
+    get sidebarState() {
+        return this.collapsed ? 'collapsed' : 'open';
+    },
+    get sidebarExpanded() {
+        return String(desktopQuery.matches ? !this.collapsed : this.navOpen);
+    },
+    get sidebarLabel() {
+        if (!desktopQuery.matches) {
+            return this.navOpen ? 'Tutup menu' : 'Buka menu';
+        }
+        return this.collapsed ? 'Tampilkan menu' : 'Sembunyikan menu';
     },
 }));
 
@@ -80,6 +130,53 @@ Alpine.data('popover', () => ({
     },
     get chevronClass() {
         return this.open ? 'rotate-180' : '';
+    },
+}));
+
+// Lonceng notifikasi: popover + "Tandai semua dibaca" optimistis — tampilan langsung diperbarui, lalu disimpan
+// di latar belakang. Bila penyimpanan gagal, formulir dikirim biasa sebagai cadangan.
+Alpine.data('notificationMenu', () => ({
+    open: false,
+    unread: 0,
+    init() {
+        this.unread = Number(this.$el.dataset.unread ?? 0);
+    },
+    toggle() {
+        this.open = !this.open;
+    },
+    close() {
+        this.open = false;
+    },
+    get expanded() {
+        return this.open ? 'true' : 'false';
+    },
+    get hasUnread() {
+        return this.unread > 0;
+    },
+    get noUnread() {
+        return this.unread === 0;
+    },
+    get bellLabel() {
+        return this.unread ? `Notifikasi, ${this.unread} belum dibaca` : 'Notifikasi';
+    },
+    markAll(event) {
+        event.preventDefault();
+        const form = event.target;
+        this.unread = 0;
+        this.$root.querySelectorAll('[data-unread-dot]').forEach((dot) => {
+            dot.classList.remove('bg-bad', 'bg-warn', 'bg-brand');
+            dot.classList.add('border-2', 'border-rule-strong');
+            dot.removeAttribute('data-unread-dot');
+        });
+        this.$root.querySelectorAll('[data-unread-label]').forEach((label) => label.remove());
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': form.elements._token.value, Accept: 'application/json' },
+            credentials: 'same-origin',
+        }).then((response) => {
+            if (!response.ok) form.submit();
+        }).catch(() => form.submit());
     },
 }));
 
@@ -136,7 +233,29 @@ Alpine.data('peerSlider', () => ({
     },
 }));
 
-// Kartu To Do: sembunyikan tindakan bertenggat lebih dari N hari ke depan (data-due-days); tanpa tenggat/terlambat selalu tampil.
+// Tabel lebar yang digeser ke samping: tombol < / > langsung ke ujung kiri / kanan (x-ref="scroller").
+// Tombol hanya tampil bila masih ada sisi yang bisa dituju.
+Alpine.data('scrollPager', () => ({
+    canLeft: false,
+    canRight: false,
+    init() {
+        this.update();
+        new ResizeObserver(() => this.update()).observe(this.$refs.scroller);
+    },
+    update() {
+        const el = this.$refs.scroller;
+        this.canLeft = el.scrollLeft > 1;
+        this.canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    },
+    toStart() {
+        this.$refs.scroller.scrollTo({ left: 0, behavior: 'smooth' });
+    },
+    toEnd() {
+        this.$refs.scroller.scrollTo({ left: this.$refs.scroller.scrollWidth, behavior: 'smooth' });
+    },
+}));
+
+// Kartu To Do: sembunyikan tindakan dengan deadline lebih dari N hari ke depan (data-due-days); tanpa deadline/terlambat selalu tampil.
 Alpine.data('todoFilter', () => ({
     range: 7,
     empty: false,
@@ -180,6 +299,87 @@ Alpine.data('rowFilter', () => ({
         });
         this.count = visible;
         this.empty = visible === 0 && rows.length > 0;
+    },
+}));
+
+// Setujui sekaligus (Approval Bimbingan & Approval Registrasi Tim): filter per tim opsional (seperti rowFilter) + kotak
+// centang per baris untuk "Setujui pilihan". "Pilih semua" hanya mencentang baris yang tampil; baris yang tersembunyi
+// oleh filter otomatis tidak dipilih. Baris: [data-team]; kotak centang: [data-select-row] & [data-select-all].
+Alpine.data('bulkApproval', () => ({
+    value: '',
+    count: 0,
+    empty: false,
+    selected: 0,
+    allSelected: false,
+    init() {
+        this.apply();
+    },
+    change(event) {
+        this.value = event.target.value;
+        this.apply();
+    },
+    apply() {
+        const rows = this.$root.querySelectorAll('[data-team]');
+        let visible = 0;
+        rows.forEach((row) => {
+            row.hidden = this.value !== '' && row.dataset.team !== this.value;
+            if (row.hidden) row.querySelector('[data-select-row]').checked = false;
+            else visible += 1;
+        });
+        this.count = visible;
+        this.empty = visible === 0 && rows.length > 0;
+        this.sync();
+    },
+    pick(event) {
+        if (event.target.matches('[data-select-all]')) {
+            this.visibleBoxes().forEach((box) => {
+                box.checked = event.target.checked;
+            });
+        }
+        this.sync();
+    },
+    visibleBoxes() {
+        return [...this.$root.querySelectorAll('[data-select-row]')].filter((box) => !box.closest('tr').hidden);
+    },
+    sync() {
+        const boxes = this.visibleBoxes();
+        this.selected = boxes.filter((box) => box.checked).length;
+        this.allSelected = boxes.length > 0 && this.selected === boxes.length;
+        const all = this.$root.querySelector('[data-select-all]');
+        if (all) all.indeterminate = this.selected > 0 && !this.allSelected;
+    },
+    get noneSelected() {
+        return this.selected === 0;
+    },
+}));
+
+// Cari + filter kategori langsung di browser untuk baris ber-data-search (teks kecil) & data-category (Penilaian dosen).
+Alpine.data('tableSearch', () => ({
+    query: '',
+    category: '',
+    empty: false,
+    init() {
+        this.query = (this.$refs.query?.value ?? '').trim().toLowerCase();
+        this.category = this.$refs.category?.value ?? '';
+        this.apply();
+    },
+    search(event) {
+        this.query = event.target.value.trim().toLowerCase();
+        this.apply();
+    },
+    pick(event) {
+        this.category = event.target.value;
+        this.apply();
+    },
+    apply() {
+        const rows = this.$root.querySelectorAll('[data-search]');
+        let visible = 0;
+        rows.forEach((row) => {
+            row.hidden = (this.query !== '' && !row.dataset.search.includes(this.query))
+                || (this.category !== '' && row.dataset.category !== this.category);
+            if (!row.hidden) visible += 1;
+        });
+        this.empty = rows.length > 0 && visible === 0;
     },
 }));
 
@@ -282,9 +482,11 @@ Alpine.data('topicForm', () => ({
     editing: false,
     action: '',
     store: '',
+    addLabel: 'Kirim ke admin',
     init() {
         this.store = this.$el.dataset.store;
         this.action = this.$el.dataset.action || this.store;
+        this.addLabel = this.$el.dataset.addLabel || 'Kirim ke admin';
         this.editing = this.$el.dataset.editing === '1';
         this.expanded = this.$el.dataset.open === 'true';
         if (this.expanded) this.reveal();
@@ -299,10 +501,10 @@ Alpine.data('topicForm', () => ({
         return this.editing ? 'Edit topik' : 'Tambah topik';
     },
     get submitLabel() {
-        return this.editing ? 'Simpan perubahan' : 'Kirim ke admin';
+        return this.editing ? 'Simpan perubahan' : this.addLabel;
     },
     add() {
-        this.fill({ action: this.store, title: '', description: '', prodi: '', competencies: '', object: '', quota: 1 }, false);
+        this.fill({ action: this.store, title: '', description: '', competencies: '', prodi: [], specializations: [], object: '', quota: 1, lecturer: '', proposers: [], primary: null }, false);
     },
     edit(event) {
         this.fill(JSON.parse(event.currentTarget.dataset.topic), true);
@@ -311,11 +513,19 @@ Alpine.data('topicForm', () => ({
         this.editing = editing;
         this.action = topic.action;
         const form = this.$refs.panel;
-        ['title', 'description', 'object', 'quota'].forEach((key) => {
+        ['title', 'description', 'competencies', 'object', 'quota'].forEach((key) => {
             form.elements[key].value = topic[key] ?? '';
         });
-        form.elements.prodi_code.value = topic.prodi ?? '';
-        form.elements.competencies.value = topic.competencies ?? '';
+        form.querySelectorAll('input[name="prodi_codes[]"]').forEach((box) => {
+            box.checked = (topic.prodi ?? []).includes(box.value);
+        });
+        form.querySelectorAll('input[name="specializations[]"]').forEach((box) => {
+            box.checked = (topic.specializations ?? []).includes(box.value);
+        });
+        window.dispatchEvent(new CustomEvent('proposers-set', { detail: { ids: topic.proposers ?? [], primary: topic.primary ?? null } }));
+        // Formulir admin: dosen pengusul utama dipilih lewat pencarian (lecturerPicker); setelah proposers-set agar
+        // pengusul utama dikecualikan dari pilihan pengusul bersama.
+        if (form.elements.lecturer_id) window.dispatchEvent(new CustomEvent('primary-set', { detail: topic.lecturer ?? '' }));
         form.querySelectorAll('.field-error').forEach((el) => el.remove());
         this.expanded = true;
         this.reveal();
@@ -349,25 +559,41 @@ Alpine.data('applyForm', () => ({
     },
 }));
 
+// Isian wajib di dalam <details> yang tertutup (baris ketua/anggota formulir registrasi) tidak dapat ditunjukkan
+// browser saat validasi gagal — buka dulu baris tersebut. Event "invalid" tidak bubble, jadi didengar di fase capture.
+document.addEventListener('invalid', (event) => {
+    const section = event.target.closest?.('details:not([open])');
+    if (section) section.open = true;
+}, true);
+
+// Judul baris ketua/anggota (formulir registrasi) mengikuti nama & NIM yang sedang diketik.
+document.addEventListener('input', (event) => {
+    if (!event.target.matches?.('[data-summary-source]')) return;
+    const section = event.target.closest('details');
+    const summary = section?.querySelector('[data-summary]');
+    if (!summary) return;
+    const value = (key) => section.querySelector(`[data-summary-source="${key}"]`)?.value.trim();
+    summary.textContent = [value('name'), value('nim')].filter(Boolean).join(' · ') || 'Belum diisi';
+    summary.classList.replace('text-bad-ink', 'text-muted');
+});
+
 /*
- * Satu baris anggota pada formulir registrasi: dropdown mahasiswa yang bisa dicari (nama/NIM)
- * dan daerah asal yang terisi otomatis dari data mahasiswa. Daftar mahasiswa dibaca dari
- * <script type="application/json" id="data-mahasiswa">; mahasiswa yang sudah dipilih di baris lain disembunyikan.
+ * Invite anggota pada Registrasi Tim di Tim Saya: dropdown mahasiswa yang belum bertim, bisa dicari dengan nama/NIM/email.
+ * Daftar dibaca dari <script type="application/json" id="data-mahasiswa">; mahasiswa yang sudah dipilih di baris lain
+ * disembunyikan. Memilih mahasiswa mengisi peminatan & daerah asal dari datanya dan memperbarui judul baris.
  */
 Alpine.store('picked', {});
 
-Alpine.data('memberRow', () => ({
+Alpine.data('studentPicker', () => ({
     options: [],
     query: '',
     open: false,
     selectedId: '',
     selectedLabel: '',
-    region: '',
     row: '',
     init() {
         this.options = JSON.parse(document.getElementById('data-mahasiswa')?.textContent ?? '[]');
         this.row = this.$el.dataset.row;
-        this.region = this.$el.dataset.region ?? '';
         const found = this.options.find((o) => String(o.id) === this.$el.dataset.selected);
         if (found) this.select(found, false);
     },
@@ -377,7 +603,7 @@ Alpine.data('memberRow', () => ({
         const taken = Object.keys(picked).filter((row) => row !== this.row).map((row) => picked[row]);
         return this.options
             .filter((o) => !taken.includes(String(o.id)))
-            .filter((o) => !q || o.name.toLowerCase().includes(q) || o.nim.includes(q))
+            .filter((o) => !q || o.name.toLowerCase().includes(q) || o.nim.includes(q) || (o.email ?? '').toLowerCase().includes(q))
             .slice(0, 8);
     },
     get noResults() {
@@ -402,25 +628,244 @@ Alpine.data('memberRow', () => ({
         this.query = event.target.value;
         this.open = true;
     },
-    setRegion(event) {
-        this.region = event.target.value;
-    },
     choose(event) {
         const option = this.options.find((o) => String(o.id) === event.currentTarget.dataset.id);
         if (option) this.select(option, true);
     },
-    select(option, fillRegion) {
+    select(option, fill) {
         this.selectedId = String(option.id);
-        this.selectedLabel = `${option.name} · ${option.nim}`;
+        this.selectedLabel = `${option.name} · ${option.nim} · ${option.email}`;
         this.query = '';
         this.open = false;
-        if (fillRegion && option.region) this.region = option.region;
         Alpine.store('picked')[this.row] = this.selectedId;
+        const section = this.$el.closest('details');
+        const summary = section?.querySelector('[data-summary]');
+        if (summary) {
+            summary.textContent = `${option.name} · ${option.nim}`;
+            summary.classList.replace('text-bad-ink', 'text-muted');
+        }
+        if (fill && section) {
+            const field = (name) => section.querySelector(`[name$="[${name}]"]`);
+            if (field('specialization')) field('specialization').value = option.specialization ?? '';
+            if (field('origin_region') && option.region) field('origin_region').value = option.region;
+        }
     },
     clear() {
         this.selectedId = '';
         this.selectedLabel = '';
         delete Alpine.store('picked')[this.row];
+        const summary = this.$el.closest('details')?.querySelector('[data-summary]');
+        if (summary) summary.textContent = 'Belum diisi';
+        this.$nextTick(() => this.$refs.search?.focus());
+    },
+}));
+
+// Dosen pengusul topik (multi-pilih): cari dosen lain menurut nama / NIP / peminatan dari #data-dosen.
+// Daftar terpilih diisi ulang oleh topicForm lewat event "proposers-set" (detail = { ids, primary }); pengusul utama
+// (bila yang mengedit pengusul bersama) tampil tetap dan tidak dapat dihapus.
+Alpine.data('proposerPicker', () => ({
+    options: [],
+    selected: [],
+    primary: null,
+    query: '',
+    open: false,
+    init() {
+        this.options = JSON.parse(document.getElementById('data-dosen')?.textContent ?? '[]');
+        this.selected = (this.$el.dataset.selected ?? '').split(',').filter(Boolean);
+        const { primaryId, primaryName } = this.$el.dataset;
+        this.primary = primaryId ? { id: primaryId, name: primaryName } : null;
+    },
+    load(event) {
+        this.selected = (event.detail?.ids ?? []).map(String);
+        this.primary = event.detail?.primary ? { id: String(event.detail.primary.id), name: event.detail.primary.name } : null;
+        this.query = '';
+        this.open = false;
+    },
+    // Formulir admin: pengusul utama yang dipilih tidak boleh sekaligus menjadi pengusul bersama.
+    exclude(event) {
+        const id = event.detail ? String(event.detail) : '';
+        this.primary = id ? { id, name: '' } : null;
+        this.selected = this.selected.filter((s) => s !== id);
+    },
+    get hasPrimary() {
+        return this.primary !== null;
+    },
+    get primaryName() {
+        return this.primary?.name ?? '';
+    },
+    get selfLabel() {
+        return this.primary ? '· Anda' : '· Anda, pengusul utama';
+    },
+    get chosen() {
+        return this.selected
+            .map((id) => this.options.find((o) => String(o.id) === id))
+            .filter(Boolean)
+            .map((o) => ({ ...o, removeLabel: `Hapus ${o.name} dari pengusul` }));
+    },
+    get results() {
+        const q = this.query.trim().toLowerCase();
+        return this.options
+            .filter((o) => !this.selected.includes(String(o.id)) && String(o.id) !== this.primary?.id)
+            .filter((o) => !q || o.name.toLowerCase().includes(q) || o.nip.includes(q) || o.code.toLowerCase().includes(q) || o.specialization.toLowerCase().includes(q))
+            .slice(0, 8);
+    },
+    get noResults() {
+        return this.results.length === 0;
+    },
+    get expanded() {
+        return this.open ? 'true' : 'false';
+    },
+    show() {
+        this.open = true;
+    },
+    hide() {
+        this.open = false;
+    },
+    search(event) {
+        this.query = event.target.value;
+        this.open = true;
+    },
+    choose(event) {
+        const id = event.currentTarget.dataset.id;
+        if (!this.selected.includes(id)) this.selected.push(id);
+        this.query = '';
+        this.open = false;
+        this.$nextTick(() => this.$refs.search?.focus());
+    },
+    remove(event) {
+        const id = event.currentTarget.dataset.id;
+        this.selected = this.selected.filter((s) => s !== id);
+    },
+}));
+
+// Daftar dosen di Kuota Dosen: cari kode/nama (data-search) + filter peminatan (data-category) langsung di browser,
+// area gulir setinggi 10,5 baris (baris ke-11 terlihat setengah) dan tombol panah ke bawah bila baris tampil > 10.
+Alpine.data('peekTable', () => ({
+    query: '',
+    category: '',
+    empty: false,
+    overflow: false,
+    atEnd: false,
+    init() {
+        this.apply();
+        window.addEventListener('resize', () => this.measure());
+    },
+    search(event) {
+        this.query = event.target.value.trim().toLowerCase();
+        this.apply();
+    },
+    pick(event) {
+        this.category = event.target.value;
+        this.apply();
+    },
+    apply() {
+        const rows = this.$root.querySelectorAll('[data-search]');
+        let visible = 0;
+        rows.forEach((row) => {
+            row.hidden = (this.query !== '' && !row.dataset.search.includes(this.query))
+                || (this.category !== '' && row.dataset.category !== this.category);
+            if (!row.hidden) visible += 1;
+        });
+        this.empty = rows.length > 0 && visible === 0;
+        this.$nextTick(() => this.measure());
+    },
+    measure() {
+        const box = this.$refs.scroller;
+        if (!box) return;
+        const rows = [...box.querySelectorAll('[data-search]')].filter((row) => !row.hidden);
+        this.overflow = rows.length > 10;
+        box.style.maxHeight = this.overflow ? `${rows[10].offsetTop + rows[10].offsetHeight / 2}px` : '';
+        this.track();
+    },
+    track() {
+        const box = this.$refs.scroller;
+        this.atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
+    },
+    get showArrow() {
+        return this.overflow && !this.atEnd;
+    },
+    down() {
+        const box = this.$refs.scroller;
+        box.scrollBy({ top: box.clientHeight * 0.8, behavior: 'smooth' });
+    },
+}));
+
+// Tambah kuota dosen: pencarian dosen (proposerPicker di dalamnya) hanya aktif untuk cakupan "Dosen tertentu".
+Alpine.data('quotaForm', () => ({
+    scope: 'global',
+    init() {
+        this.scope = this.$el.dataset.scope || 'global';
+    },
+    change(event) {
+        this.scope = event.target.value;
+    },
+    get isGlobal() {
+        return this.scope !== 'dosen';
+    },
+    get isDosen() {
+        return this.scope === 'dosen';
+    },
+    get disabledClass() {
+        return this.isGlobal ? 'text-faint' : '';
+    },
+}));
+
+// Dosen pengusul utama (formulir topik dosen admin): satu dosen, dicari menurut nama / NIP / kode / peminatan dari
+// #data-dosen. Diisi ulang oleh topicForm lewat event "primary-set"; pilihannya diumumkan lewat "primary-chosen".
+Alpine.data('lecturerPicker', () => ({
+    options: [],
+    query: '',
+    open: false,
+    selectedId: '',
+    selectedLabel: '',
+    init() {
+        this.options = JSON.parse(document.getElementById('data-dosen')?.textContent ?? '[]');
+        this.set(this.$el.dataset.selected ?? '');
+    },
+    load(event) {
+        this.set(String(event.detail ?? ''));
+    },
+    set(id) {
+        const option = this.options.find((o) => String(o.id) === String(id));
+        this.selectedId = option ? String(option.id) : '';
+        this.selectedLabel = option ? [option.name, option.nip, option.specialization].filter(Boolean).join(' · ') : '';
+        this.query = '';
+        this.open = false;
+        window.dispatchEvent(new CustomEvent('primary-chosen', { detail: this.selectedId }));
+    },
+    get results() {
+        const q = this.query.trim().toLowerCase();
+        return this.options
+            .filter((o) => !q || o.name.toLowerCase().includes(q) || o.nip.includes(q) || o.code.toLowerCase().includes(q) || o.specialization.toLowerCase().includes(q))
+            .slice(0, 8);
+    },
+    get noResults() {
+        return this.results.length === 0;
+    },
+    get hasSelection() {
+        return this.selectedId !== '';
+    },
+    get noSelection() {
+        return this.selectedId === '';
+    },
+    get expanded() {
+        return this.open ? 'true' : 'false';
+    },
+    show() {
+        this.open = true;
+    },
+    hide() {
+        this.open = false;
+    },
+    search(event) {
+        this.query = event.target.value;
+        this.open = true;
+    },
+    choose(event) {
+        this.set(event.currentTarget.dataset.id);
+    },
+    clear() {
+        this.set('');
         this.$nextTick(() => this.$refs.search?.focus());
     },
 }));
@@ -492,11 +937,22 @@ Alpine.data('uploader', () => ({
  * Dialognya satu untuk seluruh halaman: <x-confirm-dialog /> di layout.
  */
 // tone: "danger" (bawaan, tombol merah — hapus/tolak) atau "positive" (tombol hijau — terima/setujui), via data-confirm-tone
-Alpine.store('confirm', { open: false, message: '', label: 'Hapus', tone: 'danger', form: null, submitter: null });
+// notes: data-confirm-notes="nama_field" → kolom catatan opsional, nilainya dikirim sebagai field tersebut (label: data-confirm-notes-label)
+Alpine.store('confirm', { open: false, message: '', label: 'Hapus', tone: 'danger', notes: null, notesLabel: '', form: null, submitter: null });
 
 Alpine.data('confirmDialog', () => ({
     init() {
-        this.$watch('open', (open) => open && this.$nextTick(() => this.$refs.cancel.focus()));
+        this.$watch('open', (open) => {
+            if (!open) return;
+            this.$refs.notes.value = '';
+            this.$nextTick(() => (this.withNotes ? this.$refs.notes : this.$refs.cancel).focus());
+        });
+    },
+    get withNotes() {
+        return Boolean(Alpine.store('confirm').notes);
+    },
+    get notesLabel() {
+        return Alpine.store('confirm').notesLabel;
     },
     get open() {
         return Alpine.store('confirm').open;
@@ -517,8 +973,12 @@ Alpine.data('confirmDialog', () => ({
         store.form = null;
     },
     accept() {
-        const { form, submitter } = Alpine.store('confirm');
+        const { form, submitter, notes } = Alpine.store('confirm');
         Alpine.store('confirm').open = false;
+        if (notes) {
+            const field = form.elements[notes] ?? form.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: notes }));
+            field.value = this.$refs.notes.value.trim();
+        }
         form.dataset.confirmed = 'true';
         // requestSubmit belum ada di iOS 14 (NFR) — fallback ke submit() biasa
         if (form.requestSubmit) {
@@ -540,6 +1000,8 @@ document.addEventListener('submit', (event) => {
         message: form.dataset.confirm,
         label: form.dataset.confirmLabel ?? 'Hapus',
         tone: form.dataset.confirmTone ?? 'danger',
+        notes: form.dataset.confirmNotes ?? null,
+        notesLabel: form.dataset.confirmNotesLabel ?? 'Catatan (opsional)',
         form,
         submitter: event.submitter ?? null,
     });
@@ -597,6 +1059,68 @@ document.addEventListener('submit', (event) => {
         button.setAttribute('aria-disabled', 'true');
     }
 });
+
+/*
+ * Loading antar halaman (<x-page-loader />): tampil saat tautan internal diklik atau form dikirim,
+ * setelah jeda singkat agar halaman yang cepat tidak berkedip. Dikecualikan: tautan unduhan (download),
+ * tab baru, tautan #anchor, klik dengan tombol pengubah, dan elemen ber-data-no-loader.
+ * Handler submit ini didaftarkan setelah handler konfirmasi, jadi form yang ditahan dialog tidak memicunya.
+ */
+const pageLoader = document.getElementById('page-loader');
+let pageLoaderTimer;
+
+function showPageLoader() {
+    if (!pageLoader) {
+        return;
+    }
+    clearTimeout(pageLoaderTimer);
+    pageLoaderTimer = setTimeout(() => {
+        pageLoader.classList.add('is-active');
+        pageLoader.setAttribute('aria-hidden', 'false');
+    }, 250);
+}
+
+function hidePageLoader() {
+    if (!pageLoader) {
+        return;
+    }
+    clearTimeout(pageLoaderTimer);
+    pageLoader.classList.remove('is-active');
+    pageLoader.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('click', (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+    }
+    const link = event.target.closest('a[href]');
+    if (!link || link.hasAttribute('download') || 'noLoader' in link.dataset || (link.target && link.target !== '_self')) {
+        return;
+    }
+    if (link.getAttribute('href').startsWith('#')) {
+        return;
+    }
+    const url = new URL(link.href, window.location.href);
+    if (url.origin !== window.location.origin) {
+        return;
+    }
+    // Hanya pindah anchor di halaman yang sama
+    if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) {
+        return;
+    }
+    showPageLoader();
+});
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (event.defaultPrevented || 'noLoader' in form.dataset || (form.target && form.target !== '_self')) {
+        return;
+    }
+    showPageLoader();
+});
+
+// Kembali lewat tombol Back (bfcache): halaman dipulihkan apa adanya, jadi loader harus disembunyikan.
+window.addEventListener('pageshow', hidePageLoader);
 
 window.Alpine = Alpine;
 Alpine.start();

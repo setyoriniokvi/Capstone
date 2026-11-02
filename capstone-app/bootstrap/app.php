@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'automation' => VerifyAutomationToken::class,
         ]);
         $middleware->web(append: [SecurityHeaders::class]);
+        // Status sidebar ditulis langsung oleh JavaScript, jadi tidak dienkripsi.
+        $middleware->encryptCookies(except: ['sidebar']);
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route(auth()->user()->homeRoute()));
     })

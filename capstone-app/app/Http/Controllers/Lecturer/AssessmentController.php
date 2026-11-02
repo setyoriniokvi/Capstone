@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Lecturer;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Assessment;
+use App\Models\AssessmentComponent;
 use App\Models\AssessmentWindow;
 use App\Models\OralRubricLevel;
 use App\Models\Period;
@@ -27,13 +28,12 @@ class AssessmentController extends Controller
         $drafts = Assessment::query()->where('assessor_id', $request->user()->id)->where('status', 'draft')->get()
             ->mapWithKeys(fn ($a) => ["{$a->team_id}:{$a->component}" => true]);
 
+        // Cari & filter kategori (Semua / Tim bimbingan / Tim uji) berjalan di browser; ?q= & ?kategori= hanya mengisi awal.
         $category = $request->input('kategori');
-        $rows = $rows->when($category === 'bimbingan', fn ($c) => $c->where('role', 'pembimbing'))
-            ->when($category === 'uji', fn ($c) => $c->where('role', 'penguji'))
-            ->when($request->filled('component'), fn ($c) => $c->where('component', $request->input('component')));
+        $rows = $rows->when($request->filled('component'), fn ($c) => $c->where('component', $request->input('component')));
 
         return view('dosen.assessments.index', [
-            'rows' => $rows->sortBy(fn ($r) => [$r['done'], $r['team']->code])->values(),
+            'rows' => $rows->sortBy(fn ($r) => [$r['done'], $r['team']->name])->values(),
             'drafts' => $drafts,
             'windows' => $period ? $period->assessmentWindows()->get()->keyBy('component') : collect(),
             'category' => $category,
@@ -127,17 +127,17 @@ class AssessmentController extends Controller
     {
         abort_unless(array_key_exists($component, config('capstone.components')) && $component !== 'peer_review', 404);
         $role = $team->lecturerRole($request->user());
-        $required = config("capstone.components.{$component}.role");
-        abort_unless($role && $role === $required, 403, 'Komponen ini bukan kewenangan Anda untuk tim tersebut.');
+        abort_unless($role && in_array($role, AssessmentComponent::rolesOf($component), true), 403, 'Komponen ini bukan kewenangan Anda untuk tim tersebut.');
 
         $window = AssessmentWindow::query()->where('period_id', $team->period_id)->where('component', $component)->first();
         if ($window && ! $window->isOpen() && $request->isMethod('put')) {
             throw ValidationException::withMessages(['window' => 'Jendela penilaian '.$window->label().' '.(now()->lt($window->opens_at) ? 'belum dibuka.' : 'sudah ditutup.')]);
         }
 
-        // PRD 8.2 — sidang (presentasi akhir) terbuka setelah minimal 8 log disetujui.
-        if (str_starts_with($component, 'sidang') && $request->isMethod('put') && $team->approvedLogbookCount() < config('capstone.min_approved_logbooks')) {
-            throw ValidationException::withMessages(['gate' => 'Minimal '.config('capstone.min_approved_logbooks').' logbook harus disetujui sebelum presentasi akhir.']);
+        // PRD 8.2 — sidang (presentasi akhir) terbuka setelah minimal log disetujui (aturan tambahan periode).
+        $minLogbooks = Period::minLogbooks($team->period);
+        if (str_starts_with($component, 'sidang') && $request->isMethod('put') && $team->approvedLogbookCount() < $minLogbooks) {
+            throw ValidationException::withMessages(['gate' => 'Minimal '.$minLogbooks.' logbook harus disetujui sebelum presentasi akhir.']);
         }
 
         return $role;

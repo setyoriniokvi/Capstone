@@ -1,5 +1,5 @@
 @php $r = $indicator->rubric; @endphp
-<x-layouts.app :title="'Rubrik '.$indicator->code" section="Admin · Master penilaian">
+<x-layouts.app :title="'Rubrik '.$indicator->code">
     <x-page-head :title="'Rubrik '.$indicator->code" :lede="$indicator->clo->code.' · '.$indicator->name.' · bobot '.($indicator->weight + 0)" />
     <form method="POST" action="{{ route('admin.rubrics.update', $indicator) }}" class="panel max-w-4xl">
         @csrf @method('PUT')

@@ -7,12 +7,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TeamMember extends Model
 {
-    protected $fillable = ['team_id', 'user_id', 'is_leader', 'invite_status', 'khs_path', 'domicile_path', 'responded_at'];
+    protected $fillable = ['team_id', 'user_id', 'is_leader', 'account_created', 'invite_status', 'khs_path', 'domicile_path', 'responded_at'];
 
     protected function casts(): array
     {
         return [
             'is_leader' => 'boolean',
+            'account_created' => 'boolean',
             'responded_at' => 'datetime',
         ];
     }

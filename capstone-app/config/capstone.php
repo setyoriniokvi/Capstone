@@ -8,8 +8,10 @@
 
 return [
 
-    // F13 — bentuk penilaian. "role" = siapa yang mengisi (F47).
-    'components' => [
+    // F13 — bentuk penilaian bawaan. "role" = siapa yang mengisi (F47). Sejak bentuk penilaian dapat ditambah admin,
+    // daftar ini hanya mengisi awal tabel assessment_components; daftar aktif dibaca dari config('capstone.components')
+    // yang dimuat AssessmentComponent::syncConfig() (berisi juga "roles" — penilai, boleh pembimbing & penguji).
+    'default_components' => [
         'proposal' => ['label' => 'Proposal', 'role' => 'pembimbing'],
         'laporan_progress' => ['label' => 'Laporan Progress', 'role' => 'pembimbing'],
         'sidang_pembimbing' => ['label' => 'Sidang Capstone (Pembimbing)', 'role' => 'pembimbing'],
@@ -55,6 +57,7 @@ return [
         'laporan_akhir' => 'Laporan Akhir',
         'materi_presentasi' => 'Materi Presentasi',
         'poster' => 'Poster',
+        'lainnya' => 'Lainnya',
     ],
 
     // Jenis milestone: "dokumen" masuk ke pengumpulan (submission) mahasiswa; "lainnya" hanya tampil di dashboard & timeline.
@@ -78,10 +81,16 @@ return [
     // F21 — ukuran tim
     'team_size' => ['min' => 2, 'max' => 3],
 
-    // F27 — minimal sesi bimbingan disetujui sebagai syarat presentasi akhir
+    // F21 — pilihan indeks nilai mata kuliah prasyarat pada formulir registrasi (dropdown, bukan isian teks)
+    'course_grades' => ['A', 'AB', 'B', 'BC', 'C', 'D', 'E', 'Belum Lulus'],
+
+    // PERLU KONFIRMASI — indeks yang dianggap lulus prasyarat; E dan "Belum Lulus" tidak lulus.
+    'passing_grades' => ['A', 'AB', 'B', 'BC', 'C', 'D'],
+
+    // F27 — minimal sesi bimbingan disetujui sebagai syarat presentasi akhir (nilai awal; diatur per periode di "Aturan tambahan")
     'min_approved_logbooks' => 8,
 
-    // F19 — tenggat dalam N hari ditandai "segera" di dashboard mahasiswa
+    // F19 — deadline dalam N hari ditandai "segera" di dashboard mahasiswa
     'dashboard_soon_days' => 7,
 
     // F19 — tahap pada timeline dashboard mahasiswa. Setiap tahap merangkum milestone menurut
@@ -97,7 +106,7 @@ return [
 
     // Pilihan tipe file yang dapat diizinkan admin per milestone dokumen (ekstensi => label)
     'document_file_types' => [
-        'pdf' => 'PDF', 'docx' => 'DOCX', 'pptx' => 'PPTX', 'xlsx' => 'XLSX', 'jpg' => 'JPG', 'png' => 'PNG', 'zip' => 'ZIP',
+        'pdf' => 'PDF', 'docx' => 'DOCX', 'pptx' => 'PPTX', 'xlsx' => 'XLSX', 'jpg' => 'JPG', 'png' => 'PNG',
     ],
 
     // NFR — tipe file unggahan (document_mimes = bawaan milestone yang belum diatur admin)
@@ -105,12 +114,7 @@ return [
         'document_mimes' => ['pdf', 'docx', 'pptx', 'jpg'],
         'document_max_kb' => 10240,
         'attachment_mimes' => ['pdf', 'jpg', 'jpeg', 'png'],
-        'attachment_max_kb' => 5120,
-    ],
-
-    'prodi_categories' => [
-        'dosen_kelas' => 'Dosen kelas',
-        'non_pengampu' => 'Non pengampu kelas',
+        'attachment_max_kb' => 10240,
     ],
 
     // F49 / F56 — jenis pekerjaan dosen yang dipantau
@@ -120,16 +124,17 @@ return [
         'approval_pelamar' => 'Approval tim pelamar topik',
     ],
 
-    // PERLU KONFIRMASI — dokumen tidak mencantumkan skala grade.
-    // Batas bawah inklusif, diurutkan dari tertinggi.
+    // Indeks nilai Capstone dari Nilai Skor Mata Kuliah (NSM, 0–100). "above" = batas bawah EKSKLUSIF
+    // (indeks berlaku bila NSM > above), diurutkan dari tertinggi; "point" = Nilai Angka Mutu (NAM).
+    // PERLU KONFIRMASI — batas D (40 < NSM ≤ 50) dan E (NSM ≤ 40) tidak tercantum di ketentuan; mengikuti pedoman umum Telkom University.
     'grade_scale' => [
-        ['grade' => 'A', 'min' => 80],
-        ['grade' => 'AB', 'min' => 70],
-        ['grade' => 'B', 'min' => 65],
-        ['grade' => 'BC', 'min' => 60],
-        ['grade' => 'C', 'min' => 50],
-        ['grade' => 'D', 'min' => 40],
-        ['grade' => 'E', 'min' => 0],
+        ['grade' => 'A', 'above' => 85, 'point' => 4.0, 'label' => 'Istimewa'],
+        ['grade' => 'AB', 'above' => 75, 'point' => 3.5, 'label' => 'Baik Sekali'],
+        ['grade' => 'B', 'above' => 65, 'point' => 3.0, 'label' => 'Baik'],
+        ['grade' => 'BC', 'above' => 60, 'point' => 2.5, 'label' => 'Cukup Baik'],
+        ['grade' => 'C', 'above' => 50, 'point' => 2.0, 'label' => 'Cukup'],
+        ['grade' => 'D', 'above' => 40, 'point' => 1.0, 'label' => 'Kurang'],
+        ['grade' => 'E', 'above' => null, 'point' => 0.0, 'label' => 'Sangat Kurang'],
     ],
 
     'automation' => [

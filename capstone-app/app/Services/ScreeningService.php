@@ -85,12 +85,15 @@ class ScreeningService
         }
 
         $passedCourses = collect($student->passed_courses ?? [])->map(fn ($c) => mb_strtoupper(trim((string) $c)));
+        $grades = collect($student->course_grades ?? []);
         foreach ($rule?->courses ?? [] as $course) {
+            $passed = $passedCourses->contains(mb_strtoupper($course->code));
+            $grade = $grades->get(mb_strtoupper($course->code));
             $checks[] = $this->check(
                 'mk_'.$course->code,
                 "Lulus {$course->code} — {$course->name}",
-                $passedCourses->contains(mb_strtoupper($course->code)),
-                $passedCourses->contains(mb_strtoupper($course->code)) ? 'Lulus' : 'Belum tercatat lulus'
+                $passed,
+                $grade ? "Indeks nilai {$grade}" : ($passed ? 'Lulus' : 'Belum tercatat lulus')
             );
         }
 
@@ -165,7 +168,7 @@ class ScreeningService
             ];
         }
 
-        return ['prodi' => $team->prodi_code, 'checks' => $checks];
+        return ['checks' => $checks];
     }
 
     private function distinct(Collection $values): Collection

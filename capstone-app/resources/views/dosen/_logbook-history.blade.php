@@ -2,13 +2,15 @@
      → tabel log tim tersebut. Penyaringan di browser (Alpine "logTable"). Butuh $teams (members.user, approved_count), $logs, $minLogbooks. --}}
 @php
     $statusLabel = ['menunggu' => 'Menunggu', 'disetujui' => 'Disetujui', 'revisi' => 'Ditolak'];
+    // ?tim={id} (tombol "Lihat detail" sesi bimbingan di Tim Bimbingan) memilih tim tersebut; bawaan tim pertama.
+    $selected = $teams->firstWhere('id', (int) request('tim'))?->id ?? $teams->first()->id;
 @endphp
 <section class="panel mb-6 flex items-center justify-between gap-4 px-5 py-5 sm:px-8" aria-label="Ringkasan">
     <p class="text-base font-medium text-ink">Jumlah Tim Bimbingan</p>
     <p class="tabular text-[2rem] font-bold leading-none tracking-tight text-brand">{{ $teams->count() }}</p>
 </section>
 
-<div x-data="logTable" data-team="{{ $teams->first()->id }}">
+<div x-data="logTable" data-team="{{ $selected }}">
     {{-- Cari + pilih tim --}}
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div class="relative w-full min-w-0 sm:flex-1">
@@ -18,14 +20,14 @@
         </div>
         <label for="pilih-tim" class="sr-only">Pilih tim</label>
         <select id="pilih-tim" class="input min-h-[48px] w-full rounded-xl sm:w-64 sm:shrink-0" @change="pick">
-            @foreach ($teams as $team)<option value="{{ $team->id }}" @selected($loop->first)>{{ $team->name }}</option>@endforeach
+            @foreach ($teams as $team)<option value="{{ $team->id }}" @selected($team->id === $selected)>{{ $team->name }}</option>@endforeach
         </select>
     </div>
 
     {{-- Info tim terpilih --}}
     @foreach ($teams as $team)
         {{-- Pembungkus tanpa kelas display agar atribut hidden benar-benar menyembunyikan --}}
-        <div data-team-card="{{ $team->id }}" @unless ($loop->first) hidden @endunless>
+        <div data-team-card="{{ $team->id }}" @unless ($team->id === $selected) hidden @endunless>
         <section class="panel mb-4 grid gap-5 px-5 py-5 sm:grid-cols-3 sm:px-6" aria-label="Info {{ $team->name }}">
             <div class="flex flex-col justify-center">
                 <p class="text-sm text-muted">Nama tim</p>

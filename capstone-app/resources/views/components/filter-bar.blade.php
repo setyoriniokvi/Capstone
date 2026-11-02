@@ -1,8 +1,7 @@
+{{-- Filter daftar admin tanpa tombol Terapkan/Reset: memilih opsi dropdown langsung menyaring (Alpine "autoSubmit"
+     pada @change); kolom cari menyaring saat Enter ditekan atau kursor meninggalkan kolom. --}}
 @props(['action'])
-<form method="GET" action="{{ $action }}" {{ $attributes->merge(['class' => 'flex flex-wrap items-end gap-3']) }}>
+<form method="GET" action="{{ $action }}" x-data="autoSubmit" @change="submit" {{ $attributes->merge(['class' => 'flex w-full flex-wrap items-end gap-3']) }}>
     {{ $slot }}
-    <button type="submit" class="btn btn-secondary">Terapkan</button>
-    @if (count(request()->query()))
-        <a href="{{ $action }}" class="btn btn-ghost">Reset</a>
-    @endif
+    <noscript><button type="submit" class="btn btn-secondary">Terapkan</button></noscript>
 </form>

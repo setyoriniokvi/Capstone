@@ -31,7 +31,7 @@ return new class extends Migration
             $table->unique(['period_id', 'prodi_code']);
         });
 
-        // F2 — milestone & tenggat setiap tahapan
+        // F2 — milestone & deadline setiap tahapan
         Schema::create('milestones', function (Blueprint $table) {
             $table->id();
             $table->foreignId('period_id')->constrained()->cascadeOnDelete();

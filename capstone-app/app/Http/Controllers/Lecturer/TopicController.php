@@ -5,18 +5,18 @@ namespace App\Http\Controllers\Lecturer;
 use App\Http\Controllers\Controller;
 use App\Models\Period;
 use App\Models\RegistrationRule;
-use App\Models\RuleSpecialization;
 use App\Models\StudyProgram;
 use App\Models\Topic;
+use App\Models\User;
 use App\Services\TopicService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * F42 — topik dosen. Daftar berisi topik dosen lain yang sudah terbit di bank topik dan seluruh topik milik dosen
- * sendiri (apa pun statusnya); hanya topik sendiri yang dapat diubah/dihapus. Perubahan isi menunggu approval admin (F7).
+ * F42 — topik dosen. Daftar berisi topik dosen lain yang sudah terbit di bank topik dan seluruh topik yang diusulkan
+ * dosen sendiri (sebagai pengusul utama atau pengusul bersama, apa pun statusnya). Seluruh dosen pengusul dapat
+ * mengubah/menghapus topik. Perubahan isi menunggu approval admin (F7).
  */
 class TopicController extends Controller
 {
@@ -26,8 +26,8 @@ class TopicController extends Controller
         $userId = $request->user()->id;
 
         $all = $period ? Topic::query()->where('period_id', $period->id)->where('source', 'dosen')
-            ->where(fn ($q) => $q->where('lecturer_id', $userId)->orWhere('status', 'diterima'))
-            ->with('lecturer', 'studyProgram')
+            ->where(fn ($q) => $q->where('status', 'diterima')->orWhere(fn ($q) => $q->proposedBy($userId)))
+            ->with('lecturer', 'proposers')
             ->withCount([
                 'applications as accepted_count' => fn ($q) => $q->where('status', 'diterima'),
                 'applications as pending_count' => fn ($q) => $q->where('status', 'menunggu'),
@@ -36,24 +36,25 @@ class TopicController extends Controller
 
         // Formulir tambah/edit di atas halaman dibuka di browser tanpa memuat ulang (Alpine "topicForm").
         // ?tambah=1 / ?edit={id} hanya untuk membuka formulir dari tautan lama.
-        $formTopic = new Topic(['quota' => 1, 'prodi_code' => $request->user()->prodi_code]);
+        $formTopic = new Topic(['quota' => 1]);
         if ($request->filled('edit')) {
             $formTopic = Topic::query()->findOrFail($request->integer('edit'));
             $this->authorizeOwner($request, $formTopic);
         }
 
-        return view('dosen.topics.index', ($period ? $this->formData($formTopic, $period->id) : ['programs' => collect(), 'prodiSpecializations' => collect()]) + [
+        $mine = $all->filter(fn (Topic $t) => $t->isProposer($request->user()));
+
+        return view('dosen.topics.index', $this->formData($request, $period?->id) + [
             'formTopic' => $formTopic,
             'formOpen' => $request->filled('edit') || $request->boolean('tambah'),
             'topics' => Topic::filterBank($all, (string) $request->query('q'), (string) $request->query('peminatan')),
-            'specializations' => $all->pluck('competencies')->filter()->unique()->sort()->values(),
-            // Ringkasan topik milik dosen: jumlah topik, yang menunggu approval admin, dan tim pelamar yang menunggu keputusan.
+            'specializations' => $all->pluck('specializations')->flatten()->filter()->unique()->sort()->values(),
+            // Ringkasan topik yang diusulkan dosen: jumlah topik, yang menunggu approval admin, dan tim pelamar yang menunggu keputusan.
             'summary' => [
-                'topics' => $all->where('lecturer_id', $userId)->count(),
-                'awaiting' => $all->where('lecturer_id', $userId)->where('status', 'menunggu')->count(),
-                'applicants' => $all->where('lecturer_id', $userId)->sum('pending_count'),
+                'topics' => $mine->count(),
+                'awaiting' => $mine->where('status', 'menunggu')->count(),
+                'applicants' => $mine->sum('pending_count'),
             ],
-            'canPropose' => (bool) $request->user()->lecturerProfile?->can_propose_topic,
         ]);
     }
 
@@ -65,9 +66,8 @@ class TopicController extends Controller
 
     public function store(Request $request, TopicService $topics): RedirectResponse
     {
-        $this->authorizePropose($request);
         $period = Period::active() ?? abort(409, 'Belum ada periode aktif.');
-        $topics->saveLecturerTopic(null, $this->validated($request, $period->id), $request->user(), $period->id);
+        $topics->saveLecturerTopic(null, $this->validated($request, $period->id, $topics), $request->user(), $period->id);
 
         return redirect()->route('dosen.topics.index')->with('status', 'Topik dikirim ke admin untuk ditinjau sebelum masuk bank topik.');
     }
@@ -82,7 +82,7 @@ class TopicController extends Controller
     public function update(Request $request, Topic $topic, TopicService $topics): RedirectResponse
     {
         $this->authorizeOwner($request, $topic);
-        $updated = $topics->saveLecturerTopic($topic, $this->validated($request, $topic->period_id), $request->user(), $topic->period_id);
+        $updated = $topics->saveLecturerTopic($topic, $this->validated($request, $topic->period_id, $topics), $request->user(), $topic->period_id);
 
         return redirect()->route('dosen.topics.index')->with('status', $updated->status === 'menunggu'
             ? 'Perubahan topik dikirim ulang ke admin untuk ditinjau.'
@@ -100,44 +100,33 @@ class TopicController extends Controller
         return back()->with('status', 'Topik dihapus.');
     }
 
-    /** Prodi beserta peminatannya pada periode topik (diatur admin di Aturan Registrasi). */
-    private function formData(Topic $topic, int $periodId): array
+    /**
+     * Pilihan formulir: prodi, peminatan periode (diatur admin di Aturan Registrasi), dan dosen lain yang dapat
+     * diundang sebagai pengusul (dicari menurut nama / NIP / peminatan).
+     */
+    private function formData(Request $request, ?int $periodId): array
     {
-        $specializations = RegistrationRule::query()->where('period_id', $periodId)->with('specializations')->get()
-            ->flatMap(fn (RegistrationRule $rule) => $rule->specializations->pluck('name'))->unique()->sort()->values();
+        $specializations = $periodId ? RegistrationRule::query()->where('period_id', $periodId)->with('specializations')->get()
+            ->flatMap(fn (RegistrationRule $rule) => $rule->specializations->pluck('name'))->unique()->sort()->values() : collect();
 
         return [
             'programs' => StudyProgram::query()->orderBy('name')->get(),
             'prodiSpecializations' => $specializations,
+            'lecturers' => User::query()->where('role', 'dosen')->where('is_active', true)->whereKeyNot($request->user()->id)
+                ->with('lecturerProfile')->orderBy('name')->get(),
         ];
     }
 
-    private function validated(Request $request, int $periodId): array
+    private function validated(Request $request, int $periodId, TopicService $topics): array
     {
-        // Kompetensi yang diharapkan = salah satu peminatan pada aturan registrasi periode ini.
-        $allowed = RuleSpecialization::query()->whereHas('rule', fn ($q) => $q->where('period_id', $periodId))->pluck('name')->all();
+        [$rules, $messages] = $topics->lecturerTopicRules($periodId);
 
-        return $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['required', 'string', 'max:5000'],
-            'prodi_code' => ['required', 'string', 'exists:study_programs,code'],
-            'competencies' => ['required', 'string', Rule::in($allowed)],
-            'object' => ['required', 'string', 'max:255'],
-            'quota' => ['required', 'integer', 'between:1,20'],
-        ], [
-            'competencies.required' => 'Pilih peminatan yang diharapkan.',
-            'competencies.in' => 'Pilih peminatan yang tersedia pada periode ini.',
-            'object.required' => 'Isi instansi, organisasi, atau perusahaan objek.',
-        ]);
+        return $request->validate($rules, $messages);
     }
 
-    private function authorizePropose(Request $request): void
-    {
-        abort_unless($request->user()->lecturerProfile?->can_propose_topic, 403, 'Akun Anda belum memiliki hak akses sebagai pengusul topik.');
-    }
-
+    /** Seluruh dosen pengusul (utama maupun bersama) boleh mengubah / menghapus topik. */
     private function authorizeOwner(Request $request, Topic $topic): void
     {
-        abort_unless($topic->source === 'dosen' && $topic->lecturer_id === $request->user()->id, 403);
+        abort_unless($topic->source === 'dosen' && $topic->isProposer($request->user()), 403);
     }
 }

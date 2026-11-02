@@ -44,8 +44,12 @@ class DocumentFileController extends Controller
     {
         abort_unless($member->team_id === $team->id, 404);
         $user = $request->user();
-        // Admin, atau sesama anggota tim (ketua mengunggah KHS seluruh anggota saat registrasi).
-        $allowed = $user->isAdmin() || $team->members()->where('user_id', $user->id)->where('invite_status', 'diterima')->exists();
+        // Admin, sesama anggota tim (ketua mengunggah KHS seluruh anggota saat registrasi), dosen pembimbing/penguji tim,
+        // atau dosen pengusul topik yang dilamar tim (melihat detail tim di Approval Pengajuan Topik).
+        $allowed = $user->isAdmin()
+            || $team->members()->where('user_id', $user->id)->where('invite_status', 'diterima')->exists()
+            || $team->lecturers()->where('lecturer_id', $user->id)->exists()
+            || $team->applications()->whereHas('topic', fn ($q) => $q->proposedBy($user->id))->exists();
         abort_unless($allowed, 403, 'Anda tidak memiliki akses untuk lampiran ini.');
 
         $path = $kind === 'khs' ? $member->khs_path : $member->domicile_path;

@@ -1,5 +1,5 @@
 {{-- F22 / F23 / F25 — menu Topik: tab "Topik Tim" (mahasiswa/_topic-mine) dan "Topik Dosen" (mahasiswa/_topic-lecturer). --}}
-<x-layouts.app title="Topik" section="Mahasiswa · Topik">
+<x-layouts.app title="Topik">
     <x-page-head title="Topik Capstone" />
 
     <nav class="mb-6 inline-flex rounded-xl border border-rule bg-sunken p-1" aria-label="Tab topik">

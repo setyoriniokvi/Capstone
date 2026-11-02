@@ -52,27 +52,35 @@ class DemoSeeder extends Seeder
                 ReminderRule::query()->updateOrCreate(['job_type' => $type, 'hours_before' => $hours], ['channels' => ['email', 'whatsapp'], 'is_active' => true]);
             }
 
-            // Topik dosen di bank topik
+            // Topik dosen di bank topik: [pengusul utama, judul, bidang, kuota, objek, prodi, peminatan, kompetensi, pengusul bersama]
             $bank = [
-                ['dsn1', 'Integrasi data persediaan multi-gudang untuk perencanaan pengadaan', 'Supply Chain', 2, 'PT Sinar Distribusi Nusantara', 'DSC', 'Supply Chain Analytics'],
-                ['dsn2', 'Dashboard pemantauan kinerja layanan akademik berbasis data terintegrasi', 'Sistem Informasi', 1, 'Direktorat Akademik Telkom University', 'SI', 'Enterprise Systems'],
-                ['dsn3', 'Perancangan sistem penjadwalan produksi terintegrasi dengan perawatan mesin', 'Teknik Industri', 2, 'PT Tekstil Majalaya Jaya', 'TI', 'Production Systems'],
-                ['dsn2', 'Platform pelaporan keuangan UMKM yang terhubung dengan sistem kasir', 'Sistem Informasi', 1, 'Koperasi UMKM Kota Bandung', 'SI', 'Data Engineering'],
+                ['dsn1', 'Integrasi data persediaan multi-gudang untuk perencanaan pengadaan', 'Supply Chain', 2, 'PT Sinar Distribusi Nusantara', ['DSC', 'TI'], ['Supply Chain Analytics', 'Logistics'],
+                    "Analisis data persediaan dan peramalan permintaan.\nPemodelan proses bisnis pengadaan.", ['dsn4']],
+                ['dsn2', 'Dashboard pemantauan kinerja layanan akademik berbasis data terintegrasi', 'Sistem Informasi', 1, 'Direktorat Akademik Telkom University', ['SI'], ['Enterprise Systems'],
+                    "Perancangan basis data dan integrasi sistem.\nVisualisasi data dashboard.", []],
+                ['dsn3', 'Perancangan sistem penjadwalan produksi terintegrasi dengan perawatan mesin', 'Teknik Industri', 2, 'PT Tekstil Majalaya Jaya', ['TI'], ['Production Systems'],
+                    "Penjadwalan produksi dan perencanaan perawatan.\nSimulasi sistem produksi.", []],
+                ['dsn2', 'Platform pelaporan keuangan UMKM yang terhubung dengan sistem kasir', 'Sistem Informasi', 1, 'Koperasi UMKM Kota Bandung', ['SI'], ['Data Engineering'],
+                    "Integrasi API sistem kasir.\nPengolahan data transaksi.", []],
             ];
             $bankTopics = [];
-            foreach ($bank as $i => [$owner, $title, $field, $quota, $object, $prodi, $competencies]) {
-                $bankTopics[] = Topic::create([
+            foreach ($bank as $i => [$owner, $title, $field, $quota, $object, $prodi, $specializations, $competencies, $coProposers]) {
+                $bankTopics[] = $topic = Topic::create([
                     'period_id' => $period->id, 'source' => 'dosen', 'lecturer_id' => $lecturers[$owner]->id,
                     'title' => $title, 'field' => $field, 'quota' => $quota,
-                    'object' => $object, 'prodi_code' => $prodi, 'competencies' => $competencies,
+                    'object' => $object, 'prodi_codes' => $prodi, 'specializations' => $specializations, 'competencies' => $competencies,
                     'description' => "Contoh topik dosen. {$title}. Tim diharapkan memetakan proses bisnis eksisting, merancang solusi sistem terintegrasi, lalu memverifikasi rancangan terhadap spesifikasi yang disepakati dengan problem owner.",
                     'status' => $i === 3 ? 'menunggu' : 'diterima',
                     'reviewed_by' => $i === 3 ? null : $admin->id, 'reviewed_at' => $i === 3 ? null : now()->subDays(6),
                 ]);
+                $topic->proposers()->attach($lecturers[$owner]->id);
+                foreach ($coProposers as $co) {
+                    $topic->proposers()->attach($lecturers[$co]->id, ['invited_by' => $lecturers[$owner]->id]);
+                }
             }
 
             // Tim 1 — diterima, topik dosen diterima, logbook 8 disetujui, proposal sudah dinilai
-            $t1 = $this->team($period, 'KP-SI-01', 'Tim Arunika', 'SI', [$students['s1'], $students['s2'], $students['s3']], 'diterima', $admin, $screening, $qr);
+            $t1 = $this->team($period, 'KP-SI-01', 'Tim Arunika', [$students['s1'], $students['s2'], $students['s3']], 'diterima', $admin, $screening, $qr);
             $this->independentTopic($t1, 'Sistem monitoring rantai pasok bahan baku UMKM kuliner', 'diterima', $admin, $topics);
             $app = TopicApplication::create(['topic_id' => $bankTopics[0]->id, 'team_id' => $t1->id, 'motivation' => 'Sesuai pengalaman KP di bagian gudang.']);
             $topics->decide($app, true, 'Selamat bergabung.', $lecturers['dsn1']);
@@ -82,24 +90,29 @@ class DemoSeeder extends Seeder
             $this->assess($t1, 'proposal', $lecturers['dsn1'], [4, 5]);
 
             // Tim 2 — diterima, topik mandiri diterima, pembimbing diplot admin
-            $t2 = $this->team($period, 'KP-TI-01', 'Tim Lintang', 'TI', [$students['s4'], $students['s5']], 'diterima', $admin, $screening, $qr);
+            $t2 = $this->team($period, 'KP-TI-01', 'Tim Lintang', [$students['s4'], $students['s5']], 'diterima', $admin, $screening, $qr);
             $this->independentTopic($t2, 'Perancangan sistem penjadwalan perawatan mesin pada lini produksi', 'diterima', $admin, $topics);
             TeamLecturer::query()->updateOrCreate(['team_id' => $t2->id, 'role' => 'pembimbing'], ['lecturer_id' => $lecturers['dsn3']->id, 'source' => 'admin', 'assigned_by' => $admin->id]);
             $this->logbooks($t2, 3, 2, $lecturers['dsn3'], $students['s4']);
             TopicApplication::create(['topic_id' => $bankTopics[2]->id, 'team_id' => $t2->id, 'motivation' => 'Ingin memperdalam penjadwalan produksi.']);
 
             // Tim 3 — menunggu validasi admin
-            $this->team($period, 'KP-DSC-01', 'Tim Samudra', 'DSC', [$students['s6'], $students['s7'], $students['s8']], 'menunggu', $admin, $screening, $qr);
+            $this->team($period, 'KP-DSC-01', 'Tim Samudra', [$students['s6'], $students['s7'], $students['s8']], 'menunggu', $admin, $screening, $qr);
 
             // Tim 4 — draft dengan undangan tertunda
-            $t4 = $this->team($period, 'KP-SI-02', 'Tim Kirana', 'SI', [$students['s9']], 'draft', $admin, $screening, $qr);
+            $t4 = $this->team($period, 'KP-SI-02', 'Tim Kirana', [$students['s9']], 'draft', $admin, $screening, $qr);
             $t4->members()->create(['user_id' => $students['s10']->id, 'invite_status' => 'diundang']);
 
             // Tim 5 — diterima, topik mandiri masih menunggu
-            $t5 = $this->team($period, 'KP-MR-01', 'Tim Bentala', 'MR', [$students['s11'], $students['s12']], 'diterima', $admin, $screening, $qr);
+            $t5 = $this->team($period, 'KP-MR-01', 'Tim Bentala', [$students['s11'], $students['s12']], 'diterima', $admin, $screening, $qr);
             $this->independentTopic($t5, 'Sistem informasi pengelolaan aset fasilitas kampus', 'menunggu', $admin, $topics);
 
             $this->supportFile($admin);
+
+            // Hak akses Pembimbing / Penguji mengikuti plotting demo (pada aplikasi, tercentang otomatis saat diplot).
+            foreach (TeamLecturer::query()->get() as $assignment) {
+                LecturerProfile::grant($assignment->lecturer_id, $assignment->role);
+            }
         });
     }
 
@@ -119,21 +132,20 @@ class DemoSeeder extends Seeder
 
         $week = fn (int $w, int $day = 0) => $start->copy()->addWeeks($w - 1)->addDays($day);
         $milestones = [
-            ['Registrasi tim', 'registrasi_tim', null, 1, $week(1), $week(3, 6)->setTime(23, 59)],
-            ['Pengajuan topik mandiri', 'pengajuan_topik', null, 2, $week(1), $week(4, 6)->setTime(23, 59)],
-            ['Pendaftaran topik dosen', 'apply_topik_dosen', null, 3, $week(2), $week(5, 6)->setTime(23, 59)],
-            ['Proposal', 'dokumen', 'proposal', 2, $week(1), $week(3, 4)->setTime(23, 59)],
-            ['Bimbingan & logbook', 'bimbingan', null, 14, $week(2), $week(14, 4)->setTime(23, 59)],
-            ['Laporan progress', 'dokumen', 'laporan_progress', 11, $week(9), $week(11, 4)->setTime(23, 59)],
-            ['Laporan akhir', 'dokumen', 'laporan_akhir', 15, $week(13), $week(15, 2)->setTime(23, 59)],
-            ['Materi presentasi', 'dokumen', 'materi_presentasi', 15, $week(14), $week(15, 2)->setTime(23, 59)],
-            ['Sidang Capstone', 'sidang', null, 15, $week(15, 2), $week(15, 4)->setTime(17, 0)],
-            ['Poster pameran', 'dokumen', 'poster', 16, $week(15), $week(16, 1)->setTime(23, 59)],
-            ['Pameran prototipe', 'pameran', null, 16, $week(16, 2), $week(16, 3)->setTime(17, 0)],
-            ['Peer review', 'peer_review', null, 16, $week(15), $week(16, 5)->setTime(23, 59)],
+            ['Registrasi tim', 'registrasi_tim', null, $week(1), $week(3, 6)->setTime(23, 59)],
+            ['Pengajuan topik mandiri', 'pengajuan_topik', null, $week(1), $week(4, 6)->setTime(23, 59)],
+            ['Pendaftaran topik dosen', 'apply_topik_dosen', null, $week(2), $week(5, 6)->setTime(23, 59)],
+            ['Proposal', 'dokumen', 'proposal', $week(1), $week(3, 4)->setTime(23, 59)],
+            ['Bimbingan & logbook', 'bimbingan', null, $week(2), $week(14, 4)->setTime(23, 59)],
+            ['Laporan progress', 'dokumen', 'laporan_progress', $week(9), $week(11, 4)->setTime(23, 59)],
+            ['Laporan akhir', 'dokumen', 'laporan_akhir', $week(13), $week(15, 2)->setTime(23, 59)],
+            ['Materi presentasi', 'dokumen', 'materi_presentasi', $week(14), $week(15, 2)->setTime(23, 59)],
+            ['Sidang Capstone', 'sidang', null, $week(15, 2), $week(15, 4)->setTime(17, 0)],
+            ['Poster pameran', 'dokumen', 'poster', $week(15), $week(16, 1)->setTime(23, 59)],
+            ['Pameran prototipe', 'pameran', null, $week(16, 2), $week(16, 3)->setTime(17, 0)],
         ];
-        foreach ($milestones as $i => [$name, $kind, $doc, $wk, $from, $to]) {
-            $period->milestones()->create(['name' => $name, 'kind' => $kind, 'document_type' => $doc, 'week_no' => $wk, 'starts_at' => $from, 'due_at' => $to, 'sort_order' => $i]);
+        foreach ($milestones as $i => [$name, $kind, $doc, $from, $to]) {
+            $period->milestones()->create(['name' => $name, 'kind' => $kind, 'document_type' => $doc, 'starts_at' => $from, 'due_at' => $to, 'sort_order' => $i]);
         }
 
         foreach ([
@@ -214,21 +226,20 @@ class DemoSeeder extends Seeder
     private function people(): array
     {
         $password = config('capstone.demo_password');
-        $admin = User::query()->updateOrCreate(['email' => 'admin@gmail.com'], ['name' => 'Admin Capstone', 'role' => 'admin', 'prodi_code' => 'SI', 'password' => $password]);
+        $admin = User::query()->updateOrCreate(['email' => 'admin@gmail.com'], ['name' => 'Admin Capstone', 'role' => 'admin', 'password' => $password]);
 
         $data = [
-            'dsn1' => ['Dr. Ratna Wulandari', 'RWL', 'SI', 'Supply Chain Analytics', '081200000001', [1, 1, 1, 1]],
-            'dsn2' => ['Hendra Saputra, M.T.', 'HSP', 'SI', 'Enterprise Systems', '081200000002', [1, 1, 1, 0]],
-            'dsn3' => ['Dr. Maya Kartika', 'MKT', 'TI', 'Production Systems', '081200000003', [1, 1, 1, 1]],
-            'dsn4' => ['Yusuf Pratama, M.Sc.', 'YPR', 'DSC', 'Logistics', '', [0, 1, 1, 0]],
-            'dsn5' => ['Sinta Maharani, M.M.', 'SMH', 'MR', 'Engineering Management', '081200000005', [0, 0, 1, 1]],
+            'dsn1' => ['Dr. Ratna Wulandari', 'RWL', 'Supply Chain Analytics', '081200000001'],
+            'dsn2' => ['Hendra Saputra, M.T.', 'HSP', 'Enterprise Systems', '081200000002'],
+            'dsn3' => ['Dr. Maya Kartika', 'MKT', 'Production Systems', '081200000003'],
+            'dsn4' => ['Yusuf Pratama, M.Sc.', 'YPR', 'Logistics', ''],
+            'dsn5' => ['Sinta Maharani, M.M.', 'SMH', 'Engineering Management', '081200000005'],
         ];
         $lecturers = [];
-        foreach ($data as $key => [$name, $code, $prodi, $spec, $phone, [$propose, $supervise, $examine, $class]]) {
-            $user = User::query()->updateOrCreate(['email' => $this->demoEmail('dosen', $key)], ['name' => $name, 'role' => 'dosen', 'prodi_code' => $prodi, 'phone' => $phone ?: null, 'password' => $password]);
+        foreach ($data as $key => [$name, $code, $spec, $phone]) {
+            $user = User::query()->updateOrCreate(['email' => $this->demoEmail('dosen', $key)], ['name' => $name, 'role' => 'dosen', 'phone' => $phone ?: null, 'password' => $password]);
             LecturerProfile::query()->updateOrCreate(['user_id' => $user->id], [
                 'lecturer_code' => $code, 'specialization' => $spec,
-                'can_propose_topic' => (bool) $propose, 'can_supervise' => (bool) $supervise, 'can_examine' => (bool) $examine, 'is_class_lecturer' => (bool) $class,
             ]);
             $lecturers[$key] = $user;
         }
@@ -248,26 +259,26 @@ class DemoSeeder extends Seeder
     private function students(): array
     {
         $rows = [
-            ['s1', 'Alya Rahmadani', 'SI', 128, 'Jawa Barat', 'Enterprise Systems'],
-            ['s2', 'Bima Nugraha', 'SI', 124, 'Sumatera Utara', 'Data Engineering'],
-            ['s3', 'Citra Ayuningtyas', 'TI', 130, 'Jawa Tengah', 'Supply Chain'],
-            ['s4', 'Dimas Prakoso', 'TI', 126, 'Jawa Timur', 'Production Systems'],
-            ['s5', 'Eka Larasati', 'TI', 121, 'Kalimantan Timur', 'Ergonomics'],
-            ['s6', 'Farhan Akbar', 'DSC', 119, 'Sulawesi Selatan', 'Logistics'],
-            ['s7', 'Gita Permatasari', 'DSC', 122, 'Sulawesi Selatan', 'Logistics'],
-            ['s8', 'Hafiz Ramadhan', 'DSC', 116, 'Riau', 'Logistics'],
-            ['s9', 'Indah Puspita', 'SI', 127, 'Bali', 'Enterprise Systems'],
-            ['s10', 'Joko Santoso', 'SI', 112, 'DI Yogyakarta', 'Data Engineering'],
-            ['s11', 'Kevin Wijaya', 'MR', 125, 'Banten', 'Engineering Management'],
-            ['s12', 'Laras Sekar', 'MR', 120, 'Papua', 'Project Management'],
-            ['s13', 'Mira Anggraini', 'SI', 98, 'Jawa Barat', 'Enterprise Systems'],
-            ['s14', 'Naufal Hakim', 'TI', 131, 'Aceh', 'Quality Engineering'],
+            ['s1', 'Alya Rahmadani', 128, 'Jawa Barat', 'Enterprise Systems'],
+            ['s2', 'Bima Nugraha', 124, 'Sumatera Utara', 'Data Engineering'],
+            ['s3', 'Citra Ayuningtyas', 130, 'Jawa Tengah', 'Supply Chain'],
+            ['s4', 'Dimas Prakoso', 126, 'Jawa Timur', 'Production Systems'],
+            ['s5', 'Eka Larasati', 121, 'Kalimantan Timur', 'Ergonomics'],
+            ['s6', 'Farhan Akbar', 119, 'Sulawesi Selatan', 'Logistics'],
+            ['s7', 'Gita Permatasari', 122, 'Sulawesi Selatan', 'Logistics'],
+            ['s8', 'Hafiz Ramadhan', 116, 'Riau', 'Logistics'],
+            ['s9', 'Indah Puspita', 127, 'Bali', 'Enterprise Systems'],
+            ['s10', 'Joko Santoso', 112, 'DI Yogyakarta', 'Data Engineering'],
+            ['s11', 'Kevin Wijaya', 125, 'Banten', 'Engineering Management'],
+            ['s12', 'Laras Sekar', 120, 'Papua', 'Project Management'],
+            ['s13', 'Mira Anggraini', 98, 'Jawa Barat', 'Enterprise Systems'],
+            ['s14', 'Naufal Hakim', 131, 'Aceh', 'Quality Engineering'],
         ];
 
         $students = [];
-        foreach ($rows as $i => [$key, $name, $prodi, $sks, $region, $spec]) {
+        foreach ($rows as $i => [$key, $name, $sks, $region, $spec]) {
             $students[$key] = User::query()->updateOrCreate(['email' => $this->demoEmail('mahasiswa', $key)], [
-                'name' => $name, 'role' => 'mahasiswa', 'prodi_code' => $prodi, 'password' => config('capstone.demo_password'),
+                'name' => $name, 'role' => 'mahasiswa', 'password' => config('capstone.demo_password'),
                 'nim' => '1020223'.str_pad((string) ($i + 1), 5, '0', STR_PAD_LEFT),
                 'sks_passed' => $sks, 'passed_courses' => $sks >= 110 ? ['KP'] : [],
                 'origin_region' => $region, 'specialization' => $spec, 'phone' => '0857000000'.str_pad((string) $i, 2, '0', STR_PAD_LEFT),
@@ -277,10 +288,10 @@ class DemoSeeder extends Seeder
         return $students;
     }
 
-    private function team(Period $period, string $code, string $name, string $prodi, array $members, string $status, User $admin, ScreeningService $screening, QrService $qr): Team
+    private function team(Period $period, string $code, string $name, array $members, string $status, User $admin, ScreeningService $screening, QrService $qr): Team
     {
         $team = Team::create([
-            'period_id' => $period->id, 'code' => $code, 'name' => $name, 'prodi_code' => $prodi,
+            'period_id' => $period->id, 'code' => $code, 'name' => $name,
             'leader_id' => $members[0]->id, 'status' => $status,
             'submitted_at' => $status === 'draft' ? null : now()->subDays(8),
             'reviewed_by' => $status === 'diterima' ? $admin->id : null,

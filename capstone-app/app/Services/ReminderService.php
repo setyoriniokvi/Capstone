@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Http;
 use Throwable;
 
 /**
- * F12, F49–F57 — pemantauan tenggat pekerjaan dosen dan antrean notifikasi.
+ * F12, F49–F57 — pemantauan deadline pekerjaan dosen dan antrean notifikasi.
  * Backend menentukan pekerjaan yang belum selesai dan kapan pengingat jatuh tempo;
  * workflow n8n mengambil antrean, mengirim email/WhatsApp, lalu melaporkan hasilnya.
  */
@@ -44,26 +44,29 @@ class ReminderService
     public function incompleteAssessments(Period $period, ?int $lecturerId = null): Collection
     {
         $rows = collect();
-        $components = collect(config('capstone.components'))->reject(fn ($c) => $c['role'] === 'mahasiswa');
+        $components = collect(config('capstone.components'))->reject(fn ($c) => in_array('mahasiswa', $c['roles'], true));
 
         $teams = Team::query()->where('period_id', $period->id)->where('status', 'diterima')
             ->with(['lecturers.lecturer', 'assessments' => fn ($q) => $q->where('status', 'final')])
             ->get();
 
         foreach ($teams as $team) {
+            // Bentuk penilaian dengan dua penilai menghasilkan satu baris untuk pembimbing dan satu untuk penguji.
             foreach ($components as $component => $meta) {
-                $assignment = $team->lecturers->firstWhere('role', $meta['role']);
-                if (! $assignment || ($lecturerId && $assignment->lecturer_id !== $lecturerId)) {
-                    continue;
+                foreach ($meta['roles'] as $role) {
+                    $assignment = $team->lecturers->firstWhere('role', $role);
+                    if (! $assignment || ($lecturerId && $assignment->lecturer_id !== $lecturerId)) {
+                        continue;
+                    }
+                    $done = $team->assessments->contains(fn ($a) => $a->component === $component && $a->assessor_id === $assignment->lecturer_id);
+                    $rows->push([
+                        'lecturer' => $assignment->lecturer,
+                        'team' => $team,
+                        'component' => $component,
+                        'role' => $role,
+                        'done' => $done,
+                    ]);
                 }
-                $done = $team->assessments->contains(fn ($a) => $a->component === $component && $a->assessor_id === $assignment->lecturer_id);
-                $rows->push([
-                    'lecturer' => $assignment->lecturer,
-                    'team' => $team,
-                    'component' => $component,
-                    'role' => $meta['role'],
-                    'done' => $done,
-                ]);
             }
         }
 
@@ -357,7 +360,7 @@ class ReminderService
         $hours = intdiv($minutes % 1440, 60);
 
         return match (true) {
-            $minutes === 0 => 'tenggat sudah lewat',
+            $minutes === 0 => 'deadline sudah lewat',
             $days > 0 => "{$days} hari {$hours} jam",
             $hours > 0 => "{$hours} jam",
             default => "{$minutes} menit",

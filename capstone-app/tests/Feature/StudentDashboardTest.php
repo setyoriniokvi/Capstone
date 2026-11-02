@@ -36,14 +36,17 @@ class StudentDashboardTest extends TestCase
         $this->dashboardAs('mahasiswa13@gmail.com')
             ->assertSee('Prasyarat Capstone belum terpenuhi')
             ->assertDontSee('Bentuk tim Capstone')
-            ->assertDontSee('Dokumen milestone');
+            // Kartu tetap lengkap, isinya memberi tahu belum ada tim.
+            ->assertSee('Dokumen milestone')
+            ->assertSee('Anda belum memiliki tim');
     }
 
     public function test_eligible_student_without_team_is_asked_to_form_one(): void
     {
         $this->dashboardAs('mahasiswa14@gmail.com')
             ->assertSee('Bentuk tim Capstone')
-            ->assertDontSee('Dokumen milestone')
+            ->assertSee('Anda belum memiliki tim')
+            ->assertSee('Buat atau gabung tim')
             ->assertDontSee('Isi log');
     }
 
@@ -113,7 +116,7 @@ class StudentDashboardTest extends TestCase
         $this->assertSame('Hari ini', Format::dueIn(Carbon::parse('2026-10-20 23:59')));
         $this->assertSame('Besok', Format::dueIn(Carbon::parse('2026-10-21 08:00')));
         $this->assertSame('5 hari lagi', Format::dueIn(Carbon::parse('2026-10-25 23:59')));
-        $this->assertSame('Tenggat terlewat hari ini', Format::dueIn(Carbon::parse('2026-10-20 08:00')));
+        $this->assertSame('Deadline terlewat hari ini', Format::dueIn(Carbon::parse('2026-10-20 08:00')));
         $this->assertSame('Terlambat 2 hari', Format::dueIn(Carbon::parse('2026-10-18 23:59')));
     }
 }

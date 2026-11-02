@@ -1,5 +1,5 @@
 @php $team = $result['team'] ?? null; @endphp
-<x-layouts.app title="QR Penilaian" section="QR penilaian">
+<x-layouts.app title="QR Penilaian">
     <div class="mx-auto max-w-lg pt-6">
         <div class="panel">
             <div class="panel-body">

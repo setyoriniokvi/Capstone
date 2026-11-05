@@ -57,6 +57,16 @@ php artisan migrate:fresh --seed
 php artisan db:seed --class=DemoSeeder
 ```
 
+Untuk memakai data yang sama dengan laptop utama, salin snapshot database (dengan `DB_CONNECTION=sqlite` dan `DB_DATABASE=capstone_apps`). Database lokal di laptop tersebut akan **tertimpa**:
+
+```bash
+cd capstone-app
+cp database/capstone_apps.snapshot capstone_apps
+php artisan migrate
+```
+
+Snapshot tidak berisi cache, sesi login, dan token Google Drive, jadi akun Google perlu dihubungkan ulang di menu Sinkronisasi Dokumen.
+
 Selama mengembangkan tampilan, `npm run dev` lebih praktis karena perubahan langsung terlihat tanpa build ulang. Jangan mengedit file di `public/build` — isinya ditimpa setiap build; yang diedit selalu `resources/`.
 
 ### Letak gambar

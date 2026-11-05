@@ -1,6 +1,6 @@
 {{-- F46 — Approval Bimbingan (dosen pembimbing) dengan dua tab.
      "Pengajuan Log Bimbingan": log yang menunggu keputusan dari semua tim bimbingan.
-     "Log Bimbingan": seluruh log per tim (dropdown tim + pencarian, Alpine "logTable"), tabel dapat digeser ke samping.
+     "Log Bimbingan": satu tabel log semua tim bimbingan, dapat digeser ke samping.
      Pada tab pengajuan: Dropdown di tengah judul menyaring per tim langsung di browser; kotak centang per baris +
      "pilih semua" (log yang tampil) untuk "Setujui pilihan" sekaligus (Alpine "bulkApproval").
      Setujui = konfirmasi; Tolak = popup feedback opsional (status tersimpan "revisi", tampil "Ditolak" di mahasiswa). --}}
@@ -51,7 +51,7 @@
                         <x-heroicon-o-check class="h-4 w-4" /> Setujui pilihan
                     </button>
                 </form>
-                <table class="data-table w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent" @change="pick">
+                <table class="data-table min-w-0 w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent" @change="pick">
                     <colgroup><col class="w-[6%]"><col class="w-[16%]"><col class="w-[7%]"><col class="w-[13%]"><col class="w-[29%]"><col class="w-[13%]"><col class="w-[16%]"></colgroup>
                     <thead class="{{ $greenHead }}"><tr>
                         <th><input type="checkbox" class="checkbox" data-select-all :checked="allSelected" aria-label="Pilih semua log yang tampil"></th>
@@ -64,7 +64,7 @@
                                 <td class="font-semibold text-ink">{{ $log->team->name }}</td>
                                 <td class="text-center tabular text-ink">{{ $log->session_no }}</td>
                                 <td class="text-sm text-ink">{{ $log->session_date->translatedFormat('j M Y') }}</td>
-                                <td class="whitespace-pre-line text-sm text-ink">{{ $log->activity }}@if ($log->histories->where('event', 'revisi')->count())<span class="mt-1 block text-caption text-muted">Sudah {{ $log->histories->where('event', 'revisi')->count() }}× ditolak sebelumnya.</span>@endif</td>
+                                <td class="whitespace-pre-line text-sm text-ink">{{ $log->activity }}@if ($log->notes)<span class="mt-1.5 block text-caption text-muted"><span class="font-medium">Notes:</span> {!! \App\Support\Format::linkify($log->notes) !!}</span>@endif @if ($log->histories->where('event', 'revisi')->count())<span class="mt-1 block text-caption text-muted">Sudah {{ $log->histories->where('event', 'revisi')->count() }}× ditolak sebelumnya.</span>@endif</td>
                                 <td class="text-sm text-ink">{{ $log->updated_at->translatedFormat('j M Y, H:i') }}</td>
                                 <td class="!align-middle">
                                     <div class="mx-auto flex max-w-[8rem] flex-col gap-2">

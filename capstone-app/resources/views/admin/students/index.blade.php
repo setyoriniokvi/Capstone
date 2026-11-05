@@ -1,7 +1,7 @@
 <x-layouts.app title="Mahasiswa">
     <x-page-head title="Data & akun mahasiswa" lede="Data SKS lulus dan mata kuliah yang sudah lulus dipakai untuk checklist kelayakan dan screening registrasi tim.">
         <x-slot:actions>
-            @include('admin._import', ['type' => 'mahasiswa', 'label' => 'mahasiswa', 'button' => true, 'hint' => 'Kolom mk_lulus berisi kode mata kuliah dipisah titik koma. Data dengan NIM/email yang sama diperbarui.'])
+            @include('admin._import', ['type' => 'mahasiswa', 'label' => 'mahasiswa', 'button' => true, 'hint' => 'Kolom mk_lulus berisi kode mata kuliah dipisah titik koma. Data dengan NIM/email yang sama diperbarui; untuk NIM yang sudah terdaftar cukup isi nim dan kolom yang ingin diubah (mis. nim + peminatan), kolom kosong tidak mengubah data.'])
             {{-- Tambah mahasiswa: modal di atas halaman; terbuka lagi bila simpan gagal validasi. --}}
             <div x-data="registrationForm" data-open="{{ $errors->any() && old('_student') === 'baru' ? 'true' : 'false' }}">
                 <button type="button" class="btn btn-primary" @click="open" :aria-expanded="expanded"><x-heroicon-o-plus class="h-5 w-5" />Tambah mahasiswa</button>
@@ -24,7 +24,7 @@
         @if ($students->isEmpty())
             <x-empty title="Belum ada data mahasiswa" icon="users">Tambahkan manual atau impor dari Excel/CSV.</x-empty>
         @else
-            <div class="table-wrap">
+            <x-scroll-pager>
                 <table class="data-table">
                     <thead><tr><th>NIM</th><th>Nama</th><th>SKS</th><th>Peminatan</th><th>Daerah asal</th><th>Tim</th><th></th></tr></thead>
                     <tbody>
@@ -59,7 +59,7 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
+            </x-scroll-pager>
             {{ $students->links() }}
         @endif
     </div>

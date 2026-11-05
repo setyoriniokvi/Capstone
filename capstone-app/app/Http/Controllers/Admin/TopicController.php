@@ -8,6 +8,7 @@ use App\Models\Period;
 use App\Models\RegistrationRule;
 use App\Models\StudyProgram;
 use App\Models\Topic;
+use App\Models\TopicInstruction;
 use App\Models\User;
 use App\Services\TopicService;
 use Illuminate\Http\RedirectResponse;
@@ -17,7 +18,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * F7 / F8 — approval topik (seperti Approval Registrasi Tim): kartu kata kunci terlarang, lalu tab Topik Mandiri
+ * F7 / F8 — approval topik (seperti Approval Registrasi Tim): kartu instruksi & kata kunci terlarang, lalu tab Topik Mandiri
  * (menunggu approval + riwayat) dan Topik Dosen (menunggu approval + bank topik dosen yang dapat dikelola admin).
  */
 class TopicController extends Controller
@@ -32,6 +33,7 @@ class TopicController extends Controller
         $data = [
             'tab' => $tab,
             'period' => $period,
+            'instruction' => TopicInstruction::for($tab),
             'keywords' => ForbiddenKeyword::query()->where('source', $tab)->orderBy('keyword')->get(),
             'pendingCount' => $period ? Topic::query()->where('period_id', $period->id)->where('status', 'menunggu')->selectRaw('source, count(*) as total')->groupBy('source')->pluck('total', 'source') : collect(),
             'pending' => $base($tab)->where('status', 'menunggu')->with(['team', 'lecturer.lecturerProfile', 'proposers'])->oldest('updated_at')->get(),
@@ -165,6 +167,27 @@ class TopicController extends Controller
         $topics->review($topic, $data['decision'] === 'approve', $data['notes'] ?? null, $request->user());
 
         return back()->with('status', 'Keputusan topik disimpan.');
+    }
+
+    /** Simpan instruksi jenis topik; isian kosong = hapus instruksi. */
+    public function updateInstruction(Request $request, string $source): RedirectResponse
+    {
+        $body = trim((string) $request->validate(['body' => ['nullable', 'string', 'max:5000']])['body']);
+        if ($body === '') {
+            TopicInstruction::query()->where('source', $source)->delete();
+
+            return back()->with('status', 'Instruksi dikosongkan.');
+        }
+        TopicInstruction::query()->updateOrCreate(['source' => $source], ['body' => $body]);
+
+        return back()->with('status', 'Instruksi '.ForbiddenKeyword::SOURCES[$source].' disimpan.');
+    }
+
+    public function destroyInstruction(string $source): RedirectResponse
+    {
+        TopicInstruction::query()->where('source', $source)->delete();
+
+        return back()->with('status', 'Instruksi '.ForbiddenKeyword::SOURCES[$source].' dihapus.');
     }
 
     public function storeKeyword(Request $request, TopicService $topics): RedirectResponse

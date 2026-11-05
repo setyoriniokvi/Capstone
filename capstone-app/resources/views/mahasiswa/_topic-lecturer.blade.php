@@ -73,8 +73,7 @@
         @if ($topics->isEmpty())
             <x-empty title="Tidak ada topik yang cocok" icon="book-open" />
         @else
-            {{-- Kolom berlebar lega; bila melebihi layar tabel digeser ke samping
-                 (wrapper sengaja bukan .table-wrap agar tidak diubah ke tampilan kartu). --}}
+            {{-- Kolom berlebar lega; bila melebihi layar tabel digeser ke samping. --}}
             <x-scroll-pager>
                 <table class="data-table w-full min-w-[127rem] table-fixed [&_td]:px-4 [&_td]:py-4 [&_th]:px-4 [&_tbody_tr:hover_td]:bg-transparent">
                     <colgroup>

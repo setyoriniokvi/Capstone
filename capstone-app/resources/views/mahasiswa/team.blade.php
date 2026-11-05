@@ -66,7 +66,7 @@
                     <h2 id="anggota-judul" class="min-w-0 truncate text-lg font-semibold text-ink">{{ $team->name }}</h2>
                     <p class="flex items-center gap-2 text-sm text-muted">Status <x-badge :status="$team->status" :label="$team->statusLabel()" /></p>
                 </div>
-                <div class="table-wrap">
+                <x-scroll-pager>
                     <table class="data-table">
                         <thead class="bg-brand-tint"><tr class="[&>th]:border-0 [&>th]:py-3.5 [&>th]:text-center [&>th]:text-sm [&>th]:font-semibold [&>th]:text-brand-deep"><th>Anggota</th><th>Peminatan</th><th>Daerah asal</th><th>Lampiran</th></tr></thead>
                         <tbody>
@@ -76,7 +76,7 @@
                                         <div class="flex items-center gap-3">
                                             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-tint text-sm font-semibold text-brand-deep" aria-hidden="true">{{ $m->user->initials() }}</span>
                                             <div class="min-w-0">
-                                                <p class="font-medium text-ink">{{ $m->user->name }}@if ($m->is_leader) <span class="ml-1.5 rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted">Ketua</span>@endif</p>
+                                                <p class="font-medium text-ink">{{ $m->user->name }}@if ($m->is_leader) <span class="ml-1.5 rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted inline-block whitespace-nowrap">Ketua</span>@endif</p>
                                                 <p class="text-sm text-muted"><span class="tabular">{{ $m->user->nim }}</span> · {{ $m->user->email }}</p>
                                                 @if ($m->user->awaitingActivation())<p class="text-caption text-muted">{{ $team->status === 'diterima' ? 'Belum mengatur password — cek tautan di email' : 'Akun aktif setelah tim disetujui admin' }}</p>@endif
                                             </div>
@@ -97,7 +97,7 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div>
+                </x-scroll-pager>
             </section>
 
             {{-- Hasil screening otomatis — aturan registrasi yang diatur admin pada periode --}}

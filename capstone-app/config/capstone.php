@@ -146,7 +146,15 @@ return [
 
     'drive' => [
         'enabled' => (bool) env('GOOGLE_DRIVE_ENABLED', false),
+        // "service_account" (file JSON di credentials_path) atau "oauth" (admin menghubungkan akun Google di menu Sinkronisasi Dokumen)
+        'auth' => env('GOOGLE_DRIVE_AUTH', 'service_account'),
         'credentials_path' => env('GOOGLE_DRIVE_CREDENTIALS'),
+        'oauth' => [
+            'client_id' => env('GOOGLE_DRIVE_CLIENT_ID'),
+            'client_secret' => env('GOOGLE_DRIVE_CLIENT_SECRET'),
+            // Kosong = {APP_URL}/admin/google-drive/callback; harus sama persis dengan Authorized redirect URI di Google Cloud
+            'redirect_uri' => env('GOOGLE_DRIVE_REDIRECT_URI'),
+        ],
         'share_with_owner' => (bool) env('GOOGLE_DRIVE_SHARE_WITH_OWNER', true),
         'max_attempts' => (int) env('GOOGLE_DRIVE_MAX_ATTEMPTS', 3),
     ],

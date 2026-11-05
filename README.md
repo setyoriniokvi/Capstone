@@ -76,7 +76,8 @@ Akun demo (password semua akun `password`, daftarnya tampil di bawah form login 
 | --- | --- | --- |
 | Database (PRD §3.1) | `DB_CONNECTION=mysql`, `DB_*` | MySQL/MariaDB 8 |
 | Login (F1) | `DEV_LOGIN=false` | Login email + password. Password awal akun impor: mahasiswa = NIM, dosen = kode dosen; admin dapat menggantinya di form edit. `DEV_LOGIN=false` menyembunyikan daftar akun demo |
-| Google Drive (F33–F41) | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_CREDENTIALS` | Service account JSON. Folder tujuan sebaiknya di **Shared Drive** yang dibagikan ke email service account. ID folder Drive (satu per periode) diatur di menu Periode |
+| Google Drive (F33–F41) — service account | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_AUTH=service_account`, `GOOGLE_DRIVE_CREDENTIALS` | Service account JSON. Folder tujuan sebaiknya di **Shared Drive** yang dibagikan ke email service account. ID folder Drive diatur per milestone di menu Periode |
+| Google Drive (F33–F41) — OAuth | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_AUTH=oauth`, `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI` (opsional) | OAuth client ID tipe *Web application*; Authorized redirect URI = `{APP_URL}/admin/google-drive/callback`. Admin lalu klik **Hubungkan akun Google** di menu Sinkronisasi Dokumen. Token tersimpan terenkripsi di `storage/app/private` (tidak masuk git) |
 | Email (F21) | `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` | Mengirim keputusan registrasi tim dan tautan atur password ke anggota. Tanpa SMTP (`MAIL_MAILER=log`) email hanya ditulis ke `storage/logs/laravel.log` |
 | n8n (F49–F57) | `AUTOMATION_TOKEN`, `N8N_REMINDER_WEBHOOK_URL` | Token acak panjang; URL webhook diambil dari node *Pemicu manual* |
 
@@ -99,7 +100,7 @@ Alurnya: n8n memanggil `POST /api/automation/reminders/claim` → backend mengem
 | F3, F4 | Admin → Dosen / Mahasiswa / Registrasi Tim, termasuk impor Excel/CSV dengan pratinjau per baris |
 | F5, F6 | Admin → Aturan Registrasi; screening otomatis (flag + skor) di detail tim |
 | F7, F8 | Admin → Approval Topik (cek kata kunci terlarang), Rekap Topik Final |
-| F9, F10 | Admin → Kuota Dosen (global / kategori / per dosen), Plotting Dosen dengan flag OVER/UNDER dan tersedia/penuh |
+| F9, F10 | Admin → Kuota Dosen (minimum & maksimum per peran, global / per dosen; maksimum 0 = tidak menerima tim), Plotting Dosen dengan sisa kuota (dari maksimum) dan flag OVER/UNDER |
 | F11, F12 | Admin → Progres Tim, Penilaian & Reminder |
 | F13–F16 | Admin → Master Penilaian (CLO, indikator, rubrik dokumen, rubrik lisan) |
 | F17, F20, F45 | File Pendukung |
@@ -129,6 +130,5 @@ Functional Requirement dijadikan acuan utama, sesuai arahan.
 
 1. **Skala grade** (A, AB, B, …) tidak tercantum di dokumen. Nilai sementara ada di `config/capstone.php → grade_scale`.
 2. **Template iGadis** tidak dilampirkan. Ekspor memakai kolom dari dokumen Alur §6.6 (NIM, Nama, Kode Kelompok, Prodi, CLO1–CLO8, Total, Grade).
-3. **Daftar indikator penilaian** (F14) dan deskripsi rubriknya belum ada di dokumen. `DemoSeeder` membuat satu indikator contoh per CLO; isi yang resmi lewat menu Master Penilaian.
-4. **Faktor pemahaman** rubrik lisan: FR hanya menyebut rentang 0,25–1,00. Nilai level 2–4 dibagi rata dan kolom perilaku masih kosong.
-5. **Mata kuliah prasyarat** per prodi belum disebutkan. Demo memakai "KP — Kerja Praktek (contoh)".
+3. **Master penilaian** (CLO, indikator, rubrik dokumen, rubrik lisan) diambil dari `Rubrik Capstone Design Project.xlsx` lewat `database/seeders/data/rubrik-capstone.php`. Perubahan berikutnya dilakukan lewat menu Master Penilaian.
+4. **Mata kuliah prasyarat** per prodi belum disebutkan. Demo memakai "KP — Kerja Praktek (contoh)".

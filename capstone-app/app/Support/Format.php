@@ -32,4 +32,21 @@ class Format
             default => $bytes.' B',
         };
     }
+
+    /**
+     * Teks bebas → HTML aman: seluruh teks di-escape, lalu setiap URL http(s) menjadi tautan yang dibuka di tab baru.
+     * Dipakai untuk catatan yang dapat berisi tautan (mis. Notes log bimbingan); tampilkan dengan {!! !!}.
+     */
+    public static function linkify(?string $text): string
+    {
+        $escaped = e((string) $text);
+
+        return preg_replace_callback('~https?://[^\s<]+~i', function (array $m) {
+            // Tanda baca penutup kalimat di ujung URL bukan bagian tautan.
+            $url = rtrim($m[0], '.,;:!?)');
+            $tail = substr($m[0], strlen($url));
+
+            return '<a href="'.$url.'" target="_blank" rel="noopener noreferrer" class="link break-all">'.$url.'</a>'.$tail;
+        }, $escaped);
+    }
 }

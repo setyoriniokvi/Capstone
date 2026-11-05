@@ -107,7 +107,7 @@
                         <li class="px-4 py-4 sm:px-5">
                             <p class="flex flex-wrap items-center gap-2">
                                 <span class="font-semibold text-ink">{{ $m['name'] }}</span>
-                                <span class="rounded-md px-1.5 py-0.5 text-caption font-medium {{ $m['is_leader'] ? 'bg-brand-tint text-brand-deep' : 'bg-sunken text-muted' }}">{{ $m['is_leader'] ? 'Ketua' : 'Anggota' }}</span>
+                                <span class="inline-block whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-medium {{ $m['is_leader'] ? 'bg-brand-tint text-brand-deep' : 'bg-sunken text-muted' }}">{{ $m['is_leader'] ? 'Ketua' : 'Anggota' }}</span>
                             </p>
                             <dl class="mt-2 grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
                                 <dt class="text-muted">NIM</dt><dd class="code text-ink">{{ $m['nim'] ?? '—' }}</dd>
@@ -136,7 +136,7 @@
                         <div class="min-w-0 flex-1">
                             <p class="flex flex-wrap items-center gap-2">
                                 <span class="font-semibold text-ink">{{ $user->name }}</span>
-                                <span class="rounded-md px-1.5 py-0.5 text-caption font-medium {{ $member->is_leader ? 'bg-brand-tint text-brand-deep' : 'bg-sunken text-muted' }}">{{ $member->is_leader ? 'Ketua' : 'Anggota' }}</span>
+                                <span class="inline-block whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-medium {{ $member->is_leader ? 'bg-brand-tint text-brand-deep' : 'bg-sunken text-muted' }}">{{ $member->is_leader ? 'Ketua' : 'Anggota' }}</span>
                                 @if ($member->invite_status !== 'diterima')<x-badge :status="$member->invite_status" />@endif
                             </p>
                             <dl class="mt-2 grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">

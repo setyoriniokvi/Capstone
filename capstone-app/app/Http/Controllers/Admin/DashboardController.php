@@ -32,8 +32,8 @@ class DashboardController extends Controller
         $actions = [
             'teams' => ['label' => 'Registrasi tim menunggu', 'count' => (int) ($statusCounts['menunggu'] ?? 0), 'route' => route('admin.teams.index', ['status' => 'menunggu'])],
             'topics' => ['label' => 'Topik menunggu approval', 'count' => Topic::query()->where('period_id', $period->id)->where('status', 'menunggu')->count(), 'route' => route('admin.topics.index', ['status' => 'menunggu'])],
-            'supervisor' => ['label' => 'Tim belum memiliki pembimbing', 'count' => (clone $teams)->where('status', 'diterima')->whereDoesntHave('supervisor')->count(), 'route' => route('admin.plotting.index', ['filter' => 'tanpa_pembimbing'])],
-            'examiner' => ['label' => 'Tim belum memiliki penguji', 'count' => (clone $teams)->where('status', 'diterima')->whereDoesntHave('examiner')->count(), 'route' => route('admin.plotting.index', ['filter' => 'tanpa_penguji'])],
+            'supervisor' => ['label' => 'Tim belum memiliki pembimbing', 'count' => (clone $teams)->where('status', 'diterima')->whereDoesntHave('supervisor')->count(), 'route' => route('admin.plotting.index')],
+            'examiner' => ['label' => 'Tim belum memiliki penguji', 'count' => (clone $teams)->where('status', 'diterima')->whereDoesntHave('examiner')->count(), 'route' => route('admin.plotting.index')],
             'sync' => ['label' => 'Sinkronisasi Drive gagal', 'count' => DocumentVersion::query()->where('sync_status', 'gagal')->count(), 'route' => route('admin.documents.index', ['status' => 'gagal'])],
             'reminders' => ['label' => 'Notifikasi gagal terkirim', 'count' => ReminderDispatch::query()->where('status', 'gagal')->count(), 'route' => route('admin.reminders.index', ['status' => 'gagal'])],
         ];

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Indicator;
 use App\Models\Team;
 use App\Models\User;
 use Database\Seeders\DemoSeeder;
@@ -32,7 +31,7 @@ class PageSmokeTest extends TestCase
     public function test_admin_pages_render(): void
     {
         $admin = User::query()->where('role', 'admin')->first();
-        $team = Team::query()->where('code', 'KP-SI-01')->first();
+        $team = Team::query()->where('name', 'Tim Arunika')->first();
         $period = $team->period;
 
         foreach ([
@@ -42,8 +41,7 @@ class PageSmokeTest extends TestCase
             route('admin.teams.index'), route('admin.teams.index', ['tim' => $team->id]), route('admin.topics.index'), route('admin.topics.index', ['tab' => 'dosen']),
             route('admin.quotas.index'), route('admin.plotting.index'),
             route('admin.monitoring.progress'), route('admin.monitoring.assessments'),
-            route('admin.clos.index'), route('admin.indicators.index'), route('admin.indicators.create'),
-            route('admin.indicators.edit', Indicator::first()), route('admin.rubrics.index'), route('admin.rubrics.edit', Indicator::first()),
+            route('admin.clos.index'), route('admin.indicators.index'), route('admin.rubrics.index'),
             route('admin.oral.index'), route('admin.files.index'), route('admin.recap.index'), route('admin.reminders.index'),
             route('admin.documents.index'), route('files.index'),
             // Kelola Periode terakhir: membukanya menutup Dashboard Periode
@@ -78,7 +76,7 @@ class PageSmokeTest extends TestCase
 
     public function test_lecturer_pages_render(): void
     {
-        $team = Team::query()->where('code', 'KP-SI-01')->first();
+        $team = Team::query()->where('name', 'Tim Arunika')->first();
         $lecturer = User::query()->where('email', 'dosen@gmail.com')->first();
 
         foreach ([
@@ -109,8 +107,8 @@ class PageSmokeTest extends TestCase
             'min_approved_logbooks' => 6,
             'rule' => ['min_sks' => 100, 'min_members' => 2, 'max_members' => 3, 'require_distinct_region' => '1', 'require_distinct_specialization' => '0',
                 'courses' => "KP - Kerja Praktek
-MC1 - Micro-course Data", 'specializations' => "Enterprise Systems
-Logistics"]];
+MC1 - Micro-course Data", 'specializations' => "Enterprise Intelligence System Development
+Enterprise Resource Planning"]];
         $this->actingAs($admin)->put(route('admin.periods.update', $period), $identity)->assertSessionHasErrors('prodi_name');
         $this->actingAs($admin)->put(route('admin.periods.update', $period), $identity + ['prodi_name' => 'S1 Teknik Industri'])->assertSessionHasNoErrors();
         $this->assertSame('S1 Teknik Industri', $period->fresh()->prodi_name);
@@ -121,7 +119,7 @@ Logistics"]];
         $this->assertSame(100, $rule->min_sks);
         $this->assertFalse($rule->require_distinct_specialization);
         $this->assertSame(['KP', 'MC1'], $rule->courses()->orderBy('code')->pluck('code')->all());
-        $this->assertSame(['Enterprise Systems', 'Logistics'], $rule->specializations()->pluck('name')->all());
+        $this->assertSame(['Enterprise Intelligence System Development', 'Enterprise Resource Planning'], $rule->specializations()->pluck('name')->all());
         $times = ['starts_at' => now()->toDateTimeString(), 'due_at' => now()->addWeek()->toDateTimeString()];
         $this->actingAs($admin)->post(route('admin.milestones.store', $period), ['category' => 'lainnya', 'kind' => 'registrasi_tim', 'name' => 'Registrasi gelombang 2'] + $times)->assertSessionHasNoErrors();
         $this->actingAs($admin)->post(route('admin.milestones.store', $period), ['category' => 'dokumen', 'document_type' => 'poster', 'allowed_types' => ['pdf'], 'name' => 'Poster tambahan'] + $times)->assertSessionHasNoErrors();

@@ -15,8 +15,7 @@ use Illuminate\View\View;
 
 /**
  * F46 — log bimbingan untuk dosen pembimbing. Tab "Pengajuan Log Bimbingan": log menunggu keputusan (setujui/tolak,
- * atau pilih beberapa / semua lalu "Setujui pilihan"); tab "Log Bimbingan": seluruh log tim bimbingan, disaring per tim
- * dan pencarian di browser.
+ * atau pilih beberapa / semua lalu "Setujui pilihan"); tab "Log Bimbingan": satu tabel log semua tim bimbingan (urut tanggal).
  */
 class LogbookController extends Controller
 {
@@ -33,7 +32,7 @@ class LogbookController extends Controller
             'tab' => $tab,
             'teams' => $teams,
             'logs' => $tab === 'log' ? Logbook::query()->whereIn('team_id', $teams->pluck('id'))
-                ->latest('session_date')->latest('id')->get() : collect(),
+                ->oldest('session_date')->oldest('id')->get() : collect(),
             // Log yang menunggu keputusan dari semua tim bimbingan, yang terlama diajukan lebih dulu
             'pending' => Logbook::query()->where('status', 'menunggu')->whereIn('team_id', $teams->pluck('id'))
                 ->with('team:id,name', 'histories')->oldest('updated_at')->get(),
@@ -60,7 +59,7 @@ class LogbookController extends Controller
         $approved = $team->approvedLogbookCount();
         SystemNotice::sendTo(
             $team->activeUsers,
-            $approve ? "Log sesi {$logbook->session_no} disetujui" : "Log sesi {$logbook->session_no} perlu revisi",
+            $approve ? "Log sesi {$logbook->session_no} disetujui" : "Log sesi {$logbook->session_no} ditolak",
             $approve ? "{$approved} dari ".Period::minLogbooks($team->period).' sesi minimal telah disetujui.' : (($data['notes'] ?? '') ?: 'Perbaiki log lalu kirim ulang.'),
             route('mahasiswa.logbooks.index')
         );

@@ -48,7 +48,8 @@ class Period extends Model
 
     public function milestones(): HasMany
     {
-        return $this->hasMany(Milestone::class)->orderBy('sort_order')->orderBy('starts_at');
+        // Urut deadline paling awal (sama dengan "Mg" yang dihitung dari due_at); sort_order tidak bisa diatur admin.
+        return $this->hasMany(Milestone::class)->orderBy('due_at')->orderBy('starts_at')->orderBy('id');
     }
 
     public function assessmentWindows(): HasMany

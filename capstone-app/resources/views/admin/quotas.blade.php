@@ -11,10 +11,9 @@
         'id' => $l->id, 'name' => $l->name, 'nip' => (string) $l->lecturerProfile?->nip,
         'code' => (string) $l->lecturerProfile?->lecturer_code, 'specialization' => (string) $l->lecturerProfile?->specialization,
     ])->values();
-    $trio = fn ($q, string $role) => [$q->{"{$role}_default"}, $q->{"{$role}_min"}, $q->{"{$role}_max"}];
 @endphp
 <x-layouts.app title="Kuota Dosen">
-    <x-page-head title="Kuota beban dosen" lede="Atur jumlah tim default, minimum, dan maksimum sebagai pembimbing dan penguji. Prioritas: per dosen, lalu global.">
+    <x-page-head title="Kuota beban dosen" lede="Maksimum = jumlah tim yang dapat dibimbing / diuji (0 = tidak menerima tim); minimum untuk menandai beban UNDER. Prioritas: per dosen, lalu global.">
         @if ($period)
             <x-slot:actions>
                 {{-- Tambah kuota: modal di atas halaman; terbuka lagi bila simpan gagal validasi --}}
@@ -97,7 +96,7 @@
             @if ($quotas->isEmpty())
                 <div class="border-t border-rule"><x-empty title="Belum ada aturan kuota" icon="scale">Mulai dari aturan global lewat tombol Tambah Kuota.</x-empty></div>
             @else
-                <div class="overflow-x-auto">
+                <x-scroll-pager>
                     <table class="data-table w-full min-w-[44rem] border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                         <thead class="{{ $greenHead }}"><tr><th>Berlaku untuk</th><th>Kuota Pembimbing</th><th>Kuota Penguji</th><th><span class="sr-only">Aksi</span></th></tr></thead>
                         <tbody>
@@ -112,11 +111,10 @@
                                         @endif
                                     </td>
                                     @foreach (['supervise', 'examine'] as $role)
-                                        @php [$def, $min, $max] = $trio($q, $role); @endphp
                                         <td>
-                                            <dl class="grid w-fit grid-cols-3 gap-x-5 text-sm">
-                                                <dt class="text-caption text-muted">Default</dt><dt class="text-caption text-muted">Minimum</dt><dt class="text-caption text-muted">Maksimum</dt>
-                                                <dd class="tabular font-medium text-ink">{{ $def }}</dd><dd class="tabular text-ink">{{ $min }}</dd><dd class="tabular text-ink">{{ $max }}</dd>
+                                            <dl class="grid w-fit grid-cols-2 gap-x-5 text-sm">
+                                                <dt class="text-caption text-muted">Minimum</dt><dt class="text-caption text-muted">Maksimum</dt>
+                                                <dd class="tabular font-medium text-ink">{{ $q->{"{$role}_min"} }}</dd><dd class="tabular font-medium text-ink">{{ $q->{"{$role}_max"} }}</dd>
                                             </dl>
                                         </td>
                                     @endforeach
@@ -144,7 +142,7 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div>
+                </x-scroll-pager>
             @endif
         </section>
 

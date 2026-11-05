@@ -11,6 +11,9 @@
 <x-layouts.app title="Topik Dosen">
     <x-page-head title="Topik Dosen" />
 
+    {{-- Instruksi topik dosen dari admin --}}
+    <x-topic-instruction :text="$instruction" />
+
     @error('topic')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
     <div x-data="topicForm" data-open="{{ $formOpen || $errors->hasAny(['title', 'description', 'competencies', 'prodi_codes', 'prodi_codes.*', 'specializations', 'specializations.*', 'object', 'quota', 'proposer_ids', 'proposer_ids.*']) ? 'true' : 'false' }}"
@@ -54,7 +57,7 @@
         @if ($topics->isEmpty())
             <x-empty title="Tidak ada topik yang cocok" icon="book-open" />
         @else
-            {{-- Kolom berlebar lega; bila melebihi layar tabel digeser ke samping (bukan .table-wrap agar tidak jadi kartu). --}}
+            {{-- Kolom berlebar lega; bila melebihi layar tabel digeser ke samping. --}}
             <x-scroll-pager>
                 <table class="data-table w-full min-w-[127rem] table-fixed [&_td]:px-4 [&_td]:py-4 [&_th]:px-4 [&_tbody_tr:hover_td]:bg-transparent">
                     <colgroup>

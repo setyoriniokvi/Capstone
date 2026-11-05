@@ -9,7 +9,7 @@
 
     <section class="panel mb-6">
         <div class="panel-head"><h2 class="panel-title">Ambang waktu pengingat</h2></div>
-        <div class="table-wrap">
+        <x-scroll-pager>
             <table class="data-table">
                 <thead><tr><th>Jenis pekerjaan</th><th>Dikirim</th><th>Kanal</th><th>Aktif</th><th></th></tr></thead>
                 <tbody>
@@ -36,7 +36,7 @@
                     @endforelse
                 </tbody>
             </table>
-        </div>
+        </x-scroll-pager>
         <form method="POST" action="{{ route('admin.reminders.store') }}" class="grid gap-3 border-t border-rule bg-sunken px-4 py-4 sm:grid-cols-[minmax(0,1fr)_10rem_auto_auto] sm:items-end sm:px-6">
             @csrf
             <x-field label="Jenis pekerjaan" name="job_type">
@@ -66,7 +66,7 @@
         @if ($dispatches->isEmpty())
             <x-empty title="Belum ada pengiriman" icon="paper-airplane" />
         @else
-            <div class="table-wrap">
+            <x-scroll-pager>
                 <table class="data-table">
                     <thead><tr><th>Waktu</th><th>Dosen</th><th>Pekerjaan</th><th>Kanal</th><th>Pemicu</th><th>Status</th><th>Percobaan</th><th></th></tr></thead>
                     <tbody>
@@ -84,7 +84,7 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
+            </x-scroll-pager>
             {{ $dispatches->links() }}
         @endif
     </section>

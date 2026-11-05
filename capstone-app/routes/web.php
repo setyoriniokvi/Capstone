@@ -90,6 +90,7 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::delete('tim/{team}', [Admin\TeamController::class, 'destroy'])->name('teams.destroy');
     Route::get('tim/{team}', [Admin\TeamController::class, 'show'])->name('teams.show');
     Route::post('tim/terima-pilihan', [Admin\TeamController::class, 'approveMany'])->name('teams.approve-many');
+    Route::post('tim/tolak-pilihan', [Admin\TeamController::class, 'rejectMany'])->name('teams.reject-many');
     Route::post('tim/{team}/keputusan', [Admin\TeamController::class, 'decide'])->name('teams.decide');
     Route::post('tim/{team}/aktivasi', [Admin\TeamController::class, 'resendActivation'])->name('teams.activation');
 
@@ -102,6 +103,8 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::post('topik-dosen', [Admin\TopicController::class, 'storeLecturerTopic'])->name('lecturer-topics.store');
     Route::put('topik-dosen/{topic}', [Admin\TopicController::class, 'updateLecturerTopic'])->name('lecturer-topics.update');
     Route::delete('topik-dosen/{topic}', [Admin\TopicController::class, 'destroyLecturerTopic'])->name('lecturer-topics.destroy');
+    Route::put('instruksi-topik/{source}', [Admin\TopicController::class, 'updateInstruction'])->whereIn('source', ['mandiri', 'dosen'])->name('topic-instructions.update');
+    Route::delete('instruksi-topik/{source}', [Admin\TopicController::class, 'destroyInstruction'])->whereIn('source', ['mandiri', 'dosen'])->name('topic-instructions.destroy');
     Route::post('kata-kunci', [Admin\TopicController::class, 'storeKeyword'])->name('keywords.store');
     Route::delete('kata-kunci/{keyword}', [Admin\TopicController::class, 'destroyKeyword'])->name('keywords.destroy');
 
@@ -112,7 +115,7 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::post('kuota-dosen/reset/{lecturer}', [Admin\QuotaController::class, 'reset'])->name('quotas.reset');
     Route::delete('kuota-dosen/{quota}', [Admin\QuotaController::class, 'destroy'])->name('quotas.destroy');
     Route::get('plotting', [Admin\PlottingController::class, 'index'])->name('plotting.index');
-    Route::post('plotting/{team}', [Admin\PlottingController::class, 'store'])->name('plotting.store');
+    Route::post('plotting/tim/{team}', [Admin\PlottingController::class, 'storeTeam'])->name('plotting.team');
     Route::delete('plotting/{assignment}', [Admin\PlottingController::class, 'destroy'])->name('plotting.destroy');
 
     // F11 / F12
@@ -123,17 +126,20 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     // F13–F16 master penilaian
     Route::get('master/clo', [Admin\CloController::class, 'index'])->name('clos.index');
     Route::post('master/clo', [Admin\CloController::class, 'store'])->name('clos.store');
-    Route::put('master/clo/{clo}', [Admin\CloController::class, 'update'])->name('clos.update');
-    Route::delete('master/clo/{clo}', [Admin\CloController::class, 'destroy'])->name('clos.destroy');
-    Route::resource('master/indikator', Admin\IndicatorController::class)->parameters(['indikator' => 'indicator'])->names('indicators')->except('show');
+    Route::put('master/clo', [Admin\CloController::class, 'updateMany'])->name('clos.update-many');
+    Route::delete('master/clo', [Admin\CloController::class, 'destroyMany'])->name('clos.destroy-many');
+    Route::get('master/indikator', [Admin\IndicatorController::class, 'index'])->name('indicators.index');
+    Route::post('master/indikator', [Admin\IndicatorController::class, 'store'])->name('indicators.store');
+    Route::put('master/indikator', [Admin\IndicatorController::class, 'updateMany'])->name('indicators.update-many');
+    Route::delete('master/indikator', [Admin\IndicatorController::class, 'destroyMany'])->name('indicators.destroy-many');
     Route::get('master/rubrik-dokumen', [Admin\RubricController::class, 'index'])->name('rubrics.index');
-    Route::get('master/rubrik-dokumen/{indicator}', [Admin\RubricController::class, 'edit'])->name('rubrics.edit');
-    Route::put('master/rubrik-dokumen/{indicator}', [Admin\RubricController::class, 'update'])->name('rubrics.update');
-    Route::delete('master/rubrik-dokumen/{indicator}', [Admin\RubricController::class, 'destroy'])->name('rubrics.destroy');
+    Route::post('master/rubrik-dokumen', [Admin\RubricController::class, 'store'])->name('rubrics.store');
+    Route::put('master/rubrik-dokumen', [Admin\RubricController::class, 'updateMany'])->name('rubrics.update-many');
+    Route::delete('master/rubrik-dokumen', [Admin\RubricController::class, 'destroyMany'])->name('rubrics.destroy-many');
     Route::get('master/rubrik-lisan', [Admin\OralRubricController::class, 'index'])->name('oral.index');
     Route::post('master/rubrik-lisan', [Admin\OralRubricController::class, 'store'])->name('oral.store');
-    Route::put('master/rubrik-lisan/{level}', [Admin\OralRubricController::class, 'update'])->name('oral.update');
-    Route::delete('master/rubrik-lisan/{level}', [Admin\OralRubricController::class, 'destroy'])->name('oral.destroy');
+    Route::put('master/rubrik-lisan', [Admin\OralRubricController::class, 'updateMany'])->name('oral.update-many');
+    Route::delete('master/rubrik-lisan', [Admin\OralRubricController::class, 'destroyMany'])->name('oral.destroy-many');
 
     // F17
     Route::get('file-pendukung', [Admin\SupportFileController::class, 'index'])->name('files.index');
@@ -154,6 +160,9 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
 
     // F33 / F40 — status sinkronisasi dokumen
     Route::get('dokumen', [Admin\DocumentController::class, 'index'])->name('documents.index');
+    Route::get('google-drive/hubungkan', [Admin\DriveConnectionController::class, 'connect'])->name('drive.connect');
+    Route::get('google-drive/callback', [Admin\DriveConnectionController::class, 'callback'])->name('drive.callback');
+    Route::delete('google-drive', [Admin\DriveConnectionController::class, 'destroy'])->name('drive.disconnect');
     Route::post('dokumen/versi/{version}/ulang', [Admin\DocumentController::class, 'retry'])->name('documents.retry');
     Route::delete('dokumen/{document}', [Admin\DocumentController::class, 'destroy'])->name('documents.destroy');
 });
@@ -202,6 +211,7 @@ Route::middleware(['auth', 'role:dosen'])->prefix('dosen')->name('dosen.')->grou
     // F42 / F43
     Route::resource('topik', Lecturer\TopicController::class)->parameters(['topik' => 'topic'])->names('topics')->except('show');
     Route::get('pelamar', [Lecturer\ApplicationController::class, 'index'])->name('applications.index');
+    Route::get('pelamar/topik/{topic}', [Lecturer\ApplicationController::class, 'show'])->name('applications.show');
     Route::post('pelamar/{application}', [Lecturer\ApplicationController::class, 'decide'])->name('applications.decide');
 
     // F44
@@ -219,6 +229,8 @@ Route::middleware(['auth', 'role:dosen'])->prefix('dosen')->name('dosen.')->grou
     Route::get('penilaian', [Lecturer\AssessmentController::class, 'index'])->name('assessments.index');
     Route::get('penilaian/{team}/{component}', [Lecturer\AssessmentController::class, 'edit'])->name('assessments.edit');
     Route::put('penilaian/{team}/{component}', [Lecturer\AssessmentController::class, 'update'])->name('assessments.update');
+    Route::put('penilaian/{team}/{component}/skor', [Lecturer\AssessmentController::class, 'scores'])->name('assessments.scores');
+    Route::delete('penilaian/{team}/{component}/skor', [Lecturer\AssessmentController::class, 'destroyScores'])->name('assessments.scores.destroy');
 
     // F18
     Route::get('rekap-nilai', [Lecturer\RecapController::class, 'index'])->name('recap.index');

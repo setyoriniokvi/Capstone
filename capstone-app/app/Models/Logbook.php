@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Logbook extends Model
 {
     protected $fillable = [
-        'team_id', 'session_no', 'session_date', 'activity', 'responsible_person', 'instrument', 'data_collected',
+        'team_id', 'session_no', 'session_date', 'activity', 'notes', 'responsible_person', 'instrument', 'data_collected',
         'output', 'status', 'feedback', 'reviewed_by', 'reviewed_at', 'created_by',
     ];
 
@@ -46,7 +46,7 @@ class Logbook extends Model
         $this->histories()->create([
             'event' => $event,
             'actor_id' => $actor?->id,
-            'snapshot' => $this->only(['session_no', 'session_date', 'activity', 'responsible_person', 'instrument', 'data_collected', 'output', 'status', 'feedback']),
+            'snapshot' => $this->only(['session_no', 'session_date', 'activity', 'notes', 'responsible_person', 'instrument', 'data_collected', 'output', 'status', 'feedback']),
         ]);
     }
 }

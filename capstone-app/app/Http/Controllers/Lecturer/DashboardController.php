@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Lecturer;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assessment;
 use App\Models\Logbook;
 use App\Models\Period;
 use App\Models\Team;
@@ -15,7 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
-/** F44 — dashboard dosen: sambutan, ringkasan, timeline, dan 3 tim dengan aktivitas terbaru. */
+/** F44 — dashboard dosen: sambutan, ringkasan, To Do, timeline, dan pengingat penilaian (tim yang belum dinilai per bentuk penilaian). */
 class DashboardController extends Controller
 {
     public function index(Request $request, ReminderService $reminders, LoadBalanceService $loads): View
@@ -27,9 +28,18 @@ class DashboardController extends Controller
 
         $pendingAssessments = $period ? $reminders->incompleteAssessments($period, $user->id)->where('done', false) : collect();
 
+        // Pengingat penilaian: dikelompokkan per bentuk penilaian (urutan bentuk penilaian), tim urut nama.
+        $order = array_flip(array_keys(config('capstone.components')));
+        $reminderGroups = $pendingAssessments->sortBy(fn ($row) => mb_strtolower($row['team']->name))
+            ->groupBy('component')->sortBy(fn ($rows, $component) => $order[$component] ?? PHP_INT_MAX);
+
         return view('dosen.dashboard', [
             'period' => $period,
-            'recentTeams' => $teams->take(3),
+            'reminderGroups' => $reminderGroups,
+            'windows' => $period ? $period->assessmentWindows()->get()->keyBy('component') : collect(),
+            // "Sebagian dinilai" bila sudah ada skor tersimpan
+            'partial' => Assessment::query()->where('assessor_id', $user->id)->where('status', 'draft')->has('scores')->get()
+                ->mapWithKeys(fn ($a) => ["{$a->team_id}:{$a->component}" => true]),
             'supervisedCount' => $teams->filter(fn ($t) => $t->lecturers->contains('role', 'pembimbing'))->count(),
             'examinedCount' => $teams->filter(fn ($t) => $t->lecturers->contains('role', 'penguji'))->count(),
             'counts' => [
@@ -71,7 +81,7 @@ class DashboardController extends Controller
             ->with('team', 'topic')->oldest()->get();
         $applyDue = $period->milestoneOfKind('apply_topik_dosen')?->due_at;
         foreach ($applications as $app) {
-            $todo->push(Todo::item('Putuskan pengajuan '.$app->team->name, '“'.$app->topic->title.'”', route('dosen.applications.index'), 'warn', 'heroicon-o-inbox-arrow-down', $applyDue));
+            $todo->push(Todo::item('Putuskan pengajuan '.$app->team->name, '“'.$app->topic->title.'”', route('dosen.applications.show', $app->topic), 'warn', 'heroicon-o-inbox-arrow-down', $applyDue));
         }
 
         $logs = Logbook::query()->where('status', 'menunggu')

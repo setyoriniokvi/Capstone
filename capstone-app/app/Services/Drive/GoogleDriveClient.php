@@ -8,9 +8,10 @@ use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
- * Klien Google Drive API v3 berbasis service account (JWT bearer).
- * Folder tujuan sebaiknya berada di Shared Drive yang membagikan akses ke
- * email service account, karena service account tidak memiliki kuota My Drive.
+ * Klien Google Drive API v3. Dua cara autentikasi (GOOGLE_DRIVE_AUTH):
+ * - service_account (bawaan): JWT bearer dari file JSON service account. Folder tujuan sebaiknya berada di Shared Drive
+ *   yang membagikan akses ke email service account, karena service account tidak memiliki kuota My Drive.
+ * - oauth: akun Google yang dihubungkan admin (DriveOAuth); file tersimpan di Drive akun itu.
  */
 class GoogleDriveClient implements DriveGateway
 {
@@ -20,7 +21,7 @@ class GoogleDriveClient implements DriveGateway
 
     private ?array $credentials = null;
 
-    public function __construct(private readonly ?string $credentialsPath) {}
+    public function __construct(private readonly ?string $credentialsPath, private readonly ?DriveOAuth $oauth = null) {}
 
     public function createFolder(string $name, ?string $parentId): string
     {
@@ -107,6 +108,10 @@ class GoogleDriveClient implements DriveGateway
 
     private function token(): string
     {
+        if ($this->oauth) {
+            return $this->oauth->accessToken();
+        }
+
         $credentials = $this->credentials();
 
         return Cache::remember('gdrive.token.'.md5($credentials['client_email']), 3000, function () use ($credentials) {

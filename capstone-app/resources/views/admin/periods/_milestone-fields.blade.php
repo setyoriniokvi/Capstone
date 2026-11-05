@@ -44,7 +44,8 @@
     <div class="sm:col-span-6" x-show="isOther" x-cloak>
         <label class="field-label" for="m-kind-{{ $uid }}">Tahapan<span class="text-bad-ink" aria-hidden="true"> *</span></label>
         <select id="m-kind-{{ $uid }}" name="kind" class="input sm:max-w-sm" :disabled="isDocument">
-            @foreach (collect(config('capstone.milestone_kinds'))->except('dokumen') as $k => $l)
+            {{-- Bimbingan, Sidang Capstone & Pameran tidak ditawarkan lagi; milestone lama yang sudah memakainya tetap menampilkan pilihannya --}}
+            @foreach (collect(config('capstone.milestone_kinds'))->except(['dokumen', ...array_diff(['bimbingan', 'sidang', 'pameran'], [$m->kind])]) as $k => $l)
                 <option value="{{ $k }}" @selected($m->kind === $k)>{{ $l }}</option>
             @endforeach
         </select>

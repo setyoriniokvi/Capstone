@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Services\QrService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /** F30 — QR Code penilaian pameran tim untuk ditampilkan atau diunduh (PNG) anggota tim. */
@@ -36,7 +37,7 @@ class QrController extends StudentController
 
         return response($qr->png($token), 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => "attachment; filename=\"qr-pameran-{$team->code}.png\"",
+            'Content-Disposition' => "attachment; filename=\"qr-pameran-".Str::slug($team->name).'.png"',
         ]);
     }
 }

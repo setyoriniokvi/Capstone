@@ -19,7 +19,7 @@
         <div class="panel-head">
             <p class="text-sm"><span class="tabular font-medium text-ok-ink">{{ $valid }}</span> valid · <span class="tabular font-medium text-bad-ink">{{ count($rows) - $valid }}</span> bermasalah</p>
         </div>
-        <div class="table-wrap">
+        <x-scroll-pager>
             <table class="data-table">
                 <thead><tr><th>Baris</th><th>Status</th>@foreach ($columns as $c)<th>{{ $c }}</th>@endforeach</tr></thead>
                 <tbody>
@@ -40,6 +40,6 @@
                     @endforeach
                 </tbody>
             </table>
-        </div>
+        </x-scroll-pager>
     </div>
 </x-layouts.app>

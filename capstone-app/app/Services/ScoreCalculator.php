@@ -7,6 +7,7 @@ use App\Models\AssessmentComponent;
 use App\Models\Clo;
 use App\Models\Indicator;
 use App\Models\PeerReview;
+use App\Models\ScoreRule;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -14,6 +15,7 @@ use Illuminate\Support\Collection;
 /**
  * F14 / F18 / F29 — perhitungan nilai.
  *   nilai indikator = (Skor / 5) × Bobot(bentuk penilaian) × Faktor Pemahaman
+ *     Faktor Pemahaman: dari Rubrik Lisan untuk skema yang diatur admin (ScoreRule), selain itu faktor bawaan.
  *   nilai CLO       = Σ nilai indikator milik CLO tersebut (poin dari total 100)
  *   nilai akhir     = Σ nilai CLO
  * CLO yang bersumber dari peer review bersifat individual (Alur §6.6).
@@ -54,7 +56,7 @@ class ScoreCalculator
 
     public function indicatorValue(Indicator $indicator, string $component, int $score, float $factor = 1.0): float
     {
-        return ($score / 5) * $indicator->weightFor($component) * ($indicator->usesOralFactor() ? $factor : 1.0);
+        return ($score / 5) * $indicator->weightFor($component) * ($indicator->usesOralFactor() ? $factor : ScoreRule::defaultFactor());
     }
 
     /**
@@ -99,6 +101,7 @@ class ScoreCalculator
         $missing = [];
 
         $teamPoints = []; // clo_id => poin dari penilaian dosen
+        $teamCells = [];  // bentuk penilaian => clo_id => poin (kolom ekspor iGadis)
         foreach ($this->lecturerComponents() as $component) {
             $finals = $this->finalsFor($team, $component);
             if ($finals->contains(null)) {
@@ -113,8 +116,9 @@ class ScoreCalculator
                     if (! $indicator) {
                         continue;
                     }
-                    $teamPoints[$indicator->clo_id] = ($teamPoints[$indicator->clo_id] ?? 0)
-                        + $this->indicatorValue($indicator, $component, $score->score, $score->factor) / $finals->count();
+                    $value = $this->indicatorValue($indicator, $component, $score->score, $score->factor) / $finals->count();
+                    $teamPoints[$indicator->clo_id] = ($teamPoints[$indicator->clo_id] ?? 0) + $value;
+                    $teamCells[$component][$indicator->clo_id] = ($teamCells[$component][$indicator->clo_id] ?? 0) + $value;
                 }
             }
         }
@@ -123,8 +127,9 @@ class ScoreCalculator
         $peer = PeerReview::query()->where('team_id', $team->id)->get();
         $members = $team->activeUsers;
 
-        $rows = $members->map(function (User $student) use ($teamPoints, $peerIndicators, $peer, $members, &$missing) {
+        $rows = $members->map(function (User $student) use ($teamPoints, $teamCells, $peerIndicators, $peer, $members, &$missing) {
             $points = $teamPoints;
+            $cells = $teamCells;
             $received = $peer->where('reviewee_id', $student->id);
             $expected = ($members->count() - 1) * count(config('capstone.peer_aspects'));
             $peerComplete = $expected > 0 && $received->count() >= $expected;
@@ -133,8 +138,9 @@ class ScoreCalculator
                 if ($peerComplete) {
                     $avg = (float) $received->avg('score');
                     foreach ($peerIndicators as $indicator) {
-                        $points[$indicator->clo_id] = ($points[$indicator->clo_id] ?? 0)
-                            + ($avg / 5) * $indicator->weightFor('peer_review');
+                        $value = ($avg / 5) * $indicator->weightFor('peer_review');
+                        $points[$indicator->clo_id] = ($points[$indicator->clo_id] ?? 0) + $value;
+                        $cells['peer_review'][$indicator->clo_id] = ($cells['peer_review'][$indicator->clo_id] ?? 0) + $value;
                     }
                 } elseif (! in_array('peer_review', $missing, true)) {
                     $missing[] = 'peer_review';
@@ -150,6 +156,10 @@ class ScoreCalculator
             return [
                 'student' => $student,
                 'clos' => $perClo,
+                // Poin per bentuk penilaian per kode CLO (hanya bentuk penilaian yang sudah lengkap / peer review lengkap)
+                'cells' => collect($cells)->map(fn (array $byClo) => collect($byClo)->mapWithKeys(
+                    fn (float $value, int $cloId) => [$this->clos()->firstWhere('id', $cloId)?->code => round($value, 4)]
+                )->all())->all(),
                 'total' => $total,
                 'grade' => $this->grade($total),
                 'peer_complete' => $peerComplete,

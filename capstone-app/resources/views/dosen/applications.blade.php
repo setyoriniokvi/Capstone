@@ -1,25 +1,22 @@
-{{-- F43 — Approval Pengajuan Topik (dosen): kuota topik milik dosen → kartu "Pengajuan Topik" berisi filter peminatan tim,
-     pengajuan aktif (Detail tim di modal; Terima / Tolak dengan alasan opsional) dan, dipisah garis, riwayat keputusan 3 per halaman.
-     Semua tabel pas selebar layar (bukan .table-wrap, tanpa geser ke samping). --}}
+{{-- F43 — Approval Pengajuan Topik (dosen), halaman utama: daftar topik milik dosen (peminatan, tim / kuota, ketersediaan,
+     status) dengan tombol "Lihat Pengajuan" per topik → halaman detail berisi pengajuan tim & riwayat keputusan topik itu
+     (dosen/applications-topic). Kartu menu utama: tabel selalu pas selebar kartu (teks membungkus), tanpa scroll samping. --}}
 @php
-    // Judul kolom hijau hanya untuk tabel di bawah judul kartu ("Pengajuan Topik").
-    $greenHead = 'bg-brand-tint [&>tr>th]:border-0 [&>tr>th]:py-3.5 [&>tr>th]:text-sm [&>tr>th]:font-semibold [&>tr>th]:text-brand-deep';
     $cells = '[&_td]:break-words [&_td]:px-3 [&_th]:px-3 [&_td:first-child]:pl-5 [&_th:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:last-child]:pr-5 sm:[&_td:first-child]:pl-6 sm:[&_th:first-child]:pl-6 sm:[&_td:last-child]:pr-6 sm:[&_th:last-child]:pr-6';
+    $chip = 'rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted';
     $topicStatus = ['diterima' => ['diterima', 'Dipublikasikan'], 'menunggu' => ['menunggu', 'Menunggu admin'], 'ditolak' => ['ditolak', 'Ditolak admin']];
-    // Portofolio selalu jadi tautan: isian tanpa skema diberi https://
-    $portfolioHref = fn (string $value) => preg_match('#^https?://#i', $value) ? $value : 'https://'.ltrim($value, '/');
 @endphp
 <x-layouts.app title="Approval Pengajuan Topik">
     <x-page-head title="Approval Pengajuan Topik" lede="Menerima tim menjadikan Anda dosen pembimbing tim tersebut secara otomatis. Kuota tidak dapat dilampaui." />
 
-    {{-- Kuota topik milik dosen --}}
+    {{-- Topik milik dosen: pilih topik untuk melihat tim yang mengajukan --}}
     <section class="panel mb-6 overflow-hidden" aria-label="Kuota topik saya">
         @if ($topics->isEmpty())
             <x-empty title="Anda belum memiliki topik" icon="light-bulb" />
         @else
-            <table class="data-table w-full table-fixed {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
-                <colgroup><col class="w-[46%]"><col class="w-[16%]"><col class="w-[17%]"><col class="w-[21%]"></colgroup>
-                <thead><tr><th>Topik Saya</th><th class="text-center">Tim / kuota</th><th>Ketersediaan</th><th>Status</th></tr></thead>
+            <table class="data-table min-w-0 w-full table-fixed {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
+                <colgroup><col class="w-[27%]"><col class="w-[21%]"><col class="w-[10%]"><col class="w-[11%]"><col class="w-[14%]"><col class="w-[17%]"></colgroup>
+                <thead><tr><th>Topik Saya</th><th>Peminatan</th><th class="text-center">Tim / kuota</th><th>Ketersediaan</th><th>Status</th><th><span class="sr-only">Pengajuan</span></th></tr></thead>
                 <tbody>
                     @foreach ($topics as $topic)
                         @php
@@ -28,6 +25,13 @@
                         @endphp
                         <tr class="[&>td]:py-4">
                             <td class="font-semibold leading-snug text-ink">{{ $topic->title }}</td>
+                            <td>
+                                @if (filled($topic->specializations))
+                                    <ul class="flex flex-wrap gap-1.5">@foreach ($topic->specializations as $spec)<li class="{{ $chip }}">{{ $spec }}</li>@endforeach</ul>
+                                @else
+                                    <span class="text-sm text-muted">—</span>
+                                @endif
+                            </td>
                             <td class="text-center tabular text-ink">{{ $topic->accepted_count }} / {{ $topic->quota }}</td>
                             <td>
                                 <span class="inline-flex items-center gap-2 text-sm font-medium {{ $remaining ? 'text-ok-ink' : 'text-bad-ink' }}">
@@ -35,6 +39,13 @@
                                 </span>
                             </td>
                             <td><x-badge class="!whitespace-normal" :status="$st" :label="$stLabel" /></td>
+                            <td class="text-right">
+                                <a href="{{ route('dosen.applications.show', $topic) }}" class="btn btn-secondary btn-sm">
+                                    Lihat Pengajuan
+                                    @if ($topic->pending_count)<span class="rounded-full bg-bad-ink px-2 text-caption font-semibold leading-5 text-white tabular" title="{{ $topic->pending_count }} pengajuan menunggu keputusan">{{ $topic->pending_count }}</span>@endif
+                                    <span class="sr-only"> {{ $topic->title }}</span>
+                                </a>
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -42,116 +53,4 @@
         @endif
     </section>
 
-    {{-- Pengajuan Topik: pengajuan aktif, lalu riwayat keputusan (satu kartu, dipisah garis) --}}
-    <section class="panel overflow-hidden" aria-labelledby="pelamar-judul">
-        {{-- Judul kiri · jumlah menunggu di tengah · filter peminatan kanan --}}
-        <div class="grid gap-3 px-5 py-4 sm:grid-cols-3 sm:items-center sm:px-6">
-            <h2 id="pelamar-judul" class="text-lg font-semibold text-ink">Pengajuan Topik</h2>
-            <p class="text-sm text-muted sm:text-center">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></p>
-            {{-- Filter peminatan anggota tim yang mengajukan --}}
-            <form method="GET" action="{{ route('dosen.applications.index') }}" x-data="autoSubmit" class="sm:justify-self-end">
-                <label for="peminatan" class="sr-only">Filter peminatan tim</label>
-                <select id="peminatan" name="peminatan" class="input w-full sm:w-64" @change="submit">
-                    <option value="">Semua peminatan</option>
-                    @foreach ($specializations as $spec)<option value="{{ $spec }}" @selected($peminatan === $spec)>{{ $spec }}</option>@endforeach
-                </select>
-                <noscript><button class="btn btn-secondary mt-2">Terapkan</button></noscript>
-            </form>
-        </div>
-
-        @if ($pending->isEmpty())
-            <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">{{ $peminatan !== '' ? 'Tidak ada pengajuan dari tim berpeminatan '.$peminatan.'.' : 'Tidak ada pengajuan topik yang menunggu.' }}</p>
-        @else
-            <table class="data-table w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
-                <colgroup><col class="w-[18%]"><col class="w-[24%]"><col class="w-[18%]"><col class="w-[12%]"><col class="w-[14%]"><col class="w-[14%]"></colgroup>
-                <thead class="{{ $greenHead }}"><tr><th>Nama tim</th><th>Topik yang diajukan</th><th>Anggota</th><th>Portofolio</th><th>Detail tim</th><th class="text-center">Aksi</th></tr></thead>
-                <tbody>
-                    @foreach ($pending as $app)
-                        @php $remaining = max(0, $app->topic->quota - $app->topic->accepted_count); @endphp
-                        <tr x-data="disclosure" class="[&>td]:py-4 [&>td]:align-top">
-                            <td class="font-semibold text-ink">{{ $app->team->name }}</td>
-                            <td class="text-sm leading-snug text-ink">{{ $app->topic->title }}</td>
-                            <td class="text-sm">
-                                <ul class="space-y-0.5 text-ink">
-                                    @foreach ($app->team->members->where('invite_status', 'diterima') as $m)
-                                        <li>{{ $m->user->name }}@if ($m->user->specialization)<span class="block text-caption text-muted">{{ $m->user->specialization }}</span>@endif</li>
-                                    @endforeach
-                                </ul>
-                            </td>
-                            <td class="!align-middle">
-                                @if ($app->portfolio_url)
-                                    <a href="{{ $portfolioHref($app->portfolio_url) }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" title="{{ $app->portfolio_url }}">
-                                        <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4" /> Lihat
-                                    </a>
-                                @else
-                                    <span class="text-sm text-muted">—</span>
-                                @endif
-                            </td>
-                            <td class="!align-middle">
-                                <div x-data="disclosure">
-                                    <button type="button" class="btn btn-secondary btn-sm" @click="toggle">Detail tim</button>
-                                    <x-modal width="sm:max-w-3xl">
-                                        <x-slot:heading>Detail {{ $app->team->name }}</x-slot:heading>
-                                        @include('dosen._application-detail', ['app' => $app])
-                                    </x-modal>
-                                </div>
-                            </td>
-                            <td class="!align-middle">
-                                <div class="mx-auto flex max-w-[8rem] flex-col gap-2">
-                                    <form method="POST" action="{{ route('dosen.applications.decide', $app) }}" data-confirm="Terima {{ $app->team->name }}? Anda otomatis menjadi dosen pembimbing tim ini." data-confirm-label="Terima" data-confirm-tone="positive">
-                                        @csrf
-                                        <input type="hidden" name="decision" value="approve">
-                                        <button class="btn btn-primary btn-sm w-full disabled:cursor-not-allowed disabled:opacity-50" @disabled($remaining === 0) @if ($remaining === 0) title="Kuota topik ini sudah penuh" @endif>Terima</button>
-                                    </form>
-                                    <button type="button" class="btn btn-secondary btn-sm w-full text-bad-ink" @click="toggle">Tolak</button>
-                                </div>
-
-                                <x-modal width="sm:max-w-lg">
-                                    <x-slot:heading>Tolak {{ $app->team->name }}</x-slot:heading>
-                                    <form method="POST" action="{{ route('dosen.applications.decide', $app) }}" class="space-y-4">
-                                        @csrf
-                                        <input type="hidden" name="decision" value="reject">
-                                        <div>
-                                            <label class="field-label" for="alasan-{{ $app->id }}">Alasan Penolakan <span class="font-normal text-muted">(opsional)</span></label>
-                                            <textarea id="alasan-{{ $app->id }}" name="notes" rows="4" class="input" maxlength="2000"></textarea>
-                                        </div>
-                                        <div class="flex justify-end gap-3 border-t border-rule pt-4">
-                                            <button type="button" class="btn btn-ghost" @click="close">Batal</button>
-                                            <button class="btn btn-danger" data-once>Kirim</button>
-                                        </div>
-                                    </form>
-                                </x-modal>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @endif
-
-        {{-- Riwayat keputusan: 3 terbaru per halaman --}}
-        <div class="border-t-2 border-rule">
-            <h3 class="px-5 pb-2 pt-5 text-base font-semibold text-ink sm:px-6">Riwayat</h3>
-            @if ($decided->isEmpty())
-                <p class="px-5 pb-5 text-sm text-muted sm:px-6">Belum ada keputusan.</p>
-            @else
-                <table class="data-table w-full table-fixed {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
-                    <colgroup><col class="w-[20%]"><col class="w-[30%]"><col class="w-[14%]"><col class="w-[16%]"><col class="w-[20%]"></colgroup>
-                    <thead class="{{ $greenHead }}"><tr><th>Tim</th><th>Topik</th><th>Keputusan</th><th>Waktu</th><th>Catatan</th></tr></thead>
-                    <tbody>
-                        @foreach ($decided as $app)
-                            <tr class="[&>td]:align-top">
-                                <td class="font-medium text-ink">{{ $app->team->name }}</td>
-                                <td class="text-sm text-ink">{{ $app->topic->title }}</td>
-                                <td><x-badge class="!whitespace-normal" :status="$app->status" /></td>
-                                <td class="text-sm text-ink">{{ $app->decided_at?->translatedFormat('j M Y, H:i') }}</td>
-                                {{-- Catatan hanya ada pada penolakan (alasan opsional); menerima tim tidak disertai catatan --}}
-                                <td class="text-sm text-muted">{{ $app->status === 'ditolak' && filled($app->notes) ? $app->notes : '—' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-                <x-history-pager :paginator="$decided" />
-            @endif
-        </div>
-    </section>
 </x-layouts.app>

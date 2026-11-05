@@ -27,7 +27,7 @@
         @if ($lecturers->isEmpty())
             <x-empty title="Belum ada data dosen" icon="academic-cap">Tambahkan manual atau impor dari Excel/CSV.</x-empty>
         @else
-            <div class="table-wrap">
+            <x-scroll-pager>
                 <table class="data-table">
                     <thead><tr><th>Kode</th><th>Nama</th><th>Kontak</th><th>Peminatan</th><th>Hak akses</th><th>Status</th><th></th></tr></thead>
                     <tbody>
@@ -61,7 +61,7 @@
                         @endforeach
                     </tbody>
                 </table>
-            </div>
+            </x-scroll-pager>
             {{ $lecturers->links() }}
         @endif
     </div>

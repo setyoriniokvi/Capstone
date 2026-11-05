@@ -272,7 +272,7 @@ class TopicService
             'portfolio_url' => $portfolioUrl,
         ]);
 
-        SystemNotice::sendTo($this->proposersOf($topic), 'Lamaran topik baru', "{$team->name} melamar “{$topic->title}”.", route('dosen.applications.index'));
+        SystemNotice::sendTo($this->proposersOf($topic), 'Lamaran topik baru', "{$team->name} melamar “{$topic->title}”.", route('dosen.applications.show', $topic));
 
         return $application;
     }

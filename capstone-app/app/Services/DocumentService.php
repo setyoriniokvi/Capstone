@@ -67,8 +67,10 @@ class DocumentService
 
             $revision = (int) $document->versions()->max('revision_no') + 1;
             $extension = strtolower($file->getClientOriginalExtension());
-            $storedName = sprintf('%s_%s_%s_r%d.%s', $owner->nim ?? $owner->id, Str::slug($owner->name), $milestone->document_type, $revision, $extension);
-            $directory = "documents/{$team->period_id}/{$team->code}/{$owner->id}";
+            // Nama file otomatis "Namadokumen_Namatim.ext" (nama milestone & nama tim), dipakai saat diunduh & di Drive.
+            // Tiap revisi disimpan di foldernya sendiri agar revisi lama tidak tertimpa walau namanya sama.
+            $storedName = self::fileName($milestone->name, $team->name, $extension);
+            $directory = "documents/{$team->period_id}/tim-{$team->id}/{$document->id}/r{$revision}";
             $path = $file->storeAs($directory, $storedName, self::DISK);
 
             $version = $document->versions()->create([
@@ -184,7 +186,7 @@ class DocumentService
                 $document->update(['drive_file_id' => $fileId, 'drive_folder_id' => $folderId]);
 
                 if (config('capstone.drive.share_with_owner')) {
-                    $this->drive->shareWith($fileId, $document->owner_email);
+                    $this->shareWithOwner($document, $version, $fileId);
                 }
             }
         } catch (Throwable $e) {
@@ -199,6 +201,20 @@ class DocumentService
         $this->log($document, $version, $action, 'berhasil');
     }
 
+    /**
+     * Bagikan akses baca ke pemilik dokumen. Hanya pelengkap: bila gagal (mis. email bukan akun Google), file tetap
+     * tersimpan di Drive dan sinkronisasi tetap berhasil; kegagalannya dicatat di log operasi Drive.
+     */
+    private function shareWithOwner(Document $document, DocumentVersion $version, string $fileId): void
+    {
+        try {
+            $this->drive->shareWith($fileId, $document->owner_email);
+            $this->log($document, $version, 'share', 'berhasil');
+        } catch (Throwable $e) {
+            $this->log($document, $version, 'share', 'gagal', $e->getMessage());
+        }
+    }
+
     /** F35 — dokumen diunggah ke folder Google Drive Database milestone dokumennya (diatur admin di halaman periode). */
     private function milestoneFolder(Document $document): string
     {
@@ -208,10 +224,18 @@ class DocumentService
             ?? throw new RuntimeException('Folder Google Drive Database untuk milestone '.($milestone?->name ?? 'ini').' belum diisi.');
     }
 
-    /** Nama file di Drive diawali kode tim agar file seluruh tim dalam satu folder milestone mudah dibedakan. */
+    /** Nama file di Drive = nama file dokumen ("Namadokumen_Namatim.ext"); revisi memperbarui file yang sama. */
     private function driveName(Document $document, DocumentVersion $version): string
     {
-        return $document->team->code.'_'.$version->stored_name;
+        return $version->stored_name;
+    }
+
+    /** "Namadokumen_Namatim.ext" tanpa karakter yang tidak boleh ada di nama file (/ \ : * ? " < > |). */
+    public static function fileName(string $document, string $team, string $extension): string
+    {
+        $clean = fn (string $part) => trim(preg_replace('/\s+/u', ' ', preg_replace('#[/\\\\:*?"<>|\x00-\x1F]#u', '', $part)));
+
+        return $clean($document).'_'.$clean($team).($extension !== '' ? '.'.$extension : '');
     }
 
     private function log(Document $document, ?DocumentVersion $version, string $action, string $status, ?string $error = null, ?User $actor = null): void

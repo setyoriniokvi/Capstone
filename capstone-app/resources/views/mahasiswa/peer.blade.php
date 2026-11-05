@@ -1,6 +1,6 @@
 {{-- F28 — Peer review. Kartu tim: nama tim + indikator "x/y Anggota Tim dinilai"; daftar rekan dengan status
      Dinilai/Belum Dinilai dan tombol "Nilai" yang membuka panel penilaian 6 aspek (rubrik config/peer_rubric.php).
-     Tiap aspek dinilai dengan slider 1–5 berikon wajah (Alpine "peerSlider"): 1–2 cemberut, 3 datar, 4–5 senyum. --}}
+     Tiap aspek dinilai dengan skala 1–5 (tombol bulat ala Google Form) berikon wajah (Alpine "peerSlider"): 1–2 cemberut, 3 datar, 4–5 senyum. --}}
 <x-layouts.app title="Peer Review">
     <x-page-head title="Peer review" lede="Nilai rekan satu tim pada {{ count($aspects) }} aspek kerja tim (skala 1–5). Peer review menyumbang 10% nilai akhir (CLO5). Terbuka selama periode berlangsung dan dapat diubah kapan saja." />
 
@@ -52,11 +52,10 @@
                                 @foreach ($aspects as $aspect => $label)
                                     @php
                                         $value = (int) ($mine ? old("scores.{$aspect}") : null) ?: (int) ($existing->get($mate->id)?->get($aspect) ?? 3);
-                                        $levels = $rubric[$aspect]['levels'];
+                                        $levelNames = [1 => 'Sangat buruk', 2 => 'Buruk', 3 => 'Cukup', 4 => 'Baik', 5 => 'Sangat baik'];
                                     @endphp
                                     <div>{{-- pembungkus: garis pemisah di atas tiap aspek (legend fieldset tidak ikut "menumpang" di garis) --}}
-                                    <fieldset x-data="peerSlider" data-value="{{ $value }}"
-                                              @foreach ($levels as $s => $text) data-level-{{ $s }}="{{ $text }}" @endforeach>
+                                    <fieldset x-data="peerSlider" data-value="{{ $value }}">
                                         <legend class="font-semibold text-ink">{{ $label }}</legend>
                                         <p class="mt-0.5 text-sm text-muted">{{ $rubric[$aspect]['definition'] }}</p>
 
@@ -68,14 +67,25 @@
                                                 <circle cx="26" cy="16" r="2" class="fill-ink" />
                                                 <path class="fill-none stroke-ink" stroke-width="2.5" stroke-linecap="round" :style="mouthStyle" />
                                             </svg>
+                                            {{-- Skala linear 1–5 ala Google Form: 1 (kiri) = sangat buruk, 5 (kanan) = sangat baik --}}
                                             <div class="min-w-0 flex-1">
-                                                <label class="sr-only" for="s-{{ $mate->id }}-{{ $aspect }}">{{ $label }} untuk {{ $mate->name }} (1–5)</label>
-                                                <input id="s-{{ $mate->id }}-{{ $aspect }}" type="range" min="1" max="5" step="1" name="scores[{{ $aspect }}]" value="{{ $value }}"
-                                                       class="h-2 w-full cursor-pointer accent-brand" @input="change" :aria-valuetext="valueText">
-                                                <div class="mt-1 flex justify-between text-caption text-muted"><span>Sangat buruk</span><span>Sangat baik</span></div>
+                                                <div class="flex items-end gap-2 sm:gap-4">
+                                                    <span class="hidden pb-2.5 text-caption text-muted sm:block">Sangat buruk</span>
+                                                    <div class="grid flex-1 grid-cols-5">
+                                                        @foreach (range(1, 5) as $s)
+                                                            <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 hover:bg-sunken">
+                                                                <span class="text-sm font-medium tabular text-ink" aria-hidden="true">{{ $s }}</span>
+                                                                <input type="radio" name="scores[{{ $aspect }}]" value="{{ $s }}" @checked($value === $s) @change="change"
+                                                                       class="h-5 w-5 cursor-pointer accent-brand">
+                                                                <span class="sr-only">{{ $s }} — {{ $levelNames[$s] }}</span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                    <span class="hidden pb-2.5 text-caption text-muted sm:block">Sangat baik</span>
+                                                </div>
+                                                <div class="mt-1 flex justify-between text-caption text-muted sm:hidden"><span>Sangat buruk</span><span>Sangat baik</span></div>
                                             </div>
                                         </div>
-                                        <p class="mt-2 text-sm"><span class="font-semibold text-ink"><span x-text="value">{{ $value }}</span> · <span x-text="levelName"></span></span> — <span class="text-muted" x-text="description">{{ $levels[$value] }}</span></p>
                                     </fieldset>
                                     </div>
                                 @endforeach

@@ -19,7 +19,7 @@
             @else
                 <form method="POST" action="{{ route('admin.monitoring.remind') }}">
                     @csrf
-                    <div class="table-wrap">
+                    <x-scroll-pager>
                         <table class="data-table">
                             <thead><tr><th class="w-10"><span class="sr-only">Pilih</span></th><th>Dosen</th><th>Tim ditangani</th><th>Komponen belum dinilai</th><th>Kontak</th><th>Reminder terakhir</th></tr></thead>
                             <tbody>
@@ -28,7 +28,7 @@
                                     <tr>
                                         <td>@unless ($row['complete'])<input type="checkbox" class="checkbox" name="lecturer_ids[]" value="{{ $l->id }}" aria-label="Pilih {{ $l->name }}">@endunless</td>
                                         <td class="font-medium">{{ $l->name }}</td>
-                                        <td class="max-w-[14rem] text-sm"><span class="code">{{ $row['teams']->pluck('code')->implode(', ') }}</span></td>
+                                        <td class="max-w-[14rem] text-sm">{{ $row['teams']->pluck('name')->implode(', ') }}</td>
                                         <td class="text-sm">
                                             @if ($row['complete'])
                                                 <x-badge status="lengkap" label="Sudah lengkap" />
@@ -44,7 +44,7 @@
                                 @endforeach
                             </tbody>
                         </table>
-                    </div>
+                    </x-scroll-pager>
                     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-sunken px-4 py-3 sm:px-6">
                         <fieldset class="flex flex-wrap items-center gap-4">
                             <legend class="sr-only">Kanal</legend>

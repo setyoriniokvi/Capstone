@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Services\DocumentService;
+use App\Services\Drive\DriveOAuth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,7 +14,7 @@ use Illuminate\View\View;
 /** F39 / F40 — pemantauan status sinkronisasi Google Drive. */
 class DocumentController extends Controller
 {
-    public function index(Request $request, DocumentService $documents): View
+    public function index(Request $request, DocumentService $documents, DriveOAuth $oauth): View
     {
         $versions = DocumentVersion::query()
             ->with(['document.team', 'document.owner', 'document.milestone'])
@@ -24,6 +25,8 @@ class DocumentController extends Controller
         return view('admin.documents', [
             'versions' => $versions,
             'driveEnabled' => $documents->driveEnabled(),
+            'driveAuth' => config('capstone.drive.auth'),
+            'oauth' => $oauth,
             'counts' => DocumentVersion::query()->selectRaw('sync_status, count(*) as total')->groupBy('sync_status')->pluck('total', 'sync_status'),
         ]);
     }

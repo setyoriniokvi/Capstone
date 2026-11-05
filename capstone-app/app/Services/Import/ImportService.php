@@ -21,13 +21,13 @@ class ImportService
     public const TEMPLATES = [
         'dosen' => ['nip', 'nama', 'kode_dosen', 'email', 'no_wa', 'peminatan'],
         'mahasiswa' => ['nim', 'nama', 'email', 'no_wa', 'sks_lulus', 'mk_lulus', 'daerah_asal', 'peminatan'],
-        'tim' => ['group_code', 'nama_tim', 'nim_ketua', 'nim_anggota_2', 'nim_anggota_3'],
+        'tim' => ['nama_tim', 'nim_ketua', 'nim_anggota_2', 'nim_anggota_3'],
     ];
 
     public const REQUIRED = [
         'dosen' => ['nama', 'kode_dosen', 'email'],
         'mahasiswa' => ['nim', 'nama', 'email'],
-        'tim' => ['group_code', 'nim_ketua', 'nim_anggota_2'],
+        'tim' => ['nama_tim', 'nim_ketua', 'nim_anggota_2'],
     ];
 
     public function __construct(private readonly ScreeningService $screening) {}
@@ -42,7 +42,7 @@ class ImportService
         return array_map(function (array $row) use ($type, &$seen, $period) {
             $d = $row['data'];
             $errors = [];
-            foreach (self::REQUIRED[$type] as $col) {
+            foreach ($this->requiredColumns($type, $d) as $col) {
                 if (($d[$col] ?? '') === '') {
                     $errors[] = "Kolom {$col} wajib diisi.";
                 }
@@ -57,6 +57,19 @@ class ImportService
 
             return ['line' => $row['line'], 'data' => $d, 'errors' => $errors, 'action' => $action];
         }, $rows);
+    }
+
+    /**
+     * Kolom wajib per baris. Mahasiswa yang NIM-nya sudah terdaftar cukup diisi nim + kolom yang ingin diubah
+     * (mis. nim + peminatan); nama & email hanya wajib untuk mahasiswa baru.
+     */
+    private function requiredColumns(string $type, array $d): array
+    {
+        if ($type === 'mahasiswa' && ($d['nim'] ?? '') !== '' && User::query()->students()->where('nim', $d['nim'])->exists()) {
+            return ['nim'];
+        }
+
+        return self::REQUIRED[$type];
     }
 
     /** Menyimpan baris valid. @return int jumlah baris tersimpan */
@@ -117,8 +130,8 @@ class ImportService
             $seen["{$key}:{$value}"] = true;
         }
 
-        $byEmail = User::query()->where('email', $email)->first();
-        $byNim = User::query()->where('nim', $d['nim'] ?? '')->first();
+        $byEmail = $email !== '' ? User::query()->where('email', $email)->first() : null;
+        $byNim = ($d['nim'] ?? '') !== '' ? User::query()->where('nim', $d['nim'])->first() : null;
         if ($byEmail && $byEmail->role !== 'mahasiswa') {
             $errors[] = 'Email sudah terdaftar sebagai '.$byEmail->roleLabel().'.';
         }
@@ -139,10 +152,11 @@ class ImportService
         if (count($nims) !== count(array_unique($nims))) {
             $errors[] = 'NIM anggota tidak boleh berulang.';
         }
-        if (Team::query()->where('code', $d['group_code'] ?? '')->exists() || isset($seen['code:'.($d['group_code'] ?? '')])) {
-            $errors[] = 'Kode kelompok sudah digunakan.';
+        $name = mb_strtolower(trim($d['nama_tim'] ?? ''));
+        if ($name !== '' && (Team::query()->where('period_id', $period->id)->whereRaw('lower(name) = ?', [$name])->exists() || isset($seen["name:{$name}"]))) {
+            $errors[] = 'Nama tim sudah digunakan pada periode ini.';
         }
-        $seen['code:'.($d['group_code'] ?? '')] = true;
+        $seen["name:{$name}"] = true;
 
         foreach ($nims as $nim) {
             $student = User::query()->students()->where('nim', $nim)->first();
@@ -181,11 +195,15 @@ class ImportService
 
     private function saveStudent(array $d): void
     {
-        $user = User::query()->where('nim', $d['nim'])->orWhere('email', Str::lower($d['email']))->first() ?? new User(['role' => 'mahasiswa']);
+        $email = Str::lower($d['email'] ?? '');
+        $user = User::query()->where('nim', $d['nim'])->first()
+            ?? ($email !== '' ? User::query()->where('email', $email)->first() : null)
+            ?? new User(['role' => 'mahasiswa']);
+        // Kolom kosong tidak menimpa data lama (impor nim + peminatan hanya mengubah peminatan).
         $user->fill(array_filter([
             'nim' => $d['nim'],
-            'name' => $d['nama'],
-            'email' => Str::lower($d['email']),
+            'name' => ($d['nama'] ?? '') ?: null,
+            'email' => $email ?: null,
             'phone' => ($d['no_wa'] ?? '') ?: null,
             'sks_passed' => ($d['sks_lulus'] ?? '') !== '' ? (int) $d['sks_lulus'] : null,
             'passed_courses' => ($d['mk_lulus'] ?? '') !== '' ? array_values(array_filter(array_map(fn ($c) => Str::upper(trim($c)), preg_split('/[;,|]/', $d['mk_lulus'])))) : null,
@@ -207,8 +225,7 @@ class ImportService
         // Hasil impor masuk status "menunggu" validasi admin, sama seperti tim manual (Alur §6.2).
         $team = Team::create([
             'period_id' => $period->id,
-            'code' => $d['group_code'],
-            'name' => ($d['nama_tim'] ?? '') ?: $d['group_code'],
+            'name' => trim($d['nama_tim']),
             'leader_id' => $leader->id,
             'status' => 'menunggu',
             'submitted_at' => now(),

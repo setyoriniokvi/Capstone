@@ -37,7 +37,7 @@
             @if ($teams->isEmpty())
                 <div class="border-t border-rule"><x-empty :title="$filtered ? 'Tidak ada tim yang cocok' : 'Belum ada tim yang diterima'" icon="user-group" /></div>
             @else
-                <div class="overflow-x-auto border-t border-rule">
+                <x-scroll-pager class="border-t border-rule">
                     <table class="data-table w-full min-w-[64rem] {{ $cells }}">
                         <thead class="{{ $greenHead }}"><tr>
                             <th>Nama tim</th><th>Topik final</th><th>Status topik</th><th>Dosen pembimbing</th><th>Dosen penguji</th><th>Log bimbingan</th><th><span class="sr-only">Detail</span></th>
@@ -69,8 +69,8 @@
                                         </td>
                                     @endforeach
                                     <td class="min-w-[12rem]">
-                                        <x-gate-cells :approved="$team->logbook_approved" :min="$minLogbooks" :pending="$team->logbook_pending" class="[&_.h-6]:h-2.5 [&_p]:mt-1.5 [&_p]:text-caption" />
-                                        @if ($team->logbook_revision)<p class="mt-0.5 text-caption text-bad-ink">{{ $team->logbook_revision }} perlu revisi</p>@endif
+                                        <x-gate-cells :approved="$team->logbook_approved" :min="$minLogbooks" :pending="$team->logbook_pending" class="[&_p]:mt-1.5 [&_p]:text-caption" />
+                                        @if ($team->logbook_revision)<p class="mt-0.5 text-caption text-bad-ink">{{ $team->logbook_revision }} ditolak</p>@endif
                                     </td>
                                     <td class="text-right">
                                         <div x-data="registrationForm" data-open="false">
@@ -82,7 +82,7 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div>
+                </x-scroll-pager>
                 @if ($teams->hasPages())<div class="border-t border-rule px-5 py-3 sm:px-6">{{ $teams->links() }}</div>@endif
             @endif
         </section>

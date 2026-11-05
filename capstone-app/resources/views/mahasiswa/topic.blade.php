@@ -13,5 +13,8 @@
         @error($key)<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
     @endforeach
 
+    {{-- Instruksi topik mandiri dari admin (tab Topik Tim) --}}
+    @if ($tab === 'saya')<x-topic-instruction :text="$instruction" />@endif
+
     @include($tab === 'dosen' ? 'mahasiswa._topic-lecturer' : 'mahasiswa._topic-mine')
 </x-layouts.app>

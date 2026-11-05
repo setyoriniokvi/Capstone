@@ -94,9 +94,9 @@ class Navigation
             ['label' => null, 'items' => [
                 self::item('Dashboard', 'dosen.dashboard', 'home', 'dosen.dashboard'),
                 self::item('Topik Dosen', 'dosen.topics.index', 'light-bulb', 'dosen.topics.*'),
+                self::item('Approval Pengajuan Topik', 'dosen.applications.index', 'inbox-arrow-down', 'dosen.applications.*'),
                 self::item('Tim Bimbingan', 'dosen.teams.supervised', 'user-group', 'dosen.teams.supervised'),
                 self::item('Tim Uji', 'dosen.teams.examined', 'academic-cap', 'dosen.teams.examined'),
-                self::item('Approval Pengajuan Topik', 'dosen.applications.index', 'inbox-arrow-down', 'dosen.applications.*'),
                 self::item('Approval Bimbingan', 'dosen.logbooks.index', 'clipboard-document-check', 'dosen.logbooks.*'),
                 self::item('Penilaian', 'dosen.assessments.index', 'pencil-square', 'dosen.assessments.*'),
             ]],

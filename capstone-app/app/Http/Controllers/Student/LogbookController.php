@@ -79,6 +79,7 @@ class LogbookController extends StudentController
         return $request->validate([
             'session_date' => ['required', 'date', 'before_or_equal:today'],
             'activity' => ['required', 'string', 'max:3000'],
+            'notes' => ['nullable', 'string', 'max:3000'],
         ], [
             'session_date.before_or_equal' => 'Tanggal bimbingan tidak boleh di masa depan.',
             'activity.required' => 'Isi catatan bimbingan.',

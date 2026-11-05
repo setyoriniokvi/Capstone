@@ -27,27 +27,20 @@ use Illuminate\View\View;
  */
 class TeamController extends Controller
 {
-    /** Status yang tampil di Registrasi Tim; draf (belum diajukan mahasiswa) tidak ditampilkan. */
-    private const STATUSES = ['menunggu', 'diterima', 'ditolak'];
-
     /**
      * Daftar registrasi (tanpa draf — tim yang belum diajukan): kartu "Menunggu approval" lalu "Riwayat" keputusan
-     * (diterima/ditolak, terbaru dulu, 3 per halaman). Cari & filter status berlaku untuk keduanya.
+     * (diterima/ditolak, terbaru dulu, 3 per halaman). Cari & filter syarat screening (di browser) hanya untuk Menunggu approval.
      */
     public function index(Request $request, TeamRegistration $registration): View
     {
         $period = Period::workspace();
-        $status = in_array($request->input('status'), self::STATUSES, true) ? $request->input('status') : null;
-        $term = '%'.$request->string('q').'%';
         $base = fn () => Team::query()
             ->when($period, fn ($q) => $q->where('period_id', $period->id))
-            ->when($request->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('archived_members', 'like', $term)
-                ->orWhereHas('members.user', fn ($u) => $u->where('name', 'like', $term)->orWhere('nim', 'like', $term))))
             ->with(['members' => fn ($m) => $m->orderByDesc('is_leader'), 'members.user']);
 
-        $pending = in_array($status, [null, 'menunggu'], true)
-            ? $base()->where('status', 'menunggu')->orderBy('submitted_at')->get() : collect();
-        $decided = $base()->whereIn('status', $status && $status !== 'menunggu' ? [$status] : ($status ? [] : ['diterima', 'ditolak']))
+        // Cari & filter syarat tabel menunggu dilakukan di browser (semua tim menunggu dimuat sekaligus).
+        $pending = $base()->where('status', 'menunggu')->orderBy('submitted_at')->get();
+        $decided = $base()->whereIn('status', ['diterima', 'ditolak'])
             ->orderByDesc('reviewed_at')->orderByDesc('id')
             ->paginate(3, ['*'], 'riwayat')->withQueryString();
 
@@ -62,8 +55,6 @@ class TeamController extends Controller
             'period' => $period,
             'openTeam' => $openTeam,
             'extraTeam' => $extraTeam,
-            'counts' => $period ? Team::query()->where('period_id', $period->id)->whereIn('status', self::STATUSES)
-                ->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status') : collect(),
             'students' => $period ? $this->availableStudents($period) : collect(),
         ] + $registration->options($period));
     }
@@ -83,7 +74,6 @@ class TeamController extends Controller
         $team = DB::transaction(function () use ($period, $data) {
             $team = Team::create([
                 'period_id' => $period->id,
-                'code' => Team::nextCode($period->id),
                 'name' => $data['name'],
                 'leader_id' => $data['members'][0],
                 'status' => 'menunggu',
@@ -125,7 +115,7 @@ class TeamController extends Controller
     {
         $name = $team->name;
         DB::transaction(function () use ($team) {
-            ActivityLog::record('admin_delete_team', $team, ['name' => $team->name, 'code' => $team->code]);
+            ActivityLog::record('admin_delete_team', $team, ['name' => $team->name]);
             $team->delete();
         });
         Storage::disk('local')->deleteDirectory("registrations/{$team->id}");
@@ -196,9 +186,21 @@ class TeamController extends Controller
     /** Terima sekaligus tim yang dicentang di tabel "Menunggu Approval"; tim yang sudah diputuskan dilewati. */
     public function approveMany(Request $request, QrService $qr, TeamRegistration $registration): RedirectResponse
     {
+        return $this->decideMany($request, true, $qr, $registration);
+    }
+
+    /** Tolak sekaligus tim yang dicentang; catatan (opsional) dikirim ke anggota setiap tim. */
+    public function rejectMany(Request $request, QrService $qr, TeamRegistration $registration): RedirectResponse
+    {
+        return $this->decideMany($request, false, $qr, $registration);
+    }
+
+    private function decideMany(Request $request, bool $approve, QrService $qr, TeamRegistration $registration): RedirectResponse
+    {
         $data = $request->validate([
             'teams' => ['required', 'array', 'min:1'],
             'teams.*' => ['integer', 'distinct'],
+            'notes' => ['nullable', 'string', 'max:2000'],
         ], ['teams.required' => 'Pilih minimal satu tim.']);
 
         $teams = Team::query()->whereIn('id', $data['teams'])->where('status', 'menunggu')->orderBy('name')->get();
@@ -208,12 +210,12 @@ class TeamController extends Controller
 
         $mail = ['sent' => 0, 'failed' => 0];
         foreach ($teams as $team) {
-            $result = $this->applyDecision($team, true, null, $request->user(), $qr, $registration);
+            $result = $this->applyDecision($team, $approve, $approve ? null : ($data['notes'] ?? null), $request->user(), $qr, $registration);
             $mail['sent'] += $result['sent'];
             $mail['failed'] += $result['failed'];
         }
 
-        return redirect()->route('admin.teams.index')->with('status', $teams->count().' registrasi tim diterima. '.$this->mailSummary($mail));
+        return redirect()->route('admin.teams.index')->with('status', $teams->count().' registrasi tim '.($approve ? 'diterima' : 'ditolak').'. '.$this->mailSummary($mail));
     }
 
     /**

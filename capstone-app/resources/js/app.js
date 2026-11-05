@@ -189,8 +189,7 @@ Alpine.data('autoSubmit', () => ({
 }));
 
 /*
- * Peer review: slider 1–5 per aspek dengan wajah yang berubah — 1–2 cemberut, 3 datar, 4–5 senyum.
- * Deskripsi tiap skor dibaca dari data-level-1 … data-level-5 (rubrik perilaku).
+ * Peer review: skala 1–5 per aspek dengan wajah yang berubah — 1–2 cemberut, 3 datar, 4–5 senyum.
  */
 const PEER_MOUTHS = {
     1: 'M13 29 Q20 20 27 29',
@@ -206,8 +205,6 @@ const PEER_FACES = {
     4: 'fill-ok-tint',
     5: 'fill-ok-tint',
 };
-const PEER_NAMES = { 1: 'Sangat buruk', 2: 'Buruk', 3: 'Cukup', 4: 'Baik', 5: 'Sangat baik' };
-
 Alpine.data('peerSlider', () => ({
     value: 3,
     init() {
@@ -221,15 +218,6 @@ Alpine.data('peerSlider', () => ({
     },
     get faceClass() {
         return PEER_FACES[this.value];
-    },
-    get levelName() {
-        return PEER_NAMES[this.value];
-    },
-    get valueText() {
-        return `${this.value} — ${PEER_NAMES[this.value]}`;
-    },
-    get description() {
-        return this.$root.dataset[`level-${this.value}`] ?? '';
     },
 }));
 
@@ -247,11 +235,15 @@ Alpine.data('scrollPager', () => ({
         this.canLeft = el.scrollLeft > 1;
         this.canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
     },
-    toStart() {
-        this.$refs.scroller.scrollTo({ left: 0, behavior: 'smooth' });
+    // Geser sekitar satu layar tabel ke kiri / kanan
+    left() {
+        this.$refs.scroller.scrollBy({ left: -this.step(), behavior: 'smooth' });
     },
-    toEnd() {
-        this.$refs.scroller.scrollTo({ left: this.$refs.scroller.scrollWidth, behavior: 'smooth' });
+    right() {
+        this.$refs.scroller.scrollBy({ left: this.step(), behavior: 'smooth' });
+    },
+    step() {
+        return Math.max(160, this.$refs.scroller.clientWidth * 0.8);
     },
 }));
 
@@ -302,6 +294,113 @@ Alpine.data('rowFilter', () => ({
     },
 }));
 
+// Tabel Plotting (tim & dosen): cari + satu tombol "Filter" berisi kotak centang beberapa kelompok — langsung di browser.
+// Dalam satu kelompok centang digabung "atau", antar kelompok "dan". Baris [data-row] membawa data-search (teks kecil)
+// dan satu atribut data per kelompok (nilai dipisah "|"); kotak centang [data-filter-group] menyebut nama atribut itu
+// dalam bentuk dataset (mis. data-filter-group="quotaSource" ↔ data-quota-source pada baris). Komponen boleh bersarang
+// (mis. daftar tim di modal Detail Plottingan di dalam tabel dosen): tiap komponen hanya mengurus elemen yang
+// [data-table-filter] terdekatnya adalah akarnya sendiri (atribut itu wajib ditulis di markup akar komponen).
+Alpine.data('tableFilter', () => ({
+    query: '',
+    picked: {},
+    menuOpen: false,
+    active: 0,
+    count: 0,
+    empty: false,
+    init() {
+        this.apply();
+    },
+    owned(selector) {
+        return [...this.$root.querySelectorAll(selector)].filter((el) => el.closest('[data-table-filter]') === this.$root);
+    },
+    search(event) {
+        this.query = event.target.value.trim().toLowerCase();
+        this.apply();
+    },
+    toggleMenu() {
+        this.menuOpen = !this.menuOpen;
+    },
+    closeMenu() {
+        this.menuOpen = false;
+    },
+    pick() {
+        const picked = {};
+        this.owned('[data-filter-group]:checked').forEach((box) => {
+            (picked[box.dataset.filterGroup] ??= []).push(box.value);
+        });
+        this.picked = picked;
+        this.active = Object.values(picked).reduce((total, values) => total + values.length, 0);
+        this.apply();
+    },
+    reset() {
+        this.owned('[data-filter-group]').forEach((box) => {
+            box.checked = false;
+        });
+        this.pick();
+    },
+    get hasActive() {
+        return this.active > 0;
+    },
+    apply() {
+        const groups = Object.entries(this.picked);
+        const rows = this.owned('[data-row]');
+        let visible = 0;
+        rows.forEach((row) => {
+            row.hidden = (this.query !== '' && !row.dataset.search.includes(this.query))
+                || groups.some(([group, values]) => !values.some((value) => (row.dataset[group] ?? '').split('|').includes(value)));
+            if (!row.hidden) visible += 1;
+        });
+        this.count = visible;
+        this.empty = visible === 0 && rows.length > 0;
+    },
+}));
+
+// Pilih satu dosen dengan pencarian nama (modal Plot dosen). Opsi dirender server: [data-option] berisi data-id,
+// data-name (nama asli) dan data-search (teks kecil); opsi nonaktif memakai atribut disabled. Nilai terpilih dikirim
+// lewat input tersembunyi name="lecturer_id". Awal: data-selected & data-selected-name pada akar komponen.
+Alpine.data('plotLecturerPicker', () => ({
+    open: false,
+    query: '',
+    selected: '',
+    selectedName: '',
+    noResults: false,
+    init() {
+        this.selected = this.$el.dataset.selected ?? '';
+        this.selectedName = this.$el.dataset.selectedName ?? '';
+    },
+    toggle() {
+        this.open = !this.open;
+        if (this.open) this.$nextTick(() => this.$refs.search.focus());
+    },
+    hide() {
+        this.open = false;
+    },
+    search(event) {
+        this.query = event.target.value.trim().toLowerCase();
+        let visible = 0;
+        this.$root.querySelectorAll('[data-option]').forEach((option) => {
+            option.hidden = this.query !== '' && !option.dataset.search.includes(this.query);
+            if (!option.hidden) visible += 1;
+        });
+        this.noResults = visible === 0;
+    },
+    choose(event) {
+        const option = event.currentTarget;
+        this.selected = option.dataset.id;
+        this.selectedName = option.dataset.name;
+        this.open = false;
+    },
+    isChosen(id) {
+        return this.selected === String(id);
+    },
+    get buttonLabel() {
+        return this.selectedName || 'Pilih dosen';
+    },
+    get nothingChosen() {
+        return this.selected === '';
+    },
+}));
+
 // Setujui sekaligus (Approval Bimbingan & Approval Registrasi Tim): filter per tim opsional (seperti rowFilter) + kotak
 // centang per baris untuk "Setujui pilihan". "Pilih semua" hanya mencentang baris yang tampil; baris yang tersembunyi
 // oleh filter otomatis tidak dipilih. Baris: [data-team]; kotak centang: [data-select-row] & [data-select-all].
@@ -311,6 +410,9 @@ Alpine.data('bulkApproval', () => ({
     empty: false,
     selected: 0,
     allSelected: false,
+    // Saring langsung di browser tanpa memuat ulang: teks cari (data-search) dan syarat screening (data-requirement).
+    query: '',
+    requirement: '',
     init() {
         this.apply();
     },
@@ -318,11 +420,21 @@ Alpine.data('bulkApproval', () => ({
         this.value = event.target.value;
         this.apply();
     },
+    search(event) {
+        this.query = event.target.value.trim().toLowerCase();
+        this.apply();
+    },
+    filterRequirement(event) {
+        this.requirement = event.target.value;
+        this.apply();
+    },
     apply() {
         const rows = this.$root.querySelectorAll('[data-team]');
         let visible = 0;
         rows.forEach((row) => {
-            row.hidden = this.value !== '' && row.dataset.team !== this.value;
+            row.hidden = (this.value !== '' && row.dataset.team !== this.value)
+                || (this.query !== '' && !(row.dataset.search ?? '').includes(this.query))
+                || (this.requirement !== '' && row.dataset.requirement !== this.requirement);
             if (row.hidden) row.querySelector('[data-select-row]').checked = false;
             else visible += 1;
         });
@@ -383,34 +495,89 @@ Alpine.data('tableSearch', () => ({
     },
 }));
 
-// Tab "Log Bimbingan" dosen: tampilkan log satu tim (data-team) yang cocok dengan kata kunci (data-search).
-Alpine.data('logTable', () => ({
-    team: '',
-    query: '',
+// Tab "Log Bimbingan" dosen: cari langsung di browser; satu <tbody data-search> per tim (nama tim, tanggal, catatan,
+// dan feedback seluruh sesinya) disembunyikan bila tidak cocok.
+Alpine.data('logSearch', () => ({
     empty: false,
-    init() {
-        this.team = this.$el.dataset.team ?? '';
-        this.apply();
-    },
-    pick(event) {
-        this.team = event.target.value;
-        this.apply();
-    },
     search(event) {
-        this.query = event.target.value.trim().toLowerCase();
-        this.apply();
-    },
-    apply() {
+        const query = event.target.value.trim().toLowerCase();
         let visible = 0;
-        this.$root.querySelectorAll('tr[data-team]').forEach((row) => {
-            row.hidden = row.dataset.team !== this.team || (this.query !== '' && !row.dataset.search.includes(this.query));
-            if (!row.hidden) visible += 1;
-        });
-        // Kartu info hanya untuk tim terpilih
-        this.$root.querySelectorAll('[data-team-card]').forEach((card) => {
-            card.hidden = card.dataset.teamCard !== this.team;
+        this.$root.querySelectorAll('tbody[data-search]').forEach((group) => {
+            group.hidden = query !== '' && !group.dataset.search.includes(query);
+            if (!group.hidden) visible += 1;
         });
         this.empty = visible === 0;
+    },
+}));
+
+// Kotak centang "Bekukan kolom indikator" (formulir penilaian dosen): menyalakan / mematikan kolom beku tabel rubrik.
+// Bila dimatikan, tabel diberi kelas .no-freeze (lihat app.css) sehingga semua kolom ikut digeser. Pilihan diingat
+// per browser (localStorage, bila tersedia).
+const FREEZE_KEY = 'capstone.penilaian.bekukan';
+Alpine.data('freezeColumns', () => ({
+    frozen: true,
+    init() {
+        try {
+            this.frozen = localStorage.getItem(FREEZE_KEY) !== '0';
+        } catch {
+            this.frozen = true;
+        }
+    },
+    toggle(event) {
+        this.frozen = event.target.checked;
+        try {
+            localStorage.setItem(FREEZE_KEY, this.frozen ? '1' : '0');
+        } catch {
+            // penyimpanan tidak tersedia: pilihan hanya berlaku sampai halaman dimuat ulang
+        }
+    },
+    get tableClass() {
+        return this.frozen ? '' : 'no-freeze';
+    },
+}));
+
+// Tabel dengan kotak centang per baris: Rubrik Dokumen / Rubrik Lisan ("Edit Pilihan" & "Hapus Pilihan") dan
+// formulir penilaian dosen (indikator yang dicentang dinilai sekaligus lewat "Simpan penilaian").
+// Kotak centang baris: [data-select-row] (value = id); "pilih semua": [data-select-all]. isSelected(id) dipakai modal
+// Edit Pilihan untuk menampilkan isian baris terpilih saja (isian baris lain dinonaktifkan agar tidak terkirim).
+Alpine.data('rowSelection', () => ({
+    ids: [],
+    // Kolom terpilih (opsional): kotak centang [data-select-col] di judul kolom, mis. bentuk penilaian di tabel Indikator.
+    cols: [],
+    init() {
+        this.sync();
+    },
+    // Boleh bersarang (mis. kartu rumus di dalam halaman Indikator): hanya kotak centang yang [data-row-selection]
+    // terdekatnya adalah akar komponen ini (atribut itu wajib ditulis di markup akar).
+    owned(selector) {
+        return [...this.$root.querySelectorAll(selector)].filter((el) => el.closest('[data-row-selection]') === this.$root);
+    },
+    pick(event) {
+        if (event.target.matches('[data-select-all]')) {
+            this.owned('[data-select-row]').forEach((box) => {
+                box.checked = event.target.checked;
+            });
+        }
+        this.sync();
+    },
+    sync() {
+        const boxes = this.owned('[data-select-row]');
+        this.ids = boxes.filter((box) => box.checked).map((box) => box.value);
+        this.cols = this.owned('[data-select-col]:checked').map((box) => box.value);
+        const all = this.owned('[data-select-all]')[0];
+        if (all) all.checked = boxes.length > 0 && this.ids.length === boxes.length;
+    },
+    isSelected(id) {
+        return this.ids.includes(String(id));
+    },
+    isColSelected(key) {
+        return this.cols.includes(String(key));
+    },
+    get count() {
+        return this.ids.length + this.cols.length;
+    },
+    get noneSelected() {
+        return this.ids.length === 0 && this.cols.length === 0;
     },
 }));
 
@@ -1006,47 +1173,6 @@ document.addEventListener('submit', (event) => {
         submitter: event.submitter ?? null,
     });
 });
-
-/*
- * Tabel responsif: salin judul kolom <th> ke setiap sel sebagai data-label,
- * dipakai CSS untuk tampilan kartu di layar sempit (lihat "Tabel responsif" di app.css).
- */
-function labelTableCells(root = document) {
-    root.querySelectorAll('.data-table').forEach((table) => {
-        const headers = [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim());
-        table.querySelectorAll('tbody tr').forEach((row) => {
-            [...row.children].forEach((cell, i) => {
-                if (headers[i] && !cell.hasAttribute('colspan') && !cell.dataset.label) {
-                    cell.dataset.label = headers[i];
-                }
-            });
-        });
-    });
-}
-labelTableCells();
-
-/*
- * Tabel responsif: bila tabel lebih lebar dari wadahnya, .table-wrap diberi .is-stacked
- * (tampilan kartu, lihat app.css). Dicek ulang hanya saat LEBAR wadah berubah.
- */
-function fitTable(wrap) {
-    wrap.classList.remove('is-stacked');
-    if (wrap.scrollWidth > wrap.clientWidth + 1) {
-        wrap.classList.add('is-stacked');
-    }
-}
-
-const fittedWidths = new WeakMap();
-const tableObserver = new ResizeObserver((entries) => {
-    entries.forEach(({ target, contentRect }) => {
-        if (fittedWidths.get(target) === contentRect.width) {
-            return;
-        }
-        fittedWidths.set(target, contentRect.width);
-        fitTable(target);
-    });
-});
-document.querySelectorAll('.table-wrap').forEach((wrap) => tableObserver.observe(wrap));
 
 // Tombol submit yang menandai sedang memproses agar tidak dikirim dua kali
 document.addEventListener('submit', (event) => {

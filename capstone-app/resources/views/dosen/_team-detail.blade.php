@@ -1,12 +1,20 @@
 {{-- Overlay detail tim (dibuka tombol "Lihat detail" di Tim Bimbingan / Tim Uji). Memakai state registrationForm di <tr>.
-     Isi: Anggota (KHS), Topik & Objek Final, Sesi Bimbingan (→ Approval Bimbingan), Submission, Hasil Penilaian.
+     Isi: Anggota (KHS), Topik & Objek Final, Sesi Bimbingan (→ Approval Bimbingan), Deliverable (status di tengah; Nilai · Lihat · Unduh), Hasil Penilaian.
      Butuh $team (members.user, finalTopic, documents.currentVersion, approved_logbooks, assessment_summary),
      $role, $docMilestones, $minLogbooks, $jenisLabel. --}}
 @php
     $card = 'rounded-lg border border-rule';
     $cardHead = 'border-b border-rule px-4 py-3 text-base font-semibold text-ink sm:px-5';
     $approved = $team->approved_logbooks;
-    $statusLabel = ['final' => 'Final', 'draft' => 'Draft', 'belum' => 'Belum dinilai'];
+    $statusLabel = ['final' => 'Lengkap', 'draft' => 'Sebagian dinilai', 'belum' => 'Belum dinilai'];
+    // Deliverable → bentuk penilaian yang dinilai dari dokumen itu (laporan akhir & materi presentasi = sidang sesuai peran).
+    $docComponent = fn (?string $type) => match ($type) {
+        'proposal' => 'proposal',
+        'laporan_progress' => 'laporan_progress',
+        'laporan_akhir', 'materi_presentasi' => 'sidang_'.$role,
+        'poster' => 'pameran',
+        default => null,
+    };
 @endphp
 <x-modal width="sm:max-w-4xl" class="text-left font-normal">
     <x-slot:heading>{{ $team->name }}</x-slot:heading>
@@ -21,7 +29,7 @@
                         <div class="min-w-0 flex-1">
                             <p class="flex flex-wrap items-center gap-2">
                                 <span class="font-semibold text-ink">{{ $user->name }}</span>
-                                <span class="rounded-md px-1.5 py-0.5 text-caption font-medium {{ $member->is_leader ? 'bg-brand-tint text-brand-deep' : 'bg-sunken text-muted' }}">{{ $member->is_leader ? 'Ketua' : 'Anggota' }}</span>
+                                <span class="inline-block whitespace-nowrap rounded-md px-1.5 py-0.5 text-caption font-medium {{ $member->is_leader ? 'bg-brand-tint text-brand-deep' : 'bg-sunken text-muted' }}">{{ $member->is_leader ? 'Ketua' : 'Anggota' }}</span>
                             </p>
                             <dl class="mt-2 grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
                                 <dt class="text-muted">NIM</dt><dd class="code text-ink">{{ $user->nim ?? '—' }}</dd>
@@ -62,7 +70,7 @@
                     <p class="mt-2 text-lg text-muted"><span class="tabular text-2xl font-semibold text-ink">{{ $approved }}</span> / <span class="tabular">{{ $minLogbooks }}</span> sesi minimal</p>
                 </div>
                 @if ($role === 'pembimbing')
-                    <a href="{{ route('dosen.logbooks.index', ['tab' => 'log', 'tim' => $team->id]) }}" class="btn btn-secondary btn-sm shrink-0">Lihat detail<span class="sr-only"> log bimbingan {{ $team->name }}</span></a>
+                    <a href="{{ route('dosen.logbooks.index', ['tab' => 'log']) }}#tim-{{ $team->id }}" class="btn btn-secondary btn-sm shrink-0">Lihat detail<span class="sr-only"> log bimbingan {{ $team->name }}</span></a>
                 @else
                     <button type="button" class="btn btn-secondary btn-sm shrink-0 disabled:cursor-not-allowed disabled:opacity-50" disabled title="Log bimbingan hanya dapat dibuka dosen pembimbing">Lihat detail</button>
                 @endif
@@ -75,9 +83,9 @@
             @endif
         </section>
 
-        {{-- Submission dokumen milestone --}}
-        <section class="{{ $card }}" aria-label="Submission">
-            <h3 class="{{ $cardHead }}">Submission</h3>
+        {{-- Deliverable: dokumen milestone --}}
+        <section class="{{ $card }}" aria-label="Deliverable">
+            <h3 class="{{ $cardHead }}">Deliverable</h3>
             @if ($docMilestones->isEmpty())
                 <p class="px-4 py-4 text-sm text-muted sm:px-5">Belum ada milestone dokumen.</p>
             @else
@@ -87,14 +95,28 @@
                             $doc = $team->documents->firstWhere('milestone_id', $milestone->id);
                             $file = $doc?->currentVersion;
                         @endphp
-                        <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-                            <div class="min-w-0 flex-1">
+                        @php
+                            // Tombol Nilai: bentuk penilaian dokumen ini, bila menjadi wewenang dosen pada perannya di tim ini
+                            $component = $docComponent($milestone->document_type);
+                            $canAssess = $component && array_key_exists($component, config('capstone.components'))
+                                && in_array($role, \App\Models\AssessmentComponent::rolesOf($component), true);
+                        @endphp
+                        {{-- Nama & deadline (kiri) · status dikumpulkan (tengah) · Nilai · Lihat · Unduh (kanan) --}}
+                        <li class="flex flex-col gap-3 px-4 py-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:px-5">
+                            <div class="min-w-0">
                                 <p class="font-medium text-ink">{{ $milestone->name }}</p>
                                 <p class="text-caption text-muted">Deadline {{ $milestone->due_at->translatedFormat('j M Y, H:i') }}</p>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex flex-wrap items-center gap-2 sm:justify-center">
                                 <x-badge :status="$doc ? 'diterima' : 'belum'" :label="$doc ? 'Sudah dikumpulkan' : 'Belum dikumpulkan'" />
                                 @if ($doc?->is_late)<x-badge status="terlambat" />@endif
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                                @if ($canAssess)
+                                    <a href="{{ route('dosen.assessments.edit', [$team, $component]) }}" class="btn btn-secondary btn-sm"><x-heroicon-o-pencil-square class="h-4 w-4" />Nilai<span class="sr-only"> {{ $milestone->name }}</span></a>
+                                @else
+                                    <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" disabled title="{{ $component ? 'Bentuk penilaian ini bukan wewenang Anda sebagai '.$role : 'Dokumen ini tidak memiliki bentuk penilaian' }}"><x-heroicon-o-pencil-square class="h-4 w-4" />Nilai</button>
+                                @endif
                                 @if ($file)
                                     <a href="{{ route('documents.download', $file) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><x-heroicon-o-eye class="h-4 w-4" />Lihat<span class="sr-only"> {{ $milestone->name }}</span></a>
                                     <a download href="{{ route('documents.download', $file) }}" class="btn btn-secondary btn-sm"><x-heroicon-o-arrow-down-tray class="h-4 w-4" />Unduh<span class="sr-only"> {{ $milestone->name }}</span></a>

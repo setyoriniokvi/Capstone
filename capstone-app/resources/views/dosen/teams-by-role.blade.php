@@ -28,14 +28,13 @@
         @if ($teams->isEmpty())
             <x-empty :title="$q !== '' || $jenis ? 'Tidak ada tim yang cocok' : 'Belum ada '.strtolower($title)" icon="user-group" />
         @else
-            {{-- Tabel selebar kartu (table-fixed, teks membungkus) — tanpa scroll samping dan tanpa
-                 tampilan kartu .table-wrap. Lebar kolom dalam persen agar selalu muat. --}}
-            <table class="data-table w-full table-fixed [&_tbody_tr:hover_td]:bg-transparent [&_td]:break-words [&_th]:whitespace-normal">
+            {{-- Kartu menu utama: tabel pas selebar kartu (table-fixed, teks membungkus), tanpa scroll samping. --}}
+            <table class="data-table min-w-0 w-full table-fixed [&_tbody_tr:hover_td]:bg-transparent [&_td]:break-words [&_th]:whitespace-normal">
                     <colgroup>
                         <col class="w-[16%]"><col class="w-[26%]"><col class="w-[30%]"><col class="w-[12%]"><col class="w-[16%]">
                     </colgroup>
-                    <thead class="bg-brand-tint">
-                        <tr class="[&>th]:border-0 [&>th]:py-3.5 [&>th]:text-sm [&>th]:font-semibold [&>th]:text-brand-deep">
+                    <thead>
+                        <tr class="[&>th]:border-b [&>th]:border-rule [&>th]:py-4 [&>th]:text-base [&>th]:font-semibold [&>th]:text-ink">
                             <th>Tim</th><th>Anggota</th><th>Topik</th><th>Jenis Topik</th><th><span class="sr-only">Aksi</span></th>
                         </tr>
                     </thead>
@@ -48,7 +47,7 @@
                                         @foreach ($team->members as $member)
                                             <li class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
                                                 <span class="text-ink">{{ $member->user->name }}</span>
-                                                @if ($member->is_leader)<span class="rounded-md bg-brand-tint px-1.5 py-0.5 text-caption font-medium text-brand-deep">Ketua</span>@endif
+                                                @if ($member->is_leader)<span class="rounded-md bg-brand-tint px-1.5 py-0.5 text-caption font-medium text-brand-deep inline-block whitespace-nowrap">Ketua</span>@endif
                                             </li>
                                         @endforeach
                                     </ul>

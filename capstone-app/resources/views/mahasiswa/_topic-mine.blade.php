@@ -10,15 +10,7 @@
     @php
         $final = $team->finalTopic;
         $supervisor = $team->supervisor?->lecturer;
-        $accepted = $team->applications->firstWhere('status', 'diterima');
-        $pending = $team->applications->firstWhere('status', 'menunggu');
-        // Alur: done | current | upcoming. Topik mandiri & topik dosen diajukan paralel (keduanya opsional).
-        $steps = [
-            ['label' => 'Pengajuan Topik Mandiri Tim (opsional)', 'state' => $independent?->status === 'diterima' ? 'done' : ($independent?->status === 'menunggu' ? 'current' : 'upcoming')],
-            ['label' => 'Pengajuan Topik Dosen (opsional)', 'state' => $accepted ? 'done' : ($pending ? 'current' : 'upcoming')],
-            ['label' => 'Topik Final', 'state' => $final ? 'done' : 'upcoming'],
-        ];
-        $circle = ['done' => 'bg-brand text-white', 'current' => 'border-2 border-brand bg-surface text-brand-deep', 'upcoming' => 'border-2 border-rule-strong bg-surface text-muted'];
+        $node = 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand text-sm font-semibold tabular text-white';
     @endphp
     <div x-data="registrationForm" data-open="{{ $errors->hasAny(['title', 'description', 'object']) ? 'true' : 'false' }}">
         @if ($canSubmitIndependent)
@@ -87,25 +79,33 @@
             @endif
         </section>
 
-        {{-- Alur pengajuan topik --}}
+        {{-- Alur pengajuan topik — gambar informasi statis: topik mandiri & topik dosen diajukan paralel, lalu topik final --}}
         <section class="panel mb-6 p-5 sm:p-6" aria-labelledby="alur-judul">
             <h2 id="alur-judul" class="text-lg font-semibold text-ink">Alur Pengajuan Topik</h2>
-            <ol class="mt-6 grid grid-cols-3">
-                @foreach ($steps as $i => $step)
-                    <li class="flex flex-col items-center text-center" @if ($step['state'] === 'current') aria-current="step" @endif>
-                        <span class="relative flex h-9 w-full items-center justify-center" aria-hidden="true">
-                            @unless ($loop->first)
-                                <span class="absolute left-0 right-1/2 top-1/2 h-[3px] -translate-y-1/2 {{ $steps[$i - 1]['state'] === 'done' ? 'bg-brand' : 'bg-rule-strong' }}"></span>
-                            @endunless
-                            @unless ($loop->last)
-                                <span class="absolute left-1/2 right-0 top-1/2 h-[3px] -translate-y-1/2 {{ $step['state'] === 'done' ? 'bg-brand' : 'bg-rule-strong' }}"></span>
-                            @endunless
-                            <span class="relative grid h-9 w-9 place-items-center rounded-full text-sm font-semibold tabular {{ $circle[$step['state']] }}">{{ $loop->iteration }}</span>
-                        </span>
-                        <span class="mt-2 max-w-[12rem] px-1 text-caption font-medium text-ink sm:text-sm">{{ $step['label'] }}<span class="sr-only"> — {{ ['done' => 'selesai', 'current' => 'berjalan', 'upcoming' => 'belum'][$step['state']] }}</span></span>
-                    </li>
-                @endforeach
-            </ol>
+            <p class="sr-only">Pengajuan Topik Mandiri Tim dan Pengajuan Topik Dosen berjalan paralel, lalu keduanya menuju Topik Final.</p>
+            <div class="mt-6 grid grid-cols-[minmax(0,auto)_minmax(2.5rem,1fr)_minmax(0,auto)] items-stretch" aria-hidden="true">
+                <div class="grid grid-rows-2">
+                    <div class="flex items-center justify-end gap-3 py-3 text-right">
+                        <span class="text-caption font-medium text-ink sm:text-sm">Pengajuan Topik Mandiri Tim</span>
+                        <span class="{{ $node }}">1</span>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 py-3 text-right">
+                        <span class="text-caption font-medium text-ink sm:text-sm">Pengajuan Topik Dosen</span>
+                        <span class="{{ $node }}">2</span>
+                    </div>
+                </div>
+                {{-- Penghubung: dua garis dari kiri bertemu di tengah, lalu satu garis ke Topik Final --}}
+                {{-- SVG diposisikan absolut agar tinggi baris mengikuti label, bukan rasio viewBox --}}
+                <div class="relative">
+                    <svg class="absolute inset-0 h-full w-full text-brand" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+                        <path d="M0 25H50V75H0M50 50H100" stroke="currentColor" stroke-width="3" vector-effect="non-scaling-stroke" />
+                    </svg>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="{{ $node }}">3</span>
+                    <span class="text-caption font-medium text-ink sm:text-sm">Topik Final</span>
+                </div>
+            </div>
         </section>
 
         {{-- Topik mandiri (F23) --}}

@@ -1,7 +1,7 @@
 {{-- Kartu daftar dosen di Kuota Dosen (Alpine "peekTable"): cari kode/nama + filter peminatan, area gulir setinggi
      10,5 baris (baris ke-11 terlihat setengah) dengan tombol bulat panah ke bawah bila lebih dari 10 dosen.
-     Kolom: Kode, Nama, Kontak, Peminatan, Status dosen (Pembimbing/Penguji), Kuota awal yang berlaku sebagai pembimbing & penguji (default ·
-     minimum · maksimum), lalu Edit (aturan kuota per dosen) dan Reset (kuota per dosen menjadi 0).
+     Kolom: Kode, Nama, Kontak, Peminatan, Status dosen (Pembimbing/Penguji), Kuota yang berlaku sebagai pembimbing & penguji
+     (minimum · maksimum), lalu Edit (aturan kuota per dosen) dan Reset (kuota per dosen menjadi 0).
      Butuh $rows, $specializations, $greenHead, $cells. --}}
 @php $phone = fn (?string $p) => $p ? preg_replace('/^(\d{4})(\d{4})(\d+)$/', '$1-$2-$3', $p) : null; @endphp
 <section x-data="peekTable" class="panel mt-6 overflow-hidden" aria-labelledby="dosen-kuota-judul">
@@ -25,8 +25,9 @@
         <div class="border-t border-rule"><x-empty title="Belum ada dosen aktif" icon="academic-cap" /></div>
     @else
         <div class="relative border-t border-rule">
-            <div x-ref="scroller" class="overflow-auto" @scroll="track">
-                <table class="data-table w-full min-w-[62rem] {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
+            <x-scroll-pager>
+            <div x-ref="scroller" class="min-w-[62rem] overflow-y-auto" @scroll="track">
+                <table class="data-table w-full {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                     <thead class="sticky top-0 z-10 {{ $greenHead }}"><tr>
                         <th>Kode</th><th>Nama</th><th>Kontak</th><th>Peminatan</th><th>Status dosen</th><th>Kuota</th><th><span class="sr-only">Aksi</span></th>
                     </tr></thead>
@@ -52,13 +53,12 @@
                                 <td class="text-sm">
                                     {{-- Kuota awal dosen sebagai pembimbing & penguji (sebelum diplot), apa pun statusnya --}}
                                     <div>
-                                        <dl class="grid w-fit grid-cols-[auto_repeat(3,auto)] gap-x-4 gap-y-1">
-                                            <span></span><dt class="text-caption text-muted">Default</dt><dt class="text-caption text-muted">Min</dt><dt class="text-caption text-muted">Maks</dt>
+                                        <dl class="grid w-fit grid-cols-[auto_repeat(2,auto)] gap-x-4 gap-y-1">
+                                            <span></span><dt class="text-caption text-muted">Min</dt><dt class="text-caption text-muted">Maks</dt>
                                             @foreach (['pembimbing', 'penguji'] as $role)
                                                 <dt class="text-caption text-muted">{{ ucfirst($role) }}</dt>
-                                                <dd class="tabular font-medium text-ink">{{ $row['quota'][$role]['default'] }}</dd>
-                                                <dd class="tabular text-ink">{{ $row['quota'][$role]['min'] }}</dd>
-                                                <dd class="tabular text-ink">{{ $row['quota'][$role]['max'] }}</dd>
+                                                <dd class="tabular font-medium text-ink">{{ $row['quota'][$role]['min'] }}</dd>
+                                                <dd class="tabular font-medium text-ink">{{ $row['quota'][$role]['max'] }}</dd>
                                             @endforeach
                                         </dl>
                                         @if ($row['own'])<p class="mt-1 text-caption text-muted">Aturan per dosen</p>@endif
@@ -67,7 +67,7 @@
                                 <td class="!align-middle">
                                     <div class="flex justify-end gap-1">
                                         <button type="button" class="btn btn-ghost btn-sm" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
-                                        <form method="POST" action="{{ route('admin.quotas.reset', $l) }}" data-confirm="Reset kuota {{ $l->name }}? Kuota pembimbing dan penguji (default, minimum, maksimum) menjadi 0." data-confirm-label="Reset">
+                                        <form method="POST" action="{{ route('admin.quotas.reset', $l) }}" data-confirm="Reset kuota {{ $l->name }}? Kuota pembimbing dan penguji menjadi 0 — dosen ini tidak menerima tim bimbingan maupun uji." data-confirm-label="Reset">
                                             @csrf<button class="btn btn-ghost btn-sm text-bad-ink"><x-heroicon-o-arrow-path class="h-4 w-4" /> Reset</button>
                                         </form>
                                     </div>
@@ -80,8 +80,10 @@
                                             <input type="hidden" name="scope" value="dosen">
                                             <input type="hidden" name="lecturer_ids[]" value="{{ $l->id }}">
                                             @include('admin._quota-values', [
-                                                'values' => $editing ? old() : collect(['supervise' => 'pembimbing', 'examine' => 'penguji'])
-                                                    ->flatMap(fn ($role, $prefix) => collect($row['quota'][$role])->only(['default', 'min', 'max'])->mapWithKeys(fn ($v, $k) => ["{$prefix}_{$k}" => $v]))->all(),
+                                                'values' => $editing ? old() : [
+                                                    'supervise_min' => $row['quota']['pembimbing']['min'], 'supervise_max' => $row['quota']['pembimbing']['max'],
+                                                    'examine_min' => $row['quota']['penguji']['min'], 'examine_max' => $row['quota']['penguji']['max'],
+                                                ],
                                                 'uid' => 'd'.$l->id, 'showErrors' => $editing,
                                             ])
                                             <div class="flex justify-end gap-3 border-t border-rule pt-4">
@@ -97,6 +99,7 @@
                 </table>
                 <p x-show="empty" x-cloak class="px-5 py-5 text-sm text-muted sm:px-6">Tidak ada dosen yang cocok.</p>
             </div>
+            </x-scroll-pager>
             {{-- Tombol bulat panah ke bawah bila daftar lebih dari 10 dosen --}}
             <button type="button" x-show="showArrow" x-cloak @click="down" aria-label="Gulir daftar dosen ke bawah"
                     class="absolute bottom-3 left-1/2 z-20 grid h-10 w-10 -translate-x-1/2 place-items-center rounded-full border border-rule bg-surface text-ink shadow-overlay hover:bg-sunken">

@@ -38,7 +38,8 @@ class Indicator extends Model
 
     public function usesOralFactor(): bool
     {
-        return (bool) config("capstone.schemes.{$this->scheme}.oral", false);
+        // Diatur admin di kartu "Cara nilai dihitung" (baris Faktor Pemahaman).
+        return in_array($this->scheme, ScoreRule::oralSchemes(), true);
     }
 
     public function schemeLabel(): string

@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Assessment;
-use App\Models\Clo;
 use App\Models\Document;
 use App\Models\Indicator;
 use App\Models\LecturerProfile;
@@ -18,6 +17,7 @@ use App\Models\TeamLecturer;
 use App\Models\Topic;
 use App\Models\TopicApplication;
 use App\Models\User;
+use App\Services\DocumentService;
 use App\Services\QrService;
 use App\Services\ScreeningService;
 use App\Services\TopicService;
@@ -39,13 +39,12 @@ class DemoSeeder extends Seeder
         DB::transaction(function () use ($screening, $topics, $qr) {
             $period = $this->period();
             $this->rules($period);
-            $this->indicators();
             [$admin, $lecturers] = $this->people();
             $students = $this->students();
 
             LoadQuota::query()->updateOrCreate(['period_id' => $period->id, 'scope' => 'global', 'category' => null, 'lecturer_id' => null], [
-                'supervise_default' => 5, 'supervise_min' => 2, 'supervise_max' => 8,
-                'examine_default' => 6, 'examine_min' => 2, 'examine_max' => 8,
+                'supervise_min' => 2, 'supervise_max' => 8,
+                'examine_min' => 2, 'examine_max' => 8,
             ]);
 
             foreach ([['penilaian', 48], ['approval_logbook', 72], ['approval_pelamar', 48]] as [$type, $hours]) {
@@ -54,13 +53,13 @@ class DemoSeeder extends Seeder
 
             // Topik dosen di bank topik: [pengusul utama, judul, bidang, kuota, objek, prodi, peminatan, kompetensi, pengusul bersama]
             $bank = [
-                ['dsn1', 'Integrasi data persediaan multi-gudang untuk perencanaan pengadaan', 'Supply Chain', 2, 'PT Sinar Distribusi Nusantara', ['DSC', 'TI'], ['Supply Chain Analytics', 'Logistics'],
+                ['dsn1', 'Integrasi data persediaan multi-gudang untuk perencanaan pengadaan', 'Supply Chain', 2, 'PT Sinar Distribusi Nusantara', ['DSC', 'TI'], ['Enterprise Intelligence System Development', 'Enterprise Resource Planning'],
                     "Analisis data persediaan dan peramalan permintaan.\nPemodelan proses bisnis pengadaan.", ['dsn4']],
-                ['dsn2', 'Dashboard pemantauan kinerja layanan akademik berbasis data terintegrasi', 'Sistem Informasi', 1, 'Direktorat Akademik Telkom University', ['SI'], ['Enterprise Systems'],
+                ['dsn2', 'Dashboard pemantauan kinerja layanan akademik berbasis data terintegrasi', 'Sistem Informasi', 1, 'Direktorat Akademik Telkom University', ['SI'], ['Enterprise Intelligence System Development'],
                     "Perancangan basis data dan integrasi sistem.\nVisualisasi data dashboard.", []],
-                ['dsn3', 'Perancangan sistem penjadwalan produksi terintegrasi dengan perawatan mesin', 'Teknik Industri', 2, 'PT Tekstil Majalaya Jaya', ['TI'], ['Production Systems'],
+                ['dsn3', 'Perancangan sistem penjadwalan produksi terintegrasi dengan perawatan mesin', 'Teknik Industri', 2, 'PT Tekstil Majalaya Jaya', ['TI'], ['Enterprise Infrastructure Management'],
                     "Penjadwalan produksi dan perencanaan perawatan.\nSimulasi sistem produksi.", []],
-                ['dsn2', 'Platform pelaporan keuangan UMKM yang terhubung dengan sistem kasir', 'Sistem Informasi', 1, 'Koperasi UMKM Kota Bandung', ['SI'], ['Data Engineering'],
+                ['dsn2', 'Platform pelaporan keuangan UMKM yang terhubung dengan sistem kasir', 'Sistem Informasi', 1, 'Koperasi UMKM Kota Bandung', ['SI'], ['Enterprise Data Management'],
                     "Integrasi API sistem kasir.\nPengolahan data transaksi.", []],
             ];
             $bankTopics = [];
@@ -80,7 +79,7 @@ class DemoSeeder extends Seeder
             }
 
             // Tim 1 — diterima, topik dosen diterima, logbook 8 disetujui, proposal sudah dinilai
-            $t1 = $this->team($period, 'KP-SI-01', 'Tim Arunika', [$students['s1'], $students['s2'], $students['s3']], 'diterima', $admin, $screening, $qr);
+            $t1 = $this->team($period, 'Tim Arunika', [$students['s1'], $students['s2'], $students['s3']], 'diterima', $admin, $screening, $qr);
             $this->independentTopic($t1, 'Sistem monitoring rantai pasok bahan baku UMKM kuliner', 'diterima', $admin, $topics);
             $app = TopicApplication::create(['topic_id' => $bankTopics[0]->id, 'team_id' => $t1->id, 'motivation' => 'Sesuai pengalaman KP di bagian gudang.']);
             $topics->decide($app, true, 'Selamat bergabung.', $lecturers['dsn1']);
@@ -90,21 +89,21 @@ class DemoSeeder extends Seeder
             $this->assess($t1, 'proposal', $lecturers['dsn1'], [4, 5]);
 
             // Tim 2 — diterima, topik mandiri diterima, pembimbing diplot admin
-            $t2 = $this->team($period, 'KP-TI-01', 'Tim Lintang', [$students['s4'], $students['s5']], 'diterima', $admin, $screening, $qr);
+            $t2 = $this->team($period, 'Tim Lintang', [$students['s4'], $students['s5']], 'diterima', $admin, $screening, $qr);
             $this->independentTopic($t2, 'Perancangan sistem penjadwalan perawatan mesin pada lini produksi', 'diterima', $admin, $topics);
             TeamLecturer::query()->updateOrCreate(['team_id' => $t2->id, 'role' => 'pembimbing'], ['lecturer_id' => $lecturers['dsn3']->id, 'source' => 'admin', 'assigned_by' => $admin->id]);
             $this->logbooks($t2, 3, 2, $lecturers['dsn3'], $students['s4']);
             TopicApplication::create(['topic_id' => $bankTopics[2]->id, 'team_id' => $t2->id, 'motivation' => 'Ingin memperdalam penjadwalan produksi.']);
 
             // Tim 3 — menunggu validasi admin
-            $this->team($period, 'KP-DSC-01', 'Tim Samudra', [$students['s6'], $students['s7'], $students['s8']], 'menunggu', $admin, $screening, $qr);
+            $this->team($period, 'Tim Samudra', [$students['s6'], $students['s7'], $students['s8']], 'menunggu', $admin, $screening, $qr);
 
             // Tim 4 — draft dengan undangan tertunda
-            $t4 = $this->team($period, 'KP-SI-02', 'Tim Kirana', [$students['s9']], 'draft', $admin, $screening, $qr);
+            $t4 = $this->team($period, 'Tim Kirana', [$students['s9']], 'draft', $admin, $screening, $qr);
             $t4->members()->create(['user_id' => $students['s10']->id, 'invite_status' => 'diundang']);
 
             // Tim 5 — diterima, topik mandiri masih menunggu
-            $t5 = $this->team($period, 'KP-MR-01', 'Tim Bentala', [$students['s11'], $students['s12']], 'diterima', $admin, $screening, $qr);
+            $t5 = $this->team($period, 'Tim Bentala', [$students['s11'], $students['s12']], 'diterima', $admin, $screening, $qr);
             $this->independentTopic($t5, 'Sistem informasi pengelolaan aset fasilitas kampus', 'menunggu', $admin, $topics);
 
             $this->supportFile($admin);
@@ -164,61 +163,17 @@ class DemoSeeder extends Seeder
     private function rules(Period $period): void
     {
         $specializations = [
-            'TI' => ['Production Systems', 'Supply Chain', 'Ergonomics', 'Quality Engineering'],
-            'SI' => ['Enterprise Systems', 'Data Engineering', 'Supply Chain Analytics'],
-            'DSC' => ['Logistics', 'Supply Chain Analytics'],
-            'MR' => ['Engineering Management', 'Project Management'],
+            'Enterprise Intelligence System Development',
+            'Enterprise Data Management',
+            'System Architecture and Governance',
+            'Enterprise Resource Planning',
+            'Enterprise Infrastructure Management',
         ];
-        // Satu aturan registrasi untuk periode; peminatan gabungan semua prodi contoh
+        // Satu aturan registrasi untuk periode beserta daftar peminatannya
         $rule = RegistrationRule::create(['period_id' => $period->id, 'min_sks' => 110]);
         $rule->courses()->create(['code' => 'KP', 'name' => 'Kerja Praktek (contoh)']);
-        foreach (collect($specializations)->flatten()->unique() as $name) {
+        foreach ($specializations as $name) {
             $rule->specializations()->create(['name' => $name]);
-        }
-    }
-
-    /** Indikator contoh: satu per CLO dengan pembagian bobot sama dengan CLO-nya. */
-    private function indicators(): void
-    {
-        $schemes = ['CLO5' => 'peer_observasi', 'CLO6' => 'dokumen_lisan'];
-        // Deskripsi tingkat CLO1–CLO3 diambil dari Rubrik Penilaian Capstone (Alur Tabel 3.3).
-        $rubrics = [
-            'CLO1' => ['Identifikasi akar permasalahan dan para pihak.', [
-                5 => 'Mampu dengan logis mengidentifikasi akar masalah yang melibatkan lebih dari satu pihak dengan mempertimbangkan interaksi kepentingan para pihak yang relevan, dan didukung justifikasi empiris yang sesuai.',
-                4 => 'Mampu dengan logis mengidentifikasi akar permasalahan yang melibatkan lebih dari satu pihak dengan mempertimbangkan interaksi kepentingan para pihak yang relevan, namun kurang didukung justifikasi empiris yang sesuai.',
-                3 => 'Mampu mengidentifikasi akar dari permasalahan dan para pihak yang terlibat namun tidak mempertimbangkan interaksi kepentingan para pihak.',
-                2 => 'Mampu mengidentifikasi gejala dari permasalahan dan dapat mengidentifikasi secara akurat para pihak yang terlibat.',
-                1 => 'Mampu mengidentifikasi gejala dari permasalahan namun belum dapat mengidentifikasi secara akurat para pihak yang terlibat.',
-            ]],
-            'CLO2' => ['Pelibatan body of knowledge dan standar keteknikan.', [
-                5 => 'Mampu merancang solusi yang relevan dengan melibatkan lebih dari 20% body of knowledge dengan standar keteknikan yang bersesuaian dan mempertimbangkan regulasi yang relevan.',
-                4 => 'Mampu merancang solusi yang relevan dengan melibatkan lebih dari 20% body of knowledge dengan standar keteknikan yang bersesuaian atau mempertimbangkan regulasi yang relevan.',
-                3 => 'Mampu merancang solusi yang relevan dengan melibatkan lebih dari 20% body of knowledge, namun tidak mempertimbangkan standar keteknikan ataupun regulasi yang relevan.',
-                2 => 'Mampu merancang solusi dengan melibatkan paling banyak 20% body of knowledge, namun belum menyelesaikan permasalahan sepenuhnya.',
-                1 => 'Mampu merancang solusi dengan melibatkan hanya satu body of knowledge, namun belum mampu menyelesaikan permasalahan sepenuhnya.',
-            ]],
-        ];
-
-        foreach (Clo::query()->with('componentWeights')->get() as $clo) {
-            $indicator = Indicator::query()->updateOrCreate(['code' => 'IND-'.substr($clo->code, 3)], [
-                'clo_id' => $clo->id,
-                'name' => '[Contoh] '.rtrim($clo->description, '.'),
-                'evidence' => $clo->assessment_scheme,
-                'weight' => $clo->weight,
-                'scheme' => $schemes[$clo->code] ?? 'dokumen',
-            ]);
-            $indicator->componentWeights()->delete();
-            foreach ($clo->componentWeights as $w) {
-                $indicator->componentWeights()->create(['component' => $w->component, 'weight' => $w->weight]);
-            }
-            if (isset($rubrics[$clo->code])) {
-                [$points, $levels] = $rubrics[$clo->code];
-                $indicator->rubric()->updateOrCreate([], [
-                    'assessment_points' => $points,
-                    'level_5' => $levels[5], 'level_4' => $levels[4], 'level_3' => $levels[3], 'level_2' => $levels[2], 'level_1' => $levels[1],
-                    'level_0' => 'Tidak mengumpulkan.',
-                ]);
-            }
         }
     }
 
@@ -229,11 +184,11 @@ class DemoSeeder extends Seeder
         $admin = User::query()->updateOrCreate(['email' => 'admin@gmail.com'], ['name' => 'Admin Capstone', 'role' => 'admin', 'password' => $password]);
 
         $data = [
-            'dsn1' => ['Dr. Ratna Wulandari', 'RWL', 'Supply Chain Analytics', '081200000001'],
-            'dsn2' => ['Hendra Saputra, M.T.', 'HSP', 'Enterprise Systems', '081200000002'],
-            'dsn3' => ['Dr. Maya Kartika', 'MKT', 'Production Systems', '081200000003'],
-            'dsn4' => ['Yusuf Pratama, M.Sc.', 'YPR', 'Logistics', ''],
-            'dsn5' => ['Sinta Maharani, M.M.', 'SMH', 'Engineering Management', '081200000005'],
+            'dsn1' => ['Dr. Ratna Wulandari', 'RWL', 'Enterprise Intelligence System Development', '081200000001'],
+            'dsn2' => ['Hendra Saputra, M.T.', 'HSP', 'Enterprise Intelligence System Development', '081200000002'],
+            'dsn3' => ['Dr. Maya Kartika', 'MKT', 'Enterprise Infrastructure Management', '081200000003'],
+            'dsn4' => ['Yusuf Pratama, M.Sc.', 'YPR', 'Enterprise Resource Planning', ''],
+            'dsn5' => ['Sinta Maharani, M.M.', 'SMH', 'System Architecture and Governance', '081200000005'],
         ];
         $lecturers = [];
         foreach ($data as $key => [$name, $code, $spec, $phone]) {
@@ -259,20 +214,20 @@ class DemoSeeder extends Seeder
     private function students(): array
     {
         $rows = [
-            ['s1', 'Alya Rahmadani', 128, 'Jawa Barat', 'Enterprise Systems'],
-            ['s2', 'Bima Nugraha', 124, 'Sumatera Utara', 'Data Engineering'],
-            ['s3', 'Citra Ayuningtyas', 130, 'Jawa Tengah', 'Supply Chain'],
-            ['s4', 'Dimas Prakoso', 126, 'Jawa Timur', 'Production Systems'],
-            ['s5', 'Eka Larasati', 121, 'Kalimantan Timur', 'Ergonomics'],
-            ['s6', 'Farhan Akbar', 119, 'Sulawesi Selatan', 'Logistics'],
-            ['s7', 'Gita Permatasari', 122, 'Sulawesi Selatan', 'Logistics'],
-            ['s8', 'Hafiz Ramadhan', 116, 'Riau', 'Logistics'],
-            ['s9', 'Indah Puspita', 127, 'Bali', 'Enterprise Systems'],
-            ['s10', 'Joko Santoso', 112, 'DI Yogyakarta', 'Data Engineering'],
-            ['s11', 'Kevin Wijaya', 125, 'Banten', 'Engineering Management'],
-            ['s12', 'Laras Sekar', 120, 'Papua', 'Project Management'],
-            ['s13', 'Mira Anggraini', 98, 'Jawa Barat', 'Enterprise Systems'],
-            ['s14', 'Naufal Hakim', 131, 'Aceh', 'Quality Engineering'],
+            ['s1', 'Alya Rahmadani', 128, 'Jawa Barat', 'Enterprise Intelligence System Development'],
+            ['s2', 'Bima Nugraha', 124, 'Sumatera Utara', 'Enterprise Data Management'],
+            ['s3', 'Citra Ayuningtyas', 130, 'Jawa Tengah', 'Enterprise Resource Planning'],
+            ['s4', 'Dimas Prakoso', 126, 'Jawa Timur', 'Enterprise Infrastructure Management'],
+            ['s5', 'Eka Larasati', 121, 'Kalimantan Timur', 'System Architecture and Governance'],
+            ['s6', 'Farhan Akbar', 119, 'Sulawesi Selatan', 'Enterprise Resource Planning'],
+            ['s7', 'Gita Permatasari', 122, 'Sulawesi Selatan', 'Enterprise Resource Planning'],
+            ['s8', 'Hafiz Ramadhan', 116, 'Riau', 'Enterprise Resource Planning'],
+            ['s9', 'Indah Puspita', 127, 'Bali', 'Enterprise Intelligence System Development'],
+            ['s10', 'Joko Santoso', 112, 'DI Yogyakarta', 'Enterprise Data Management'],
+            ['s11', 'Kevin Wijaya', 125, 'Banten', 'System Architecture and Governance'],
+            ['s12', 'Laras Sekar', 120, 'Papua', 'Enterprise Resource Planning'],
+            ['s13', 'Mira Anggraini', 98, 'Jawa Barat', 'Enterprise Intelligence System Development'],
+            ['s14', 'Naufal Hakim', 131, 'Aceh', 'System Architecture and Governance'],
         ];
 
         $students = [];
@@ -288,10 +243,10 @@ class DemoSeeder extends Seeder
         return $students;
     }
 
-    private function team(Period $period, string $code, string $name, array $members, string $status, User $admin, ScreeningService $screening, QrService $qr): Team
+    private function team(Period $period, string $name, array $members, string $status, User $admin, ScreeningService $screening, QrService $qr): Team
     {
         $team = Team::create([
-            'period_id' => $period->id, 'code' => $code, 'name' => $name,
+            'period_id' => $period->id, 'name' => $name,
             'leader_id' => $members[0]->id, 'status' => $status,
             'submitted_at' => $status === 'draft' ? null : now()->subDays(8),
             'reviewed_by' => $status === 'diterima' ? $admin->id : null,
@@ -340,13 +295,13 @@ class DemoSeeder extends Seeder
 
     private function document(Team $team, $milestone, User $owner): void
     {
-        $path = $this->placeholderFile("documents/{$team->period_id}/{$team->code}/{$owner->id}/proposal_r1.pdf", "Proposal contoh {$team->code}");
+        $path = $this->placeholderFile("documents/{$team->period_id}/tim-{$team->id}/proposal_r1.pdf", "Proposal contoh {$team->name}");
         $document = Document::create([
             'team_id' => $team->id, 'milestone_id' => $milestone->id, 'owner_id' => $owner->id, 'owner_email' => $owner->email,
             'document_type' => 'proposal', 'review_status' => 'ditinjau',
         ]);
         $version = $document->versions()->create([
-            'revision_no' => 1, 'original_name' => 'proposal.pdf', 'stored_name' => "{$owner->nim}_".Str::slug($owner->name).'_proposal_r1.pdf',
+            'revision_no' => 1, 'original_name' => 'proposal.pdf', 'stored_name' => DocumentService::fileName($milestone->name, $team->name, 'pdf'),
             'mime' => 'application/pdf', 'size' => Storage::disk('local')->size($path), 'local_path' => $path,
             'checksum' => hash('sha256', Storage::disk('local')->get($path)), 'idempotency_key' => (string) Str::uuid(),
             'sync_action' => 'create', 'sync_status' => 'menunggu', 'uploaded_by' => $owner->id,
@@ -370,7 +325,7 @@ class DemoSeeder extends Seeder
     {
         $path = $this->placeholderFile('support-files/panduan-capstone-contoh.pdf', 'Panduan Capstone (contoh)');
         SupportFile::create([
-            'title' => 'Panduan Capstone Design & Project (contoh)', 'category' => 'Panduan',
+            'title' => 'Panduan Capstone Design & Project (contoh)', 'category' => 'Panduan', 'visible_to' => ['dosen', 'mahasiswa'],
             'description' => 'Berkas contoh. Ganti dengan panduan resmi.', 'path' => $path,
             'original_name' => 'panduan-capstone.pdf', 'mime' => 'application/pdf', 'size' => Storage::disk('local')->size($path), 'uploaded_by' => $admin->id,
         ]);

@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-/** F18 — rekap nilai akhir otomatis dan ekspor per mahasiswa. */
+/** F18 — rekap nilai akhir otomatis dan ekspor per mahasiswa (format template iGadis, atau rekap penuh bila semua tim lengkap). */
 class RecapController extends Controller
 {
     public function index(Request $request, ScoreCalculator $calculator): View
@@ -31,18 +31,20 @@ class RecapController extends Controller
 
     public function export(Request $request, ScoreCalculator $calculator, RecapExporter $exporter): BinaryFileResponse|RedirectResponse
     {
-        $partial = $request->input('mode') === 'parsial';
+        $igadis = $request->input('mode') === 'igadis';
         $results = $this->results($request, $calculator);
 
-        // Ekspor penuh hanya aktif bila semua tim lengkap (Alur §3.9).
-        if (! $partial && $results->contains('complete', false)) {
-            return back()->withErrors(['export' => 'Masih ada tim yang komponen nilainya belum lengkap. Gunakan ekspor parsial atau lengkapi penilaian.']);
+        // Ekspor iGadis dapat kapan saja (nilai yang belum lengkap dikosongkan); ekspor penuh hanya bila semua tim lengkap (Alur §3.9).
+        if (! $igadis && $results->contains('complete', false)) {
+            return back()->withErrors(['export' => 'Masih ada tim yang komponen nilainya belum lengkap. Gunakan ekspor iGadis atau lengkapi penilaian.']);
         }
 
-        ActivityLog::record('export_recap', null, ['mode' => $partial ? 'parsial' : 'penuh']);
-        $name = 'rekap-nilai-capstone-'.now()->format('Ymd-His').'.xlsx';
+        ActivityLog::record('export_recap', null, ['mode' => $igadis ? 'igadis' : 'penuh']);
+        if ($igadis) {
+            return response()->download($exporter->toIgadis($results), 'nilai-capstone-igadis-'.now()->format('Ymd-His').'.xlsx')->deleteFileAfterSend();
+        }
 
-        return response()->download($exporter->toXlsx($results, $partial), $name)->deleteFileAfterSend();
+        return response()->download($exporter->toXlsx($results, false), 'rekap-nilai-capstone-'.now()->format('Ymd-His').'.xlsx')->deleteFileAfterSend();
     }
 
     private function results(Request $request, ScoreCalculator $calculator): Collection
@@ -53,7 +55,7 @@ class RecapController extends Controller
         }
 
         return Team::query()->where('period_id', $period->id)->where('status', 'diterima')
-            ->orderBy('code')->get()
+            ->orderBy('name')->get()
             ->map(fn (Team $team) => ['team' => $team] + $calculator->forTeam($team));
     }
 }

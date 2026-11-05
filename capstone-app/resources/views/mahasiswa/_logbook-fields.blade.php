@@ -1,4 +1,4 @@
-{{-- Isian log bimbingan: tanggal + catatan bimbingan. $log = null untuk sesi baru.
+{{-- Isian log bimbingan: tanggal + catatan bimbingan + notes (opsional: tautan / lampiran terkait bimbingan). $log = null untuk sesi baru.
      Nilai lama & pesan error hanya untuk formulir yang dikirim (_log = id log yang diubah, kosong = sesi baru). --}}
 @php
     $uid = $log?->id ?? 'new';
@@ -15,5 +15,10 @@
         <label class="field-label" for="act-{{ $uid }}">Catatan bimbingan<span class="text-bad-ink" aria-hidden="true"> *</span></label>
         <textarea id="act-{{ $uid }}" name="activity" rows="4" class="input" required maxlength="3000" placeholder="Hal yang dibahas dan hasil bimbingan">{{ $value('activity', $log?->activity) }}</textarea>
         @if ($mine) @error('activity')<p class="field-error">{{ $message }}</p>@enderror @endif
+    </div>
+    <div class="sm:col-span-2">
+        <label class="field-label" for="notes-{{ $uid }}">Notes <span class="font-normal text-muted">(opsional)</span></label>
+        <textarea id="notes-{{ $uid }}" name="notes" rows="3" class="input" maxlength="3000" placeholder="Tautan dokumen, slide, rekaman, atau catatan lain terkait bimbingan">{{ $value('notes', $log?->notes) }}</textarea>
+        @if ($mine) @error('notes')<p class="field-error">{{ $message }}</p>@enderror @endif
     </div>
 </div>

@@ -27,9 +27,9 @@
     @if ($quota)
         <div class="relative inline-flex">
             <p class="rounded-bl-lg bg-brand-deep pb-3 pl-5 pr-1 pt-1 text-sm text-on-brand-muted sm:pl-8">
-                Kuota: <span class="tabular font-semibold text-on-brand">{{ $quota['pembimbing']['default'] }}</span> tim bimbingan
+                Kuota: <span class="tabular font-semibold text-on-brand">{{ $quota['pembimbing']['max'] }}</span> tim bimbingan
                 <span class="mx-1.5 text-on-brand-line" aria-hidden="true">|</span>
-                <span class="tabular font-semibold text-on-brand">{{ $quota['penguji']['default'] }}</span> tim uji
+                <span class="tabular font-semibold text-on-brand">{{ $quota['penguji']['max'] }}</span> tim uji
             </p>
             {{-- Sisi kanan tab melengkung miring seperti "/" (kurva S) ke sisi bawah kartu --}}
             <svg class="pointer-events-none absolute left-full top-0 h-full w-12 fill-brand-deep" viewBox="0 0 48 40" preserveAspectRatio="none" aria-hidden="true">
@@ -53,12 +53,47 @@
         <x-capstone-timeline class="mb-6" :period="$period" with-assessments />
     @endif
 
-    {{-- Tim mahasiswa (bimbingan & uji): 3 tim dengan aktivitas terbaru; selengkapnya lewat "Lihat semua" --}}
-    <section class="panel mb-6 overflow-hidden" aria-labelledby="judul-tim">
-        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
-            <h2 id="judul-tim" class="text-lg font-semibold text-ink">Tim Mahasiswa</h2>
-            <a href="{{ route('dosen.teams.index') }}" class="link -my-2 inline-flex min-h-[44px] items-center gap-1.5 text-sm">Lihat semua <x-heroicon-o-arrow-right class="h-4 w-4" /></a>
+    {{-- Pengingat penilaian: per bentuk penilaian (judul + jendela penilaian), tim yang belum lengkap dinilai beserta peran &
+         statusnya; tombol ">" di ujung kanan membuka formulir penilaian tim itu. Daftar lengkap tampil di sini (tanpa "Lihat semua"). --}}
+    <section class="panel mb-6 overflow-hidden" aria-labelledby="judul-pengingat">
+        <div class="flex items-center justify-between gap-3 border-b border-rule px-5 py-4 sm:px-6">
+            <h2 id="judul-pengingat" class="text-lg font-semibold text-ink">Pengingat Penilaian</h2>
         </div>
-        @include('dosen._team-table', ['teams' => $recentTeams])
+        @if ($reminderGroups->isEmpty())
+            <x-empty title="Tidak ada penilaian yang tertunda" icon="check-circle">Semua tim bimbingan dan uji Anda sudah lengkap dinilai.</x-empty>
+        @else
+            <div class="divide-y divide-rule">
+                @foreach ($reminderGroups as $component => $rows)
+                    @php $w = $windows->get($component); @endphp
+                    <section aria-labelledby="pengingat-{{ $component }}">
+                        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 bg-sunken px-5 py-2.5 sm:px-6">
+                            <h3 id="pengingat-{{ $component }}" class="font-semibold text-ink">{{ config("capstone.components.{$component}.label") }}
+                                <span class="ml-1 text-sm font-normal text-muted">· <span class="tabular">{{ $rows->count() }}</span> tim belum dinilai</span></h3>
+                            @if ($w)
+                                <p class="text-caption {{ $w->isOpen() ? 'text-ok-ink' : 'text-muted' }}">
+                                    {{ $w->isOpen() ? 'Dibuka' : (now()->lt($w->opens_at) ? 'Belum dibuka' : 'Ditutup') }} · {{ $w->opens_at->translatedFormat('j M') }} – {{ $w->due_at->translatedFormat('j M Y, H:i') }}
+                                </p>
+                            @endif
+                        </div>
+                        <ul class="divide-y divide-rule">
+                            @foreach ($rows as $row)
+                                @php $isPartial = $partial->has($row['team']->id.':'.$component); @endphp
+                                <li>
+                                    <a href="{{ route('dosen.assessments.edit', [$row['team'], $component]) }}" class="group flex items-center gap-4 px-5 py-3 hover:bg-sunken focus-visible:bg-sunken sm:px-6">
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block font-medium text-ink">{{ $row['team']->name }}</span>
+                                            <span class="block text-caption capitalize text-muted">Sebagai {{ $row['role'] }}</span>
+                                        </span>
+                                        <x-badge :status="$isPartial ? 'draft' : 'belum'" :label="$isPartial ? 'Sebagian dinilai' : 'Belum dinilai'" />
+                                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint group-hover:bg-surface group-hover:text-ink" aria-hidden="true"><x-heroicon-o-chevron-right class="h-5 w-5" /></span>
+                                        <span class="sr-only">Nilai {{ config("capstone.components.{$component}.label") }} {{ $row['team']->name }}</span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </section>
+                @endforeach
+            </div>
+        @endif
     </section>
 </x-layouts.app>

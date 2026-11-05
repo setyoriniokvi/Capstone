@@ -51,7 +51,7 @@ class TeamRegistrationTest extends TestCase
     {
         return [
             'name' => 'Tim Registrasi',
-            'leader' => $this->person('1030001', 'Ketua Baru', 'Bandung, Jawa Barat', $leader + ['password' => 'rahasia123', 'password_confirmation' => 'rahasia123', 'specialization' => 'Supply Chain']),
+            'leader' => $this->person('1030001', 'Ketua Baru', 'Bandung, Jawa Barat', $leader + ['password' => 'rahasia123', 'password_confirmation' => 'rahasia123', 'specialization' => 'Enterprise Resource Planning']),
             'members' => [$this->person('1030002', 'Anggota Baru', 'Medan, Sumatera Utara', $member)],
         ];
     }
@@ -60,7 +60,7 @@ class TeamRegistrationTest extends TestCase
     {
         $this->get(route('register'))->assertOk()
             ->assertSee('Kosongkan jika belum ada peminatan.')
-            ->assertSee('<option value="Supply Chain"', false)
+            ->assertSee('<option value="Enterprise Resource Planning"', false)
             ->assertSee('Indeks nilai '.$this->course->code)
             ->assertSee('<option value="Belum Lulus"', false);
         $this->get(route('login'))->assertSee(route('register'));
@@ -78,7 +78,7 @@ class TeamRegistrationTest extends TestCase
         $leader = User::query()->where('nim', '1030001')->sole();
         $member = User::query()->where('nim', '1030002')->sole();
         $this->assertSame('mahasiswa', $member->role);
-        $this->assertSame('Supply Chain', $leader->specialization);
+        $this->assertSame('Enterprise Resource Planning', $leader->specialization);
         $this->assertNull($member->specialization, 'Peminatan opsional');
         $this->assertSame([$this->course->code => 'AB'], $member->course_grades);
         $this->assertContains($this->course->code, $member->passed_courses);
@@ -203,7 +203,7 @@ class TeamRegistrationTest extends TestCase
         $mate->memberships()->delete();
 
         $this->post(route('register.store'), $this->form([], ['nim' => $mate->nim, 'name' => $mate->name, 'email' => $mate->email]))->assertSessionHasNoErrors();
-        $this->assertSame('Data Engineering', $mate->fresh()->specialization);
+        $this->assertSame('Enterprise Data Management', $mate->fresh()->specialization);
         $this->assertSame(1, User::query()->where('nim', $mate->nim)->count(), 'Tidak membuat akun ganda');
 
         // NIM terdaftar dengan email berbeda ditolak
@@ -217,8 +217,8 @@ class TeamRegistrationTest extends TestCase
 
         // Admin mengisi peminatan mahasiswa yang belum punya dari detail tim
         $newMember = User::query()->where('nim', '1030001')->sole();
-        $this->asAdmin()->put(route('admin.students.specialization', $newMember), ['specialization' => 'Ergonomics'])->assertSessionHasNoErrors();
-        $this->assertSame('Ergonomics', $newMember->fresh()->specialization);
+        $this->asAdmin()->put(route('admin.students.specialization', $newMember), ['specialization' => 'System Architecture and Governance'])->assertSessionHasNoErrors();
+        $this->assertSame('System Architecture and Governance', $newMember->fresh()->specialization);
         $this->asAdmin()->put(route('admin.students.specialization', $newMember), ['specialization' => 'Fiktif'])->assertSessionHasErrors('specialization');
     }
 

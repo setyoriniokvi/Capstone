@@ -8,12 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 class Team extends Model
 {
     protected $fillable = [
-        'period_id', 'code', 'name', 'leader_id', 'status', 'screening', 'screening_score',
+        'period_id', 'name', 'leader_id', 'status', 'screening', 'screening_score',
         'archived_members', 'review_notes', 'reviewed_by', 'reviewed_at', 'submitted_at', 'final_topic_id',
     ];
 
@@ -25,20 +24,6 @@ class Team extends Model
             'reviewed_at' => 'datetime',
             'submitted_at' => 'datetime',
         ];
-    }
-
-    /** Kode internal tim (KP-01, KP-02, ...) — dipakai nama file QR, folder dokumen, dan ekspor rekap. */
-    public static function nextCode(int $periodId): string
-    {
-        $prefix = 'KP-';
-        $last = static::query()->where('period_id', $periodId)->where('code', 'like', $prefix.'%')->pluck('code')
-            ->map(fn ($c) => (int) Str::after($c, $prefix))->max() ?? 0;
-
-        do {
-            $code = $prefix.str_pad((string) ++$last, 2, '0', STR_PAD_LEFT);
-        } while (static::query()->where('code', $code)->exists());
-
-        return $code;
     }
 
     public function period(): BelongsTo

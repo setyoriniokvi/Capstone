@@ -163,7 +163,6 @@ class TeamRegistration
 
             $team = Team::create([
                 'period_id' => $period->id,
-                'code' => Team::nextCode($period->id),
                 'name' => $data['name'],
                 'leader_id' => $leader->id,
                 'status' => 'menunggu',

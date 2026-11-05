@@ -23,9 +23,9 @@ class ImportController extends Controller
     {
         $columns = ImportService::TEMPLATES[$type];
         $examples = [
-            'dosen' => ['198001012010011001', 'Nama Dosen', 'ABC', 'dosen@gmail.com', '081234567890', 'Enterprise Systems', 'pembimbing;penguji'],
-            'mahasiswa' => ['1020223000xx', 'Nama Mahasiswa', 'mahasiswa@gmail.com', '081234567890', '120', 'MK001;MK002', 'Jawa Barat', 'Enterprise Systems'],
-            'tim' => ['KP-01', 'Nama Tim', '1020223000xx', '1020223000yy', ''],
+            'dosen' => ['198001012010011001', 'Nama Dosen', 'ABC', 'dosen@gmail.com', '081234567890', 'Enterprise Intelligence System Development', 'pembimbing;penguji'],
+            'mahasiswa' => ['1020223000xx', 'Nama Mahasiswa', 'mahasiswa@gmail.com', '081234567890', '120', 'MK001;MK002', 'Jawa Barat', 'Enterprise Intelligence System Development'],
+            'tim' => ['Nama Tim', '1020223000xx', '1020223000yy', ''],
         ][$type];
 
         return response()->streamDownload(function () use ($columns, $examples) {

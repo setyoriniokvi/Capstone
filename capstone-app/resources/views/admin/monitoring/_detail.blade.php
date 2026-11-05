@@ -74,7 +74,7 @@
             <div class="space-y-3 px-4 py-4 sm:px-5">
                 <x-gate-cells :approved="$team->logbook_approved" :min="$minLogbooks" :pending="$team->logbook_pending" />
                 <dl class="grid grid-cols-4 gap-3 text-sm">
-                    @foreach (['Total' => $team->logbook_total, 'Disetujui' => $team->logbook_approved, 'Menunggu' => $team->logbook_pending, 'Revisi' => $team->logbook_revision] as $label => $count)
+                    @foreach (['Total' => $team->logbook_total, 'Disetujui' => $team->logbook_approved, 'Menunggu' => $team->logbook_pending, 'Ditolak' => $team->logbook_revision] as $label => $count)
                         <div class="rounded-md bg-sunken px-3 py-2"><dt class="text-caption text-muted">{{ $label }}</dt><dd class="tabular font-semibold text-ink">{{ $count }}</dd></div>
                     @endforeach
                 </dl>

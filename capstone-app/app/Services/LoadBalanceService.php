@@ -10,34 +10,29 @@ use Illuminate\Support\Collection;
 
 /**
  * F9 / F10 — kuota beban dosen dan dashboard load balancing.
- * Prioritas kuota: per dosen → kategori dosen → global.
+ * Maksimum = kuota tim yang dapat dibimbing / diuji (0 = tidak menerima tim); sisa kuota di plotting dihitung dari
+ * maksimum. Minimum hanya untuk menandai dosen UNDER. Prioritas: per dosen → global.
  */
 class LoadBalanceService
 {
     private ?Collection $quotas = null;
 
+    /** @return array{pembimbing: array{min: int, max: int}, penguji: array{min: int, max: int}, source: string} */
     public function quotaFor(User $lecturer, Period $period): array
     {
         $quotas = $this->quotas ??= LoadQuota::query()->where('period_id', $period->id)->get();
         $quota = $quotas->first(fn ($q) => $q->scope === 'dosen' && $q->lecturer_id === $lecturer->id)
             ?? $quotas->firstWhere('scope', 'global');
 
-        $values = [
-            'pembimbing' => ['default' => (int) $quota?->supervise_default, 'min' => (int) $quota?->supervise_min, 'max' => (int) $quota?->supervise_max],
-            'penguji' => ['default' => (int) $quota?->examine_default, 'min' => (int) $quota?->examine_min, 'max' => (int) $quota?->examine_max],
+        return [
+            'pembimbing' => ['min' => (int) $quota?->supervise_min, 'max' => (int) $quota?->supervise_max],
+            'penguji' => ['min' => (int) $quota?->examine_min, 'max' => (int) $quota?->examine_max],
+            'source' => $quota?->scope ?? 'belum diatur',
         ];
-        $values['total'] = [
-            'default' => $values['pembimbing']['default'] + $values['penguji']['default'],
-            'min' => $values['pembimbing']['min'] + $values['penguji']['min'],
-            'max' => $values['pembimbing']['max'] + $values['penguji']['max'],
-        ];
-        $values['source'] = $quota?->scope ?? 'belum diatur';
-
-        return $values;
     }
 
     /**
-     * @return Collection<int, array{lecturer: User, counts: array, quota: array, flags: array}>
+     * @return Collection<int, array{lecturer: User, counts: array, quota: array, remaining: array, flags: array}>
      */
     public function rows(Period $period): Collection
     {
@@ -58,35 +53,43 @@ class LoadBalanceService
                     'pembimbing' => (int) $own->firstWhere('role', 'pembimbing')?->total,
                     'penguji' => (int) $own->firstWhere('role', 'penguji')?->total,
                 ];
-                $c['total'] = $c['pembimbing'] + $c['penguji'];
                 $quota = $this->quotaFor($lecturer, $period);
 
                 return [
                     'lecturer' => $lecturer,
                     'counts' => $c,
                     'quota' => $quota,
+                    'remaining' => [
+                        'pembimbing' => $this->remaining($c['pembimbing'], $quota['pembimbing']),
+                        'penguji' => $this->remaining($c['penguji'], $quota['penguji']),
+                    ],
                     'flags' => [
                         'pembimbing' => $this->flag($c['pembimbing'], $quota['pembimbing']),
                         'penguji' => $this->flag($c['penguji'], $quota['penguji']),
-                        'total' => $this->flag($c['total'], $quota['total']),
                     ],
                 ];
             });
     }
 
-    /** Status OVER / UNDER / OK (Alur §3.10). Flag bersifat informatif, tidak memblokir plotting. */
+    /** Sisa kuota (dari maksimum): berkurang setiap tim yang sudah diplot; tidak pernah negatif. */
+    public function remaining(int $count, array $quota): int
+    {
+        return max(0, $quota['max'] - $count);
+    }
+
+    /** OVER (melebihi maksimum) / UNDER (di bawah minimum) / OK (Alur §3.10). Informatif, tidak memblokir plotting. */
     public function flag(int $count, array $quota): string
     {
         return match (true) {
-            $quota['max'] > 0 && $count > $quota['max'] => 'OVER',
+            $count > $quota['max'] => 'OVER',
             $count < $quota['min'] => 'UNDER',
             default => 'OK',
         };
     }
 
-    /** F10 — merah (penuh) bila jumlah sudah mencapai maksimum, hijau (tersedia) bila belum. */
+    /** F10 — hijau (tersedia) bila masih ada sisa kuota, merah (penuh) bila habis; maksimum 0 = tidak menerima tim. */
     public function isAvailable(int $count, array $quota): bool
     {
-        return $quota['max'] === 0 || $count < $quota['max'];
+        return $count < $quota['max'];
     }
 }

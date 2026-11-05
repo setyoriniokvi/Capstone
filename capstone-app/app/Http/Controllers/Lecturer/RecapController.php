@@ -29,9 +29,10 @@ class RecapController extends Controller
 
     public function export(Request $request, ScoreCalculator $calculator, RecapExporter $exporter): BinaryFileResponse
     {
-        $name = 'rekap-nilai-'.($request->user()->lecturerProfile?->lecturer_code ?? 'dosen').'-'.now()->format('Ymd-His').'.xlsx';
+        // Format template iGadis; nilai yang belum lengkap dikosongkan.
+        $name = 'nilai-capstone-igadis-'.($request->user()->lecturerProfile?->lecturer_code ?? 'dosen').'-'.now()->format('Ymd-His').'.xlsx';
 
-        return response()->download($exporter->toXlsx($this->results($request, $calculator), partial: true), $name)->deleteFileAfterSend();
+        return response()->download($exporter->toIgadis($this->results($request, $calculator)), $name)->deleteFileAfterSend();
     }
 
     private function results(Request $request, ScoreCalculator $calculator): Collection
@@ -43,7 +44,7 @@ class RecapController extends Controller
 
         return Team::query()->where('period_id', $period->id)->where('status', 'diterima')
             ->whereHas('lecturers', fn ($q) => $q->where('lecturer_id', $request->user()->id))
-            ->orderBy('code')->get()
+            ->orderBy('name')->get()
             ->map(fn (Team $team) => ['team' => $team] + $calculator->forTeam($team));
     }
 }

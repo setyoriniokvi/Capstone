@@ -6,12 +6,12 @@
 <td class="text-sm">
     <ul class="space-y-1 text-ink">
         @foreach ($team->members as $m)
-            <li class="{{ $m->invite_status !== 'diterima' ? 'text-muted' : '' }}">{{ $m->user->name }}@if ($m->is_leader)<span class="{{ $leaderChip }}">Ketua</span>@endif @if ($m->invite_status === 'diundang') <span class="text-caption">· diundang</span>@endif</li>
+            <li class="{{ $m->invite_status !== 'diterima' ? 'text-muted' : '' }}">{{ $m->user->name }} @if ($m->is_leader)<span class="{{ $leaderChip }}">Ketua</span>@endif @if ($m->invite_status === 'diundang') <span class="text-caption">· diundang</span>@endif</li>
         @endforeach
         {{-- Tim ditolak sudah dibubarkan: tampilkan pendaftar dari log --}}
         @if ($team->members->isEmpty())
             @foreach ($team->archived_members ?? [] as $m)
-                <li class="text-muted">{{ $m['name'] }}@if ($m['is_leader'])<span class="{{ $leaderChip }}">Ketua</span>@endif</li>
+                <li class="text-muted">{{ $m['name'] }} @if ($m['is_leader'])<span class="{{ $leaderChip }}">Ketua</span>@endif</li>
             @endforeach
         @endif
     </ul>

@@ -20,7 +20,7 @@ use Illuminate\View\View;
  */
 class QuotaController extends Controller
 {
-    public const FIELDS = ['supervise_default', 'supervise_min', 'supervise_max', 'examine_default', 'examine_min', 'examine_max'];
+    public const FIELDS = ['supervise_min', 'supervise_max', 'examine_min', 'examine_max'];
 
     public function index(LoadBalanceService $balance): View
     {
@@ -75,7 +75,7 @@ class QuotaController extends Controller
         return back()->with('status', 'Aturan kuota diperbarui.');
     }
 
-    /** Reset kuota satu dosen: aturan per dosen dengan seluruh nilai 0 (default, minimum, maksimum). */
+    /** Reset kuota satu dosen menjadi 0: aturan per dosen yang membuat dosen itu tidak menerima tim bimbingan / uji. */
     public function reset(User $lecturer): RedirectResponse
     {
         $period = Period::workspace() ?? abort(409, 'Buka dashboard periode terlebih dahulu.');
@@ -96,7 +96,7 @@ class QuotaController extends Controller
         return back()->with('status', 'Aturan kuota dihapus.');
     }
 
-    /** Nilai kuota pembimbing & penguji: 0–99 dan minimum ≤ default ≤ maksimum. */
+    /** Kuota pembimbing & penguji: 0–99 dan minimum ≤ maksimum (maksimum 0 = tidak menerima tim). */
     private function validated(Request $request, array $extra = []): array
     {
         $data = $request->validate($extra + array_fill_keys(self::FIELDS, ['required', 'integer', 'between:0,99']), [
@@ -105,8 +105,8 @@ class QuotaController extends Controller
 
         validator($data)->after(function (Validator $v) use ($data) {
             foreach (['supervise', 'examine'] as $role) {
-                if ($data["{$role}_min"] > $data["{$role}_max"] || $data["{$role}_default"] > $data["{$role}_max"] || $data["{$role}_default"] < $data["{$role}_min"]) {
-                    $v->errors()->add("{$role}_default", 'Nilai harus memenuhi minimum ≤ default ≤ maksimum.');
+                if ($data["{$role}_min"] > $data["{$role}_max"]) {
+                    $v->errors()->add("{$role}_min", 'Minimum tidak boleh lebih besar dari maksimum.');
                 }
             }
         })->validate();

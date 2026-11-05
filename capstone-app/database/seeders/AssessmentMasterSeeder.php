@@ -3,54 +3,61 @@
 namespace Database\Seeders;
 
 use App\Models\Clo;
+use App\Models\Indicator;
 use App\Models\OralRubricLevel;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * F13 — resume CLO & bobot per bentuk penilaian.
- * Bobot diambil dari Tabel Bobot Penilaian (PRD §8.1 / Alur Tabel 3.2).
- * Kolom "Laporan Akhir" + "Presentasi Akhir" dipetakan ke Sidang Capstone (Pembimbing / Penguji) sesuai F13.
- * Deskripsi CLO diambil dari kolom Kriteria pada Rubrik Penilaian Capstone (Alur Tabel 3.3).
+ * F13–F16 — master data penilaian dari "Rubrik Capstone Design Project.xlsx" (data/rubrik-capstone.php):
+ * resume CLO & bobot per bentuk penilaian, indikator & bobotnya, rubrik dokumen per indikator, dan rubrik lisan.
+ * Menyamakan isi basis data dengan berkas tersebut: CLO, indikator, dan level lisan yang tidak ada di berkas dihapus
+ * (skor penilaian pada indikator yang dihapus ikut terhapus).
  */
 class AssessmentMasterSeeder extends Seeder
 {
     public function run(): void
     {
-        $clos = [
-            'CLO1' => ['Complex Engineering Problem / Complex Computing Problem; open ended solutions.', 'Proposal (minggu 2), Laporan Akhir (minggu 15)', ['proposal' => 5, 'sidang_pembimbing' => 6, 'sidang_penguji' => 4]],
-            'CLO2' => ['Body of knowledge.', 'Proposal, Laporan Akhir (minggu 15)', ['proposal' => 10, 'sidang_pembimbing' => 6, 'sidang_penguji' => 4]],
-            'CLO3' => ['Verifikasi dan validasi hasil rancangan sistem.', 'Laporan Progress (minggu 11), Laporan Akhir (minggu 15)', ['laporan_progress' => 5, 'sidang_pembimbing' => 3, 'sidang_penguji' => 3]],
-            'CLO4' => ['Pemanfaatan teknologi informasi pada solusi yang diusulkan.', 'Laporan Progress (minggu 11), Laporan Akhir (minggu 15)', ['laporan_progress' => 5, 'sidang_pembimbing' => 6, 'sidang_penguji' => 3]],
-            'CLO5' => ['Kerjasama dan pembagian pekerjaan dalam tim.', 'Peer Review Mahasiswa', ['peer_review' => 10]],
-            'CLO6' => ['Ketepatan penulisan laporan berdasarkan panduan; kelancaran dan kualitas presentasi; kualitas dalam melakukan pameran.', 'Laporan Akhir, Presentasi (minggu 15), Pameran', ['sidang_pembimbing' => 6, 'sidang_penguji' => 4, 'pameran' => 5]],
-            'CLO7' => ['Kelengkapan rencana kerja dan logbook; komitmen terhadap tugas.', 'Laporan Akhir (minggu 15)', ['sidang_pembimbing' => 6, 'sidang_penguji' => 4]],
-            'CLO8' => ['Mempelajari secara mandiri teori / informasi / model / kerangka standar / metode / perangkat yang belum dipelajari untuk mendukung project capstone design.', 'Laporan Akhir (minggu 15)', ['sidang_pembimbing' => 5]],
-        ];
+        $data = require __DIR__.'/data/rubrik-capstone.php';
 
-        DB::transaction(function () use ($clos) {
-            foreach ($clos as $code => [$description, $scheme, $weights]) {
+        DB::transaction(function () use ($data) {
+            $cloIds = [];
+            foreach ($data['clos'] as $code => $row) {
                 $clo = Clo::query()->updateOrCreate(['code' => $code], [
-                    'description' => $description,
-                    'assessment_scheme' => $scheme,
-                    'weight' => array_sum($weights),
+                    'description' => $row['description'],
+                    'assessment_scheme' => $row['scheme'],
+                    'weight' => $row['weight'],
                 ]);
                 $clo->componentWeights()->delete();
-                foreach ($weights as $component => $weight) {
+                foreach ($row['components'] as $component => $weight) {
                     $clo->componentWeights()->create(compact('component', 'weight'));
                 }
+                $cloIds[$code] = $clo->id;
             }
+            Clo::query()->whereNotIn('code', array_keys($data['clos']))->delete();
 
-            // F16 — level & sebutan sesuai FR. FR hanya menyebut rentang faktor 0,25–1,00;
-            // nilai antara dibagi rata dan perilaku teramati PERLU DIISI admin sesuai rubrik resmi.
-            $levels = [1 => 'Tidak Mengenali', 2 => 'Hafal Permukaan', 3 => 'Memadai', 4 => 'Menguasai', 5 => 'Menguasai Penuh'];
-            foreach ($levels as $level => $label) {
-                OralRubricLevel::query()->firstOrCreate(['level' => $level], [
-                    'label' => $label,
-                    'factor' => round(0.25 + ($level - 1) * 0.1875, 2),
-                    'behavior' => 'Perlu diisi: perilaku yang teramati saat verifikasi lisan.',
+            foreach ($data['indicators'] as $code => $row) {
+                $indicator = Indicator::query()->updateOrCreate(['code' => $code], [
+                    'clo_id' => $cloIds[$row['clo']],
+                    'name' => $row['name'],
+                    'evidence' => $row['evidence'],
+                    'weight' => $row['weight'],
+                    'scheme' => $row['scheme'],
                 ]);
+                $indicator->componentWeights()->delete();
+                foreach ($row['components'] as $component => $weight) {
+                    $indicator->componentWeights()->create(compact('component', 'weight'));
+                }
+                if (isset($data['rubrics'][$code])) {
+                    $indicator->rubric()->updateOrCreate([], $data['rubrics'][$code]);
+                }
             }
+            Indicator::query()->whereNotIn('code', array_keys($data['indicators']))->delete();
+
+            foreach ($data['oral'] as $level => $row) {
+                OralRubricLevel::query()->updateOrCreate(['level' => $level], $row);
+            }
+            OralRubricLevel::query()->whereNotIn('level', array_keys($data['oral']))->delete();
         });
     }
 }

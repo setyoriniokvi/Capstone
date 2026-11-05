@@ -91,8 +91,8 @@ class ReminderService
                     'lecturer' => $first['lecturer'],
                     'title' => "Pengisian nilai {$label}",
                     'deadline' => $windows[$first['component']]->due_at,
-                    'items' => $rows->map(fn ($r) => "{$r['team']->code} · {$r['team']->name}")->values()->all(),
-                    'url' => route('dosen.assessments.index', ['component' => $first['component']]),
+                    'items' => $rows->map(fn ($r) => $r['team']->name)->values()->all(),
+                    'url' => route('dosen.assessments.index', ['komponen' => $first['component']]),
                 ];
             })->values();
     }
@@ -204,7 +204,7 @@ class ReminderService
                     'lecturer' => $lecturer,
                     'title' => 'Pengisian nilai',
                     'deadline' => null,
-                    'items' => $rows->map(fn ($r) => "{$r['team']->code} · ".config("capstone.components.{$r['component']}.label"))->values()->all(),
+                    'items' => $rows->map(fn ($r) => "{$r['team']->name} · ".config("capstone.components.{$r['component']}.label"))->values()->all(),
                     'url' => route('dosen.assessments.index'),
                 ]]);
             }
@@ -300,7 +300,7 @@ class ReminderService
             'lecturer' => $dispatch->lecturer,
             'title' => 'Pengisian nilai',
             'deadline' => null,
-            'items' => $rows->map(fn ($r) => "{$r['team']->code} · ".config("capstone.components.{$r['component']}.label"))->values()->all(),
+            'items' => $rows->map(fn ($r) => "{$r['team']->name} · ".config("capstone.components.{$r['component']}.label"))->values()->all(),
             'url' => route('dosen.assessments.index'),
         ];
     }

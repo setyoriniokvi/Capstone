@@ -1,5 +1,5 @@
 {{-- F7 — Approval Topik admin (pola Approval Registrasi Tim): kartu tab (Approval Topik Mandiri / Approval Topik Dosen)
-     paling atas, lalu isi tab: kata kunci terlarang jenis topik tersebut (admin/topics/_keywords), kemudian
+     paling atas, lalu isi tab: instruksi (admin/topics/_instruction), kata kunci terlarang jenis topik tersebut (admin/topics/_keywords), kemudian
      admin/topics/_mandiri (menunggu approval + riwayat) atau admin/topics/_dosen (menunggu approval + bank topik dosen
      yang dapat ditambah/diubah/dihapus admin). --}}
 @php
@@ -27,7 +27,8 @@
         </nav>
     </section>
 
-    {{-- Kata kunci terlarang khusus jenis topik pada tab ini --}}
+    {{-- Instruksi (opsional) & kata kunci terlarang khusus jenis topik pada tab ini --}}
+    @include('admin.topics._instruction')
     @include('admin.topics._keywords')
 
     @include($tab === 'dosen' ? 'admin.topics._dosen' : 'admin.topics._mandiri')

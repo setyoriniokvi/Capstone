@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Models\Topic;
+use App\Models\TopicInstruction;
 use App\Services\TopicService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,7 @@ class TopicController extends StudentController
             'canApply' => $team?->status === 'diterima' && ! $acceptedByLecturer,
             'topics' => $topics,
             'specializations' => $specializations,
+            'instruction' => TopicInstruction::for('mandiri'),
         ]);
     }
 

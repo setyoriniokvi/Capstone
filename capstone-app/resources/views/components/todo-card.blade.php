@@ -1,4 +1,5 @@
-{{-- Kartu "To Do" dashboard (mahasiswa, dosen & admin): daftar tindakan urut prioritas + proses yang menunggu pihak lain.
+{{-- Kartu "To Do" dashboard (mahasiswa, dosen & admin): daftar tindakan urut deadline — yang sudah lewat / paling dekat di
+     atas, makin jauh makin ke bawah, tanpa deadline paling bawah (urutan asal dipertahankan) — + proses yang menunggu pihak lain.
      Dropdown kanan atas menyaring deadline 7 / 30 hari ke depan langsung di browser (Alpine "todoFilter");
      tindakan tanpa deadline dan yang sudah terlambat selalu tampil.
      actions: list of [title, detail, url, tone (bad|warn|neutral), icon (nama komponen ikon menu asal), due (Carbon|null), urgency (late|soon|null)]
@@ -10,6 +11,7 @@
     // Warna kotak ikon menurut prioritas: merah = terlambat/ditolak, kuning = perlu segera, abu = biasa
     $toneIcon = ['bad' => 'bg-bad-tint text-bad-ink', 'warn' => 'bg-warn-tint text-warn-ink', 'neutral' => 'bg-sunken text-muted'];
     $uid = 'todo-'.\Illuminate\Support\Str::random(6);
+    $actions = collect($actions)->sortBy(fn ($action) => $action['due']?->getTimestamp() ?? PHP_INT_MAX)->values();
 @endphp
 <section x-data="todoFilter" data-range="7" {{ $attributes->merge(['class' => 'panel']) }} aria-labelledby="{{ $uid }}">
     <div class="panel-head">

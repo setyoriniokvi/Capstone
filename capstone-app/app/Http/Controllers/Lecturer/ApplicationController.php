@@ -14,27 +14,41 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * F43 — dosen melihat kuota topiknya serta menerima / menolak tim pelamar (alasan penolakan opsional).
+ * F43 — dosen memilih topiknya di halaman utama (kuota, peminatan, tombol "Lihat Pengajuan"), lalu menerima / menolak tim
+ * pelamar topik itu di halaman detail (alasan penolakan opsional) beserta riwayat keputusannya.
  * Pelamar topik bersama masuk ke approval seluruh dosen pengusul; siapa pun boleh memutuskan.
  * Pengajuan aktif dapat disaring menurut peminatan anggota tim; tombol "Detail tim" membuka identitas akademik
  * anggota (asal daerah, SKS lulus, indeks nilai mata kuliah prasyarat, KHS) dan waktu pengajuan.
  */
 class ApplicationController extends Controller
 {
+    /** Halaman utama: daftar topik milik dosen pada periode aktif. */
     public function index(Request $request): View
     {
         $period = Period::active();
-        $peminatan = (string) $request->query('peminatan');
-        $base = TopicApplication::query()->whereHas('topic', fn ($q) => $q->proposedBy($request->user()->id))
-            ->with(['topic' => fn ($q) => $q->withCount(['applications as accepted_count' => fn ($q) => $q->where('status', 'diterima')]), 'team.members.user', 'team.independentTopic']);
-        $ruleOfPeriod = fn ($q) => $q->where('period_id', $period?->id);
 
         return view('dosen.applications', [
-            // Ringkasan kuota seluruh topik milik dosen pada periode aktif
             'topics' => Topic::query()->where('source', 'dosen')->proposedBy($request->user()->id)
                 ->when($period, fn ($q, $period) => $q->where('period_id', $period->id))
-                ->withCount(['applications as accepted_count' => fn ($q) => $q->where('status', 'diterima')])
+                ->withCount([
+                    'applications as accepted_count' => fn ($q) => $q->where('status', 'diterima'),
+                    'applications as pending_count' => fn ($q) => $q->where('status', 'menunggu'),
+                ])
                 ->orderBy('title')->get(),
+        ]);
+    }
+
+    /** Detail satu topik: pengajuan yang menunggu keputusan dan riwayat keputusan. */
+    public function show(Request $request, Topic $topic): View
+    {
+        abort_unless($topic->source === 'dosen' && $topic->isProposer($request->user()), 403);
+        $topic->loadCount(['applications as accepted_count' => fn ($q) => $q->where('status', 'diterima')]);
+        $peminatan = (string) $request->query('peminatan');
+        $base = $topic->applications()->with(['team.members.user', 'team.independentTopic']);
+        $ruleOfPeriod = fn ($q) => $q->where('period_id', $topic->period_id);
+
+        return view('dosen.applications-topic', [
+            'topic' => $topic,
             // Tim yang salah satu anggotanya berpeminatan terpilih
             'pending' => (clone $base)->where('status', 'menunggu')
                 ->when($peminatan !== '', fn ($q) => $q->whereHas('team.members', fn ($m) => $m->where('invite_status', 'diterima')

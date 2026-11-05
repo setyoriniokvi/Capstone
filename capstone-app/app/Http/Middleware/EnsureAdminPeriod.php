@@ -14,7 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAdminPeriod
 {
     /** Rute yang dikelola dari dashboard awal admin, tanpa periode terbuka. */
-    private const OUTSIDE = ['admin.periods.*', 'admin.milestones.*', 'admin.workspace.*'];
+    // admin.drive.*: kembali dari halaman persetujuan Google tidak boleh terputus karena periode belum dibuka.
+    private const OUTSIDE = ['admin.periods.*', 'admin.milestones.*', 'admin.workspace.*', 'admin.drive.*'];
 
     public function handle(Request $request, Closure $next): Response
     {

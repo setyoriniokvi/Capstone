@@ -7,6 +7,7 @@ use App\Models\Period;
 use App\Models\RegistrationRule;
 use App\Models\StudyProgram;
 use App\Models\Topic;
+use App\Models\TopicInstruction;
 use App\Models\User;
 use App\Services\TopicService;
 use Illuminate\Http\RedirectResponse;
@@ -46,6 +47,7 @@ class TopicController extends Controller
 
         return view('dosen.topics.index', $this->formData($request, $period?->id) + [
             'formTopic' => $formTopic,
+            'instruction' => TopicInstruction::for('dosen'),
             'formOpen' => $request->filled('edit') || $request->boolean('tambah'),
             'topics' => Topic::filterBank($all, (string) $request->query('q'), (string) $request->query('peminatan')),
             'specializations' => $all->pluck('specializations')->flatten()->filter()->unique()->sort()->values(),

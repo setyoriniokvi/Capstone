@@ -35,7 +35,7 @@
                     <p class="font-semibold text-ink">{{ $student->name }}</p>
                     <p class="code text-sm text-muted">{{ $student->nim }}</p>
                 </div>
-                <span class="shrink-0 rounded-md border px-2 py-0.5 text-caption font-medium {{ $member->is_leader ? 'border-brand bg-brand-tint text-brand-deep' : 'border-rule bg-sunken text-muted' }}">{{ $member->is_leader ? 'Ketua' : 'Anggota' }}</span>
+                <span class="shrink-0 rounded-md border px-2 py-0.5 text-caption font-medium {{ $member->is_leader ? 'border-brand bg-brand-tint text-brand-deep' : 'border-rule bg-sunken text-muted' }} inline-block whitespace-nowrap">{{ $member->is_leader ? 'Ketua' : 'Anggota' }}</span>
             </div>
 
             {{-- Garis pemisah identitas (nama/NIM) dari data akademik, selebar kartu --}}

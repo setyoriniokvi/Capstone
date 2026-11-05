@@ -1,5 +1,5 @@
 {{-- F27 — Log bimbingan tim. Judul "Log Bimbingan", nama tim di bawahnya; "Tambah sesi baru" membuka formulir (tanggal + catatan) di atas;
-     kartu progres "x sesi disetujui"; daftar sesi: catatan, tanggal, status (Menunggu/Disetujui/Ditolak),
+     peringatan merah bila sesi disetujui belum mencapai minimal (belum dapat sidang & pameran), kartu progres "x sesi disetujui"; daftar sesi: catatan, tanggal, status (Menunggu/Disetujui/Ditolak),
      Ubah / Hapus (nonaktif bila disetujui), dan feedback dosen (opsional). --}}
 @php
     // Status "revisi" di basis data ditampilkan sebagai "Ditolak".
@@ -37,6 +37,15 @@
                 </x-modal>
             @endif
 
+            {{-- Peringatan: belum mencapai minimal sesi disetujui → belum dapat mengikuti sidang & pameran --}}
+            @if ($approved < $minLogbooks)
+                <div class="mb-4 flex gap-3 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink" role="alert">
+                    <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0" />
+                    <p><span class="font-semibold">Tim belum dapat mengikuti Sidang Capstone dan Pameran.</span>
+                        Baru <span class="tabular font-semibold">{{ $approved }}</span> dari minimal <span class="tabular font-semibold">{{ $minLogbooks }}</span> sesi bimbingan yang disetujui pembimbing — kurang <span class="tabular font-semibold">{{ $minLogbooks - $approved }}</span> sesi lagi.</p>
+                </div>
+            @endif
+
             {{-- Progres sesi disetujui --}}
             <section class="panel mb-6 p-5 sm:p-6" aria-label="Sesi disetujui">
                 <p class="text-lg text-muted"><span class="tabular text-2xl font-semibold text-ink">{{ $approved }}</span> / <span class="tabular">{{ $minLogbooks }}</span> sesi minimal</p>
@@ -63,6 +72,7 @@
                                     <div class="flex items-start justify-between gap-3">
                                         <div class="min-w-0">
                                             <p class="whitespace-pre-line font-semibold leading-snug text-ink">{{ $log->activity }}</p>
+                                            @if ($log->notes)<p class="mt-1 whitespace-pre-line text-sm text-muted"><span class="font-medium text-ink">Notes:</span> {!! \App\Support\Format::linkify($log->notes) !!}</p>@endif
                                             <p class="mt-1 text-sm text-muted"><time datetime="{{ $log->session_date->toDateString() }}">{{ $log->session_date->translatedFormat('j M Y') }}</time><span class="sr-only"> · sesi {{ $log->session_no }}</span></p>
                                         </div>
                                         <x-badge :status="$log->status" :label="$statusLabel[$log->status] ?? ucfirst($log->status)" class="shrink-0" />

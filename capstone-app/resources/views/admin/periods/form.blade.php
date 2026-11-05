@@ -92,7 +92,7 @@
                     <textarea form="period-form" id="rule.courses" name="rule[courses]" rows="4" class="input font-mono text-sm" placeholder="KP - Kerja Praktek">{{ $courseLines }}</textarea>
                 </x-field>
                 <x-field label="Peminatan" name="rule.specializations" class="sm:col-span-3 lg:col-span-1" hint="Satu per baris. Dipilih dosen sebagai kompetensi yang diharapkan pada topik.">
-                    <textarea form="period-form" id="rule.specializations" name="rule[specializations]" rows="4" class="input text-sm" placeholder="Enterprise Systems">{{ $specLines }}</textarea>
+                    <textarea form="period-form" id="rule.specializations" name="rule[specializations]" rows="4" class="input text-sm" placeholder="Enterprise Data Management">{{ $specLines }}</textarea>
                 </x-field>
             </div>
         </section>
@@ -122,7 +122,7 @@
                             </div>
                             <x-modal width="sm:max-w-3xl">
                                 <x-slot:heading>Ubah milestone · {{ $m->name }}</x-slot:heading>
-                                @include('admin.periods._milestone-fields', ['m' => $m, 'action' => route('admin.milestones.update', $m), 'method' => 'PUT', 'submit' => 'Simpan milestone'])
+                                @include('admin.periods._milestone-fields', ['m' => $m, 'action' => route('admin.milestones.update', $m), 'method' => 'PUT', 'submit' => 'Simpan'])
                             </x-modal>
                         </li>
                     @endforeach
@@ -152,7 +152,7 @@
             </div>
             @if ($editing)
                 @error('component')<p class="mx-4 mb-4 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink sm:mx-6">{{ $message }}</p>@enderror
-                <div class="table-wrap">
+                <x-scroll-pager>
                     <table class="data-table">
                         <thead><tr><th>Bentuk penilaian</th><th>Penilai</th><th>Dibuka</th><th>Deadline</th><th><span class="sr-only">Aksi</span></th></tr></thead>
                         <tbody>
@@ -179,7 +179,7 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div>
+                </x-scroll-pager>
                 {{-- Tambah bentuk penilaian lewat modal di atas halaman; terbuka lagi bila simpan gagal validasi. --}}
                 <div x-data="registrationForm" data-open="{{ old('_component') === 'baru' && $errors->any() ? 'true' : 'false' }}" class="border-t border-rule px-4 py-4 sm:px-6">
                     <button type="button" class="btn btn-secondary" @click="open" :aria-expanded="expanded">

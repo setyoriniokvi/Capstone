@@ -1,0 +1,25 @@
+{
+  "name": "capstone-bumper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bumper promosi Capstone FRI (Remotion) — 30 detik, 1920x1080, 30 FPS",
+  "scripts": {
+    "studio": "remotion studio",
+    "audio": "python3 scripts/make_audio.py",
+    "still": "remotion still src/index.ts Bumper",
+    "render": "remotion render src/index.ts Bumper out/capstone-bumper.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.541",
+    "@remotion/fonts": "4.0.541",
+    "@remotion/media": "4.0.541",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.541"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.0",
+    "typescript": "5.9.2"
+  }
+}

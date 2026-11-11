@@ -563,7 +563,7 @@ export const S7: React.FC = () => {
 /* ===================================================================== S8 */
 
 const TEAM = [
-  { name: "Rizky", img: "team/rizky_cut.png", w: 570, h: 892, cx: 548, top: 526, hh: 560, disc: C.brand, dd: 350, dy: 120, at: 74, rot: -3 },
+  { name: "Rizki", img: "team/rizky_cut.png", w: 570, h: 892, cx: 548, top: 526, hh: 560, disc: C.brand, dd: 350, dy: 120, at: 74, rot: -3 },
   { name: "Via", img: "team/via_cut.png", w: 798, h: 1264, cx: 960, top: 436, hh: 650, disc: C.accent, dd: 400, dy: 135, at: 64, rot: 0 },
   { name: "Jay", img: "team/jay_cut.png", w: 757, h: 1201, cx: 1372, top: 500, hh: 590, disc: "#CFF3E2", dd: 360, dy: 122, at: 84, rot: 3 },
 ];

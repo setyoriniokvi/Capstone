@@ -372,7 +372,7 @@ export const Rekap: React.FC<{ d: number }> = ({ d }) => {
 /* ------------------------------------------------------ Outro + kredit (135) */
 
 const TEAM = [
-  { name: "Rizky", img: "team/rizky.jpg" },
+  { name: "Rizki", img: "team/rizky.jpg" },
   { name: "Via", img: "team/via.jpg" },
   { name: "Jay", img: "team/jay.jpg" },
 ];

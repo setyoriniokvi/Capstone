@@ -4,7 +4,7 @@ import { Audio } from "@remotion/media";
 import timeline from "./timeline.json";
 import { fontsReady } from "./fonts";
 import { C, EASE_IO, FONT, tween } from "./theme";
-import { Admin, Bimbingan, Hook, Outro, Qr, Rekap, Rubrik, Student } from "./scenes";
+import { Admin, Bimbingan, Email, Hook, Outro, Rekap, Rubrik, Student } from "./scenes";
 
 const S = timeline.scenes;
 const len = (k: keyof typeof S) => S[k][1] - S[k][0];
@@ -24,7 +24,7 @@ const ROLES: [number, number, string][] = [
   [S.admin[0], S.admin[1], "Admin"],
   [S.mhs[0], S.mhs[1], "Mahasiswa"],
   [S.bimbingan[0], S.rubrik[1], "Dosen"],
-  [S.qr[0], S.qr[1], "Mahasiswa · Dosen"],
+  [S.email[0], S.email[1], "Admin → Dosen"],
   [S.rekap[0], S.rekap[1], "Admin"],
 ];
 
@@ -71,7 +71,7 @@ const Hud: React.FC = () => {
   const f = useCurrentFrame();
   const w = Math.round(ribbonW(f));
   const role = ROLES.find((r) => f >= r[0] && f < r[1]);
-  const a = tween(f, 112, 130, 0, 1) * tween(f, 838, 848, 1, 0, (t) => t);
+  const a = tween(f, 112, 130, 0, 1) * tween(f, 760, 770, 1, 0, (t) => t);
   const rp = role ? tween(f, role[0] + 2, role[0] + 16, 0, 1) * tween(f, role[1] - 8, role[1], 1, 0, (t) => t) : 0;
   return (
     <div style={{ position: "absolute", left: 96, top: 84, fontFamily: FONT, opacity: a }}>
@@ -214,8 +214,8 @@ export const Bumper: React.FC = () => {
       <Sequence from={S.rubrik[0]} durationInFrames={len("rubrik")} premountFor={30}>
         <Rubrik d={len("rubrik")} />
       </Sequence>
-      <Sequence from={S.qr[0]} durationInFrames={len("qr")} premountFor={30}>
-        <Qr d={len("qr")} />
+      <Sequence from={S.email[0]} durationInFrames={len("email")} premountFor={30}>
+        <Email d={len("email")} />
       </Sequence>
       <Sequence from={S.rekap[0]} durationInFrames={len("rekap")} premountFor={30}>
         <Rekap d={len("rekap")} />

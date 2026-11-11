@@ -96,7 +96,38 @@ tt = np.arange(N) / SR
 bed *= np.minimum(1, tt / 1.5) * np.where(tt > 26.5, np.clip((29.8 - tt) / 3.3, 0, 1), 1) * (0.7 + 0.3 * np.minimum(1, tt / 12))
 mix += bed
 
-mix = np.tanh(mix * 1.2) / np.tanh(1.2)
+# Voice-over: public/audio/vo/<id>.wav (mono/stereo, laju sampel bebas) ditaruh di frame awal tiap baris (src/vo.json).
+# Underscore & SFX direndahkan saat narasi bicara (ducking).
+def read_wav(path):
+    with wave.open(str(path), "rb") as w:
+        ch, sw, sr, n = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
+        raw = w.readframes(n)
+    a = np.frombuffer(raw, dtype={1: "u1", 2: "<i2", 4: "<i4"}[sw]).astype(np.float64)
+    a = (a - 128) / 128 if sw == 1 else a / float(2 ** (8 * sw - 1))
+    a = a.reshape(-1, ch).mean(1)
+    if sr != SR:
+        a = np.interp(np.arange(int(len(a) * SR / sr)) / SR, np.arange(len(a)) / sr, a)
+    return a
+
+vo_dir = ROOT / "public/audio/vo"
+voice = np.zeros(N); duck = np.ones(N)
+VO = json.loads((ROOT / "src/vo.json").read_text())["lines"]
+n_vo = 0
+for line in VO:
+    f = vo_dir / f"{line['id']}.wav"
+    if not f.exists(): continue  # baris tanpa rekaman dilewati
+    a = read_wav(f); o = int(line["f"] / FPS * SR); e = min(N, o + len(a))
+    voice[o:e] += a[:e - o]; n_vo += 1
+    r = np.arange(max(0, o - int(.15 * SR)), min(N, e + int(.25 * SR)))
+    duck[r] = np.minimum(duck[r], 0.42)
+if n_vo:
+    k = int(.08 * SR); duck = np.convolve(duck, np.ones(k) / k, mode="same")
+    mix = mix * duck
+    voice = np.tanh(voice * 1.1) / np.tanh(1.1) * 0.9
+    mix = mix + voice
+    print("VO baris:", n_vo)
+
+mix = np.tanh(mix * 1.1) / np.tanh(1.1)
 mix *= 0.89 / max(1e-6, np.abs(mix).max())
 # stereo: lebarkan sedikit dengan jeda Haas
 L = mix; R = np.concatenate([np.zeros(int(.0006 * SR)), mix[:-int(.0006 * SR)]])

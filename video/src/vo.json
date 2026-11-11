@@ -1,0 +1,59 @@
+{
+  "voice": "Suara perempuan/laki-laki Indonesia, hangat, santai, ritme percakapan (bukan pembaca berita)",
+  "lines": [
+    {
+      "id": "01-hook",
+      "f": 10,
+      "max": 75,
+      "text": "Enam belas minggu... satu alur yang rapi."
+    },
+    {
+      "id": "02-admin",
+      "f": 115,
+      "max": 110,
+      "text": "Syarat dicek otomatis, keputusan akhir... tetap di tangan admin."
+    },
+    {
+      "id": "03-mhs",
+      "f": 248,
+      "max": 78,
+      "text": "Mahasiswa bisa lihat semuanya, dalam satu layar."
+    },
+    {
+      "id": "04-bimbingan",
+      "f": 336,
+      "max": 120,
+      "text": "Bimbingan disetujui dosen, bisa dari HP. Delapan sesi, baru boleh presentasi."
+    },
+    {
+      "id": "05-rubrik",
+      "f": 472,
+      "max": 104,
+      "text": "Nilai? Dihitung otomatis dari rubrik. Dosen tinggal mengisi, selesai."
+    },
+    {
+      "id": "06-email",
+      "f": 592,
+      "max": 96,
+      "text": "Dosen telat menilai? Tenang... pengingat dikirim otomatis lewat email."
+    },
+    {
+      "id": "07-rekap",
+      "f": 694,
+      "max": 72,
+      "text": "Nilai akhir terekap, siap diekspor ke iGadis."
+    },
+    {
+      "id": "08-outro",
+      "f": 770,
+      "max": 66,
+      "text": "Capstone. Enam belas minggu, satu alur."
+    },
+    {
+      "id": "09-kredit",
+      "f": 838,
+      "max": 62,
+      "text": "Dibuat oleh Du Bist Gut Genug."
+    }
+  ]
+}

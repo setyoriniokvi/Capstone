@@ -1,9 +1,16 @@
 import React from "react";
-import { Img, interpolate, staticFile, useCurrentFrame } from "remotion";
-import { C, EASE_IO, EASE_OUT, FONT, pulse, tween } from "./theme";
-import { Card, CamLayer, Cover, Headline, Rect, Ring, Ripple, Shot, camera, useSceneMotion } from "./ui";
+import { Img, staticFile, useCurrentFrame } from "remotion";
+import { C, EASE_IO, FONT, pulse, tween } from "./theme";
+import { Card, CamLayer, Cover, Headline, MShot, Phone, Rect, Ring, Ripple, Shot, camera, useSceneMotion } from "./ui";
 
 const CARD: Rect = { x: 664, y: 132, w: 1160, h: 760 };
+
+/** Gerak masuk/keluar untuk ponsel (frame lokal). */
+const usePhoneMotion = (f: number, inAt: number, d: number) => {
+  const p = tween(f, inAt, inAt + 18, 0, 1);
+  const out = tween(f, d - 8, d, 0, 1, (t) => t * t);
+  return { opacity: p * (1 - out), ty: (1 - p) * 120 + out * 30, scale: 0.96 + 0.04 * p };
+};
 
 /* ------------------------------------------------------------- Hook (0–105) */
 
@@ -72,7 +79,7 @@ export const Hook: React.FC = () => {
   );
 };
 
-/* ------------------------------------------------------------ Admin (local 150) */
+/* ------------------------------------------------------------ Admin (local 135) */
 
 const SCREEN_BANDS: [number, number][] = [
   [480, 540],
@@ -88,24 +95,24 @@ export const Admin: React.FC<{ d: number }> = ({ d }) => {
   const f = m.frame;
   const view = camera(f, [
     { f: 0, v: { x: 940, y: 410, w: 750 } },
-    { f: 112, v: { x: 940, y: 410, w: 750 } },
-    { f: 140, v: { x: 500, y: 60, w: 1190 } },
+    { f: 100, v: { x: 940, y: 410, w: 750 } },
+    { f: 124, v: { x: 500, y: 60, w: 1190 } },
   ]);
-  const after = tween(f, 122, 134, 0, 1, (t) => t);
-  const hl = (i: number) => tween(f, 22 + i * 12, 32 + i * 12, 1, 0, (t) => t);
+  const after = tween(f, 104, 116, 0, 1, (t) => t);
+  const hl = (i: number) => tween(f, 18 + i * 10, 28 + i * 10, 1, 0, (t) => t);
   return (
     <>
-      <Headline lines={["Syarat dicek", "otomatis."]} sub="Keputusan tetap di tangan admin." subAt={34} frame={f} outAt={d - 14} />
+      <Headline lines={["Syarat dicek", "otomatis."]} sub="Keputusan tetap di tangan admin." subAt={30} frame={f} outAt={d - 14} />
       <Card rect={CARD} opacity={m.opacity} tx={m.tx} scale={m.scale}>
         <CamLayer view={view} cardW={CARD.w}>
           <Shot name="admin-approval" />
-          <Cover r={{ x: 975, y: 452, w: 520, h: 28 }} opacity={tween(f, 96, 106, 1, 0, (t) => t)} />
+          <Cover r={{ x: 975, y: 452, w: 520, h: 28 }} opacity={tween(f, 80, 88, 1, 0, (t) => t)} />
           {SCREEN_BANDS.map((b, i) => (
             <Cover key={i} r={{ x: 975, y: b[0], w: 520, h: b[1] - b[0] }} opacity={hl(i)} />
           ))}
-          <Ring r={{ x: 1000, y: 782, w: 492, h: 70 }} p={tween(f, 92, 104, 0, 1) * (1 - after)} color={C.danger} />
-          <Ring r={{ x: 1587, y: 616.6, w: 68, h: 36 }} p={tween(f, 106, 114, 0, 1) * (1 - after)} />
-          <Ripple cx={1621} cy={634.6} frame={f} at={118} />
+          <Ring r={{ x: 1000, y: 782, w: 492, h: 70 }} p={tween(f, 76, 86, 0, 1) * (1 - after)} color={C.danger} />
+          <Ring r={{ x: 1587, y: 616.6, w: 68, h: 36 }} p={tween(f, 88, 96, 0, 1) * (1 - after)} />
+          <Ripple cx={1621} cy={634.6} frame={f} at={100} />
           <div style={{ opacity: after, position: "absolute", inset: 0 }}>
             <Shot name="admin-approval-after" />
           </div>
@@ -115,24 +122,24 @@ export const Admin: React.FC<{ d: number }> = ({ d }) => {
   );
 };
 
-/* ------------------------------------------------------- Mahasiswa (local 105) */
+/* ------------------------------------------------------- Mahasiswa (local 90) */
 
 export const Student: React.FC<{ d: number }> = ({ d }) => {
   const m = useSceneMotion(d);
   const f = m.frame;
   const view = camera(f, [
     { f: 0, v: { x: 500, y: 70, w: 1200 } },
-    { f: 14, v: { x: 500, y: 70, w: 1200 } },
-    { f: 66, v: { x: 500, y: 260, w: 1200 } },
+    { f: 12, v: { x: 500, y: 70, w: 1200 } },
+    { f: 58, v: { x: 500, y: 260, w: 1200 } },
   ]);
   return (
     <>
-      <Headline lines={["Semua tahap tim,", "satu layar."]} sub="Topik, dosen, deadline, dan progres." subAt={30} frame={f} outAt={d - 14} />
+      <Headline lines={["Semua tahap tim,", "satu layar."]} sub="Topik, dosen, deadline, dan progres." subAt={26} frame={f} outAt={d - 12} />
       <Card rect={CARD} opacity={m.opacity} tx={m.tx} scale={m.scale}>
         <CamLayer view={view} cardW={CARD.w}>
           <Shot name="mhs-dash" />
-          <Ring r={{ x: 1578, y: 146, w: 82, h: 60 }} p={pulse(f, 20, 32, 52, 62)} radius={12} />
-          <Ring r={{ x: 572, y: 623, w: 50, h: 50 }} p={tween(f, 60, 74, 0, 1)} radius={25} pad={4} />
+          <Ring r={{ x: 1578, y: 146, w: 82, h: 60 }} p={pulse(f, 18, 28, 44, 52)} radius={12} />
+          <Ring r={{ x: 572, y: 623, w: 50, h: 50 }} p={tween(f, 52, 64, 0, 1)} radius={25} pad={4} />
         </CamLayer>
       </Card>
     </>
@@ -144,21 +151,14 @@ export const Student: React.FC<{ d: number }> = ({ d }) => {
 export const Bimbingan: React.FC<{ d: number }> = ({ d }) => {
   const f = useCurrentFrame();
   const r1: Rect = { x: 664, y: 260, w: 1160, h: 420 };
-  const r2: Rect = { x: 864, y: 318, w: 760, h: 282 };
   const m1 = useSceneMotion(76, 0, 10);
-  const m2 = (() => {
-    const inP = tween(f, 62, 80, 0, 1);
-    const outP = tween(f, d - 8, d, 0, 1, (t) => t * t);
-    return { opacity: inP * (1 - outP), tx: (1 - inP) * 90 - outP * 40, scale: 0.985 + 0.015 * inP };
-  })();
+  const pm = usePhoneMotion(f, 64, d);
   const view1 = camera(f, [
     { f: 0, v: { x: 830, y: 400, w: 860 } },
     { f: 44, v: { x: 830, y: 400, w: 860 } },
     { f: 66, v: { x: 488, y: 70, w: 1190 } },
   ]);
   const after = tween(f, 44, 52, 0, 1, (t) => t);
-  const sw = tween(f, 96, 108, 0, 1, (t) => t);
-  const view2 = { x: 500, y: 234, w: 410 };
   return (
     <>
       <Headline
@@ -168,7 +168,7 @@ export const Bimbingan: React.FC<{ d: number }> = ({ d }) => {
         frame={f}
         outAt={d - 14}
       />
-      {f < 74 && (
+      {f < 78 && (
         <Card rect={r1} opacity={m1.opacity} tx={m1.tx} scale={m1.scale}>
           <CamLayer view={view1} cardW={r1.w}>
             <Shot name="dosen-log-before" />
@@ -180,36 +180,31 @@ export const Bimbingan: React.FC<{ d: number }> = ({ d }) => {
           </CamLayer>
         </Card>
       )}
-      {f >= 62 && (
-        <Card rect={r2} opacity={m2.opacity} tx={m2.tx} scale={m2.scale}>
-          <CamLayer view={view2} cardW={r2.w}>
-            <Shot name="mhs-dash-7" />
-            <div style={{ opacity: sw, position: "absolute", inset: 0 }}>
-              <Shot name="mhs-dash-8" />
-            </div>
-            <Ring r={{ x: 529, y: 253, w: 379, h: 133 }} p={pulse(f, 98, 108, 124, 134)} radius={14} pad={3} />
-          </CamLayer>
-        </Card>
+      {f >= 60 && (
+        <Phone x={1230} y={150} h={740} {...pm}>
+          <MShot name="m-mhs-dash-3" />
+          <Ring r={{ x: 17, y: 68, w: 356, h: 130 }} p={pulse(f, 96, 106, 124, 134)} radius={16} pad={3} />
+        </Phone>
       )}
     </>
   );
 };
 
-/* -------------------------------------------------------- Rubrik (local 135) */
+/* -------------------------------------------------------- Rubrik (local 120) */
 
 export const Rubrik: React.FC<{ d: number }> = ({ d }) => {
   const m = useSceneMotion(d);
   const f = m.frame;
+  const pm = usePhoneMotion(f, 74, d);
   const view = camera(f, [
     { f: 0, v: { x: 500, y: 160, w: 1190 } },
-    { f: 66, v: { x: 500, y: 160, w: 1190 } },
-    { f: 96, v: { x: 520, y: 490, w: 900 } },
-    { f: 104, v: { x: 520, y: 490, w: 900 } },
-    { f: 128, v: { x: 880, y: 490, w: 810 } },
+    { f: 62, v: { x: 500, y: 160, w: 1190 } },
+    { f: 90, v: { x: 520, y: 490, w: 900 } },
+    { f: 120, v: { x: 520, y: 490, w: 900 } },
   ]);
   return (
     <>
-      <Headline lines={["Rubrik jadi", "nilai."]} sub="Dihitung otomatis, sesuai bobot." subAt={30} frame={f} outAt={d - 14} />
+      <Headline lines={["Rubrik jadi", "nilai."]} sub="Dihitung otomatis, sesuai bobot." subAt={26} frame={f} outAt={d - 14} />
       <Card rect={CARD} opacity={m.opacity} tx={m.tx} scale={m.scale}>
         <CamLayer view={view} cardW={CARD.w}>
           <Shot name="dosen-rubrik" />
@@ -224,99 +219,114 @@ export const Rubrik: React.FC<{ d: number }> = ({ d }) => {
               borderRadius: 2,
             }}
           />
-          <Cover r={{ x: 520, y: 340, w: 1150, h: 28 }} opacity={tween(f, 24, 62, 1, 0, (t) => t)} />
-          <Ring r={{ x: 1002, y: 605, w: 96, h: 40 }} p={pulse(f, 70, 82, 112, 124)} radius={8} pad={4} />
+          <Cover r={{ x: 520, y: 340, w: 1150, h: 28 }} opacity={tween(f, 22, 58, 1, 0, (t) => t)} />
+          <Ring r={{ x: 1002, y: 605, w: 96, h: 40 }} p={tween(f, 66, 78, 0, 1)} radius={8} pad={4} />
         </CamLayer>
       </Card>
+      {f >= 70 && (
+        <Phone x={1500} y={300} h={600} {...pm}>
+          <MShot name="m-dosen-rubrik" />
+        </Phone>
+      )}
     </>
   );
 };
 
-/* ------------------------------------------------------------ QR (local 120) */
+/* ------------------------------------------- Email reminder (local 105) */
 
-export const Qr: React.FC<{ d: number }> = ({ d }) => {
-  const m = useSceneMotion(d);
-  const f = m.frame;
-  const sw = tween(f, 66, 78, 0, 1, (t) => t);
-  const view = camera(f, [
-    { f: 0, v: { x: 696, y: 190, w: 800 } },
-    { f: 66, v: { x: 696, y: 190, w: 800 } },
-    { f: 78, v: { x: 500, y: 70, w: 1190 } },
-  ]);
-  // kisi-kisi bidik di atas QR (981,278,230×230)
-  const conv = tween(f, 14, 34, 1, 0);
-  const lock = tween(f, 62, 68, 0, 1);
-  const pad = 26 + conv * 90;
-  const q = { x: 981, y: 278, s: 230 };
-  const corner = (cx: number, cy: number, sx: number, sy: number) => (
-    <div
-      key={`${cx}${cy}`}
-      style={{
-        position: "absolute",
-        left: cx + sx * pad - (sx > 0 ? 36 : 0) - (sx > 0 ? 0 : 0),
-        top: cy + sy * pad - (sy > 0 ? 36 : 0),
-        width: 36,
-        height: 36,
-        borderTop: sy < 0 ? `5px solid ${C.accent}` : undefined,
-        borderBottom: sy > 0 ? `5px solid ${C.accent}` : undefined,
-        borderLeft: sx < 0 ? `5px solid ${C.accent}` : undefined,
-        borderRight: sx > 0 ? `5px solid ${C.accent}` : undefined,
-        opacity: tween(f, 12, 20, 0, 1) * (1 - sw),
-        filter: lock > 0.5 ? `drop-shadow(0 0 10px ${C.accent})` : undefined,
-      }}
-    />
+const EmailBody: React.FC<{ f: number; at: number }> = ({ f, at }) => {
+  const line = (i: number) => {
+    const p = tween(f, at + i * 6, at + i * 6 + 12, 0, 1);
+    return { opacity: p, translate: `0 ${(1 - p) * 10}px` } as React.CSSProperties;
+  };
+  return (
+    <div style={{ position: "absolute", inset: 0, background: C.white, fontFamily: FONT, color: C.ink, padding: "26px 24px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, ...line(0) }}>
+        <div style={{ width: 46, height: 46, borderRadius: 23, background: C.paper, border: "1.5px solid #DDE3DF", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Img src={staticFile("brand/telu-mark.png")} style={{ height: 28 }} />
+        </div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Capstone FRI</div>
+          <div style={{ fontSize: 13, color: "#6B7280" }}>kepada Dr. Maya Kartika</div>
+        </div>
+      </div>
+      <div style={{ marginTop: 22, fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.2, ...line(1) }}>[Capstone] Pengisian nilai</div>
+      <div style={{ height: 1, background: "#E5E7EB", margin: "20px 0", ...line(1) }} />
+      <div style={{ fontSize: 16, lineHeight: 1.5, ...line(2) }}>Yth. Dr. Maya Kartika,</div>
+      <div style={{ fontSize: 16, lineHeight: 1.5, marginTop: 14, ...line(3) }}>
+        Pengingat Capstone: Pengisian nilai belum diselesaikan untuk:
+      </div>
+      <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "#ECF8F1", border: "1px solid #BFE6D0", fontSize: 15, fontWeight: 500, ...line(4) }}>
+        • Tim Arunika · Pameran
+      </div>
+      <div style={{ marginTop: 22, display: "inline-block", padding: "13px 20px", borderRadius: 10, background: C.brand, color: C.white, fontSize: 15, fontWeight: 600, ...line(5) }}>
+        Buka halaman pekerjaan
+      </div>
+      <div style={{ marginTop: 26, fontSize: 13, color: "#6B7280", lineHeight: 1.45, ...line(6) }}>
+        Pesan otomatis dari Capstone FRI Telkom University.
+      </div>
+    </div>
   );
-  const scanY = tween(f, 34, 62, q.y, q.y + q.s, (t) => t);
+};
+
+export const Email: React.FC<{ d: number }> = ({ d }) => {
+  const R: Rect = { x: 664, y: 190, w: 1160, h: 400 };
+  const m = useSceneMotion(d, 0, 8);
+  const f = m.frame;
+  const pm = usePhoneMotion(f, 54, d);
+  const ready = tween(f, 8, 14, 0, 1, (t) => t);
+  const log = tween(f, 30, 40, 0, 1, (t) => t);
+  const dim = tween(f, 58, 74, 1, 0.3, (t) => t);
+  const vA = { x: 500, y: 190, w: 1190 };
+  const vB = { x: 500, y: 650, w: 1190 };
   return (
     <>
-      <Headline lines={["Scan QR.", "Langsung ke", "penilaian."]} sub="Hanya dosen yang berwenang." subAt={34} frame={f} outAt={d - 14} />
-      <Card rect={CARD} opacity={m.opacity} tx={m.tx} scale={m.scale}>
-        <CamLayer view={view} cardW={CARD.w}>
-          <Shot name="mhs-qr" />
-          <div style={{ opacity: sw, position: "absolute", inset: 0 }}>
-            <Shot name="dosen-pameran" />
+      <Headline
+        lines={["Dosen telat", "menilai?"]}
+        sub="Pengingat dikirim otomatis lewat email."
+        subAt={28}
+        frame={f}
+        outAt={d - 14}
+      />
+      <Card rect={R} opacity={m.opacity * dim} tx={m.tx} scale={m.scale}>
+        <CamLayer view={vA} cardW={R.w} opacity={1 - log}>
+          <Shot name="admin-monitor" />
+          <div style={{ position: "absolute", inset: 0, opacity: ready }}>
+            <Shot name="admin-monitor-ready" />
           </div>
-          {corner(q.x, q.y, -1, -1)}
-          {corner(q.x + q.s, q.y, 1, -1)}
-          {corner(q.x, q.y + q.s, -1, 1)}
-          {corner(q.x + q.s, q.y + q.s, 1, 1)}
-          {f >= 34 && f < 64 && (
-            <div
-              style={{
-                position: "absolute",
-                left: q.x - 10,
-                top: scanY,
-                width: q.s + 20,
-                height: 3,
-                background: C.accent,
-                boxShadow: `0 0 18px ${C.accent}`,
-                opacity: 1 - sw,
-              }}
-            />
-          )}
-          <Ring r={{ x: 509, y: 173, w: 1174, h: 44 }} p={tween(f, 84, 96, 0, 1)} radius={10} pad={4} />
+          <Ring r={{ x: 1372, y: 478, w: 287, h: 44 }} p={tween(f, 14, 22, 0, 1) * (1 - log)} radius={10} pad={4} />
+          <Ripple cx={1515} cy={500} frame={f} at={26} />
+        </CamLayer>
+        <CamLayer view={vB} cardW={R.w} opacity={log}>
+          <Shot name="admin-reminder-log" />
+          <Ring r={{ x: 1395, y: 815, w: 100, h: 178 }} p={tween(f, 42, 52, 0, 1)} radius={12} pad={4} />
         </CamLayer>
       </Card>
+      {f >= 52 && (
+        <Phone x={1370} y={190} h={720} {...pm}>
+          <EmailBody f={f} at={62} />
+        </Phone>
+      )}
     </>
   );
 };
 
-/* ---------------------------------------------------------- Rekap (local 90) */
+/* ---------------------------------------------------------- Rekap (local 75) */
 
 export const Rekap: React.FC<{ d: number }> = ({ d }) => {
   const r: Rect = { x: 664, y: 270, w: 1160, h: 486 };
-  const m = useSceneMotion(d);
+  const m = useSceneMotion(d, 0, 8);
   const f = m.frame;
   const view = { x: 500, y: 72, w: 1200 };
-  const chip = tween(f, 56, 72, 0, 1);
+  const chip = tween(f, 44, 58, 0, 1);
   return (
     <>
-      <Headline lines={["Rekap nilai", "otomatis."]} sub="Ekspor ke iGadis." subAt={30} frame={f} outAt={d - 10} />
+      <Headline lines={["Rekap nilai", "otomatis."]} sub="Ekspor ke iGadis." subAt={22} frame={f} outAt={d - 10} />
       <Card rect={r} opacity={m.opacity} tx={m.tx} scale={m.scale}>
         <CamLayer view={view} cardW={r.w}>
           <Shot name="admin-recap" />
           {[0, 1, 2].map((i) => (
-            <Cover key={i} r={{ x: 1000, y: 296 + i * 45, w: 700, h: 44 }} opacity={tween(f, 10 + i * 4, 22 + i * 4, 1, 0, (t) => t)} />
+            <Cover key={i} r={{ x: 1000, y: 296 + i * 45, w: 700, h: 44 }} opacity={tween(f, 8 + i * 4, 18 + i * 4, 1, 0, (t) => t)} />
           ))}
           <div
             style={{
@@ -328,13 +338,13 @@ export const Rekap: React.FC<{ d: number }> = ({ d }) => {
               borderRadius: 10,
               background: "rgba(0,179,136,0.14)",
               border: `2px solid ${C.accent}`,
-              opacity: pulse(f, 34, 44, 48, 56),
+              opacity: pulse(f, 26, 34, 38, 46),
             }}
           />
           <Cover r={{ x: 1594, y: 242, w: 90, h: 134 }} opacity={1} />
           <Cover r={{ x: 1594, y: 376, w: 90, h: 46 }} opacity={1} color="#F5F5F7" />
-          <Ring r={{ x: 1357.7, y: 128.4, w: 159.9, h: 44 }} p={tween(f, 48, 58, 0, 1)} />
-          <Ripple cx={1437} cy={150} frame={f} at={52} />
+          <Ring r={{ x: 1357.7, y: 128.4, w: 159.9, h: 44 }} p={tween(f, 34, 42, 0, 1)} />
+          <Ripple cx={1437} cy={150} frame={f} at={40} />
         </CamLayer>
         <div
           style={{
@@ -359,23 +369,34 @@ export const Rekap: React.FC<{ d: number }> = ({ d }) => {
   );
 };
 
-/* -------------------------------------------------------------- Outro (60) */
+/* ------------------------------------------------------ Outro + kredit (135) */
+
+const TEAM = [
+  { name: "Rizky", img: "team/rizky.jpg" },
+  { name: "Via", img: "team/via.jpg" },
+  { name: "Jay", img: "team/jay.jpg" },
+];
 
 export const Outro: React.FC = () => {
   const f = useCurrentFrame();
   const t1 = tween(f, 6, 26, 0, 1);
   const t2 = tween(f, 18, 38, 0, 1);
   const t3 = tween(f, 28, 48, 0, 1);
+  const k = tween(f, 56, 84, 0, 1, EASE_IO); // bergeser ke atas saat kredit masuk
+  const lerp = (a: number, b: number) => a + (b - a) * k;
+  const c1 = tween(f, 70, 88, 0, 1);
+  const c2 = tween(f, 78, 98, 0, 1);
   return (
     <div style={{ position: "absolute", inset: 0, fontFamily: FONT, textAlign: "center" }}>
       <div
         style={{
           position: "absolute",
-          top: 250,
+          top: lerp(250, 52),
           width: "100%",
-          fontSize: 168,
+          fontSize: lerp(168, 112),
           fontWeight: 700,
           letterSpacing: "-0.04em",
+          lineHeight: 1.1,
           color: C.white,
           opacity: t1,
           translate: `0 ${(1 - t1) * 34}px`,
@@ -386,9 +407,9 @@ export const Outro: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: 470,
+          top: lerp(470, 190),
           width: "100%",
-          fontSize: 34,
+          fontSize: lerp(34, 28),
           fontWeight: 500,
           color: C.softWhite,
           opacity: t2,
@@ -400,13 +421,14 @@ export const Outro: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: 560,
+          top: lerp(560, 250),
           left: 0,
           right: 0,
           display: "flex",
           justifyContent: "center",
           opacity: t2,
           translate: `0 ${(1 - t2) * 20}px`,
+          scale: lerp(1, 0.72),
         }}
       >
         <div
@@ -434,14 +456,68 @@ export const Outro: React.FC = () => {
           fontWeight: 600,
           letterSpacing: "-0.01em",
           color: C.accent,
-          opacity: t3,
+          opacity: t3 * (1 - k),
           translate: `0 ${(1 - t3) * 20}px`,
         }}
       >
         16 minggu. Satu alur.
       </div>
+
+      {/* Kredit */}
+      <div
+        style={{
+          position: "absolute",
+          top: 384,
+          width: "100%",
+          fontSize: 24,
+          fontWeight: 600,
+          letterSpacing: "0.32em",
+          color: C.faintWhite,
+          opacity: c1,
+          translate: `0 ${(1 - c1) * 14}px`,
+        }}
+      >
+        CREATED BY
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          top: 424,
+          width: "100%",
+          fontSize: 84,
+          fontWeight: 700,
+          letterSpacing: "-0.03em",
+          color: C.white,
+          opacity: c1,
+          translate: `0 ${(1 - c1) * 20}px`,
+        }}
+      >
+        Du Bist Gut Genug
+      </div>
+      <div style={{ position: "absolute", top: 580, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 90 }}>
+        {TEAM.map((p, i) => {
+          const a = tween(f, 86 + i * 7, 86 + i * 7 + 18, 0, 1);
+          return (
+            <div key={p.name} style={{ width: 230, opacity: a, translate: `0 ${(1 - a) * 28}px` }}>
+              <div
+                style={{
+                  width: 210,
+                  height: 210,
+                  margin: "0 auto",
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  border: `5px solid ${C.white}`,
+                  boxShadow: `0 0 0 6px rgba(0,179,136,0.55), 0 24px 60px rgba(0,0,0,0.45)`,
+                  background: C.paper,
+                }}
+              >
+                <Img src={staticFile(p.img)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+              <div style={{ marginTop: 22, fontSize: 36, fontWeight: 600, color: C.white, letterSpacing: "-0.01em" }}>{p.name}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
-
-export { interpolate };

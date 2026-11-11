@@ -1318,5 +1318,285 @@
     "t": "102022300003\tCitra Ayuningtyas\tTim Arunika\t94,7\t94,3\t92,9\t90"
    }
   ]
+ },
+ "admin-monitor": {
+  "rows": [
+   {
+    "x": 509,
+    "y": 335.078125,
+    "w": 1174,
+    "h": 65,
+    "t": "Dr. Maya Kartika\tTim Arunika\t\n\nSidang Capstone (Penguji) (1 tim)\n\nPameran (1 tim"
+   },
+   {
+    "x": 509,
+    "y": 400.078125,
+    "w": 1174,
+    "h": 64.5,
+    "t": "Dr. Ratna Wulandari\tTim Arunika\t\n\nSidang Capstone (Pembimbing) (1 tim)\n\n\t\n\ndosen"
+   }
+  ],
+  "checks": [
+   {
+    "x": 533,
+    "y": 358.15625,
+    "w": 20,
+    "h": 20,
+    "t": ""
+   },
+   {
+    "x": 533,
+    "y": 423.15625,
+    "w": 20,
+    "h": 20,
+    "t": ""
+   }
+  ],
+  "send": [
+   {
+    "x": 1371.875,
+    "y": 477.578125,
+    "w": 287.125,
+    "h": 44,
+    "t": "Kirim reminder ke dosen terpilih"
+   }
+  ],
+  "channels": [
+   {
+    "x": 533,
+    "y": 477.578125,
+    "w": 68.0625,
+    "h": 44,
+    "t": "Email"
+   },
+   {
+    "x": 617.0625,
+    "y": 477.578125,
+    "w": 105.796875,
+    "h": 44,
+    "t": "WhatsApp"
+   }
+  ],
+  "head": [
+   {
+    "x": 508,
+    "y": 80,
+    "w": 684.25,
+    "h": 38.390625,
+    "t": "Monitoring penilaian"
+   }
+  ],
+  "panel": [
+   {
+    "x": 508,
+    "y": 196.390625,
+    "w": 1176,
+    "h": 338.1875,
+    "t": "Peran\nSemua\nPembimbing\nPenguji\nStatus\nSemua\nBelum lengkap\nSudah lengkap\nPilih\n\tD"
+   }
+  ]
+ },
+ "admin-monitor-ready": {
+  "rows": [
+   {
+    "x": 509,
+    "y": 335.078125,
+    "w": 1174,
+    "h": 65,
+    "t": "Dr. Maya Kartika\tTim Arunika\t\n\nSidang Capstone (Penguji) (1 tim)\n\nPameran (1 tim"
+   },
+   {
+    "x": 509,
+    "y": 400.078125,
+    "w": 1174,
+    "h": 64.5,
+    "t": "Dr. Ratna Wulandari\tTim Arunika\t\n\nSidang Capstone (Pembimbing) (1 tim)\n\n\t\n\ndosen"
+   }
+  ],
+  "checks": [
+   {
+    "x": 533,
+    "y": 358.15625,
+    "w": 20,
+    "h": 20,
+    "t": ""
+   },
+   {
+    "x": 533,
+    "y": 423.15625,
+    "w": 20,
+    "h": 20,
+    "t": ""
+   }
+  ],
+  "send": [
+   {
+    "x": 1371.875,
+    "y": 477.578125,
+    "w": 287.125,
+    "h": 44,
+    "t": "Kirim reminder ke dosen terpilih"
+   }
+  ],
+  "channels": [
+   {
+    "x": 533,
+    "y": 477.578125,
+    "w": 68.0625,
+    "h": 44,
+    "t": "Email"
+   },
+   {
+    "x": 617.0625,
+    "y": 477.578125,
+    "w": 105.796875,
+    "h": 44,
+    "t": "WhatsApp"
+   }
+  ],
+  "head": [
+   {
+    "x": 508,
+    "y": 80,
+    "w": 684.25,
+    "h": 38.390625,
+    "t": "Monitoring penilaian"
+   }
+  ],
+  "panel": [
+   {
+    "x": 508,
+    "y": 196.390625,
+    "w": 1176,
+    "h": 338.1875,
+    "t": "Peran\nSemua\nPembimbing\nPenguji\nStatus\nSemua\nBelum lengkap\nSudah lengkap\nPilih\n\tD"
+   }
+  ]
+ },
+ "admin-monitor-sent": {
+  "flash": [
+   {
+    "x": 508,
+    "y": 80,
+    "w": 1176,
+    "h": 47,
+    "t": "3 pengingat masuk antrean pengiriman. Status kirim tercatat di halaman Notifikas"
+   },
+   {
+    "x": 0,
+    "y": 0,
+    "w": 1920,
+    "h": 1080,
+    "t": ""
+   }
+  ],
+  "head": [
+   {
+    "x": 508,
+    "y": 151,
+    "w": 684.25,
+    "h": 38.390625,
+    "t": "Monitoring penilaian"
+   }
+  ]
+ },
+ "admin-reminder-log": {
+  "rows": [
+   {
+    "x": 509,
+    "y": 343.078125,
+    "w": 1174,
+    "h": 61,
+    "t": "Approval log bimbingan\t72 jam sebelum deadline\tEmail, WhatsApp\t\nAktif\tNonaktifka"
+   },
+   {
+    "x": 509,
+    "y": 404.078125,
+    "w": 1174,
+    "h": 61,
+    "t": "Approval tim pelamar topik\t48 jam sebelum deadline\tEmail, WhatsApp\t\nAktif\tNonakt"
+   },
+   {
+    "x": 509,
+    "y": 465.078125,
+    "w": 1174,
+    "h": 60.5,
+    "t": "Pengisian nilai\t48 jam sebelum deadline\tEmail, WhatsApp\t\nAktif\tNonaktifkan Hapus"
+   },
+   {
+    "x": 509,
+    "y": 802.265625,
+    "w": 1174,
+    "h": 65,
+    "t": "11 Nov 15:24\n\nterkirim 11 Nov 15:24\n\n\t\n\nDr. Maya Kartika\n\ndosen3@gmail.com\n\n\tPen"
+   },
+   {
+    "x": 509,
+    "y": 867.265625,
+    "w": 1174,
+    "h": 65,
+    "t": "11 Nov 15:24\n\nterkirim 11 Nov 15:24\n\n\t\n\nDr. Maya Kartika\n\ndosen3@gmail.com\n\n\tPen"
+   },
+   {
+    "x": 509,
+    "y": 932.265625,
+    "w": 1174,
+    "h": 82.6875,
+    "t": "11 Nov 15:24\n\nterkirim 11 Nov 15:24\n\n\t\n\nDr. Ratna Wulandari\n\ndosen@gmail.com\n\n\tP"
+   }
+  ],
+  "title": [
+   {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "t": "Notifikasi"
+   },
+   {
+    "x": 533,
+    "y": 263.390625,
+    "w": 197.15625,
+    "h": 24,
+    "t": "Ambang waktu pengingat"
+   },
+   {
+    "x": 533,
+    "y": 666.578125,
+    "w": 151.46875,
+    "h": 24,
+    "t": "Riwayat pengiriman"
+   },
+   {
+    "x": 0,
+    "y": 0,
+    "w": 0,
+    "h": 0,
+    "t": "Konfirmasi"
+   }
+  ],
+  "badges": [
+   {
+    "x": 1388.6875,
+    "y": 802.265625,
+    "w": 138.5625,
+    "h": 65,
+    "t": "Terkirim"
+   },
+   {
+    "x": 1388.6875,
+    "y": 867.265625,
+    "w": 138.5625,
+    "h": 65,
+    "t": "Terkirim"
+   },
+   {
+    "x": 1388.6875,
+    "y": 932.265625,
+    "w": 138.5625,
+    "h": 82.6875,
+    "t": "Terkirim"
+   }
+  ]
  }
 }

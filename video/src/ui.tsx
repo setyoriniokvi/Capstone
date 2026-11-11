@@ -245,3 +245,69 @@ export const Headline: React.FC<{
     </div>
   );
 };
+
+/* ---------------------------------------------------------------- Ponsel */
+
+/**
+ * Mockup ponsel. Anak-anaknya memakai koordinat tangkapan layar ponsel asli (390×844 CSS px,
+ * viewport ponsel); area ditaruh di bawah bar status.
+ */
+export const PHONE_STATUS = 34;
+export const Phone: React.FC<{
+  x: number;
+  y: number;
+  h: number;
+  opacity?: number;
+  ty?: number;
+  scale?: number;
+  children: React.ReactNode;
+}> = ({ x, y, h, opacity = 1, ty = 0, scale = 1, children }) => {
+  const bz = 9;
+  const sh = h - bz * 2;
+  const sc = sh / (844 + 0); // seluruh layar = 844 CSS px (bar status menimpa 34px teratas)
+  const sw = 390 * sc;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: x,
+        top: y,
+        width: sw + bz * 2,
+        height: h,
+        boxSizing: "border-box",
+        padding: bz,
+        borderRadius: 56,
+        background: "#0A0E0C",
+        opacity,
+        translate: `0 ${ty}px`,
+        scale,
+        boxShadow:
+          "0 50px 120px rgba(0,0,0,0.55), 0 14px 34px rgba(0,0,0,0.35), inset 0 0 0 2px #2B312E, 0 0 0 1.5px rgba(255,255,255,0.14)",
+      }}
+    >
+      <div style={{ position: "relative", width: sw, height: sh, borderRadius: 47, overflow: "hidden", background: "#F5F5F7" }}>
+        <div style={{ position: "absolute", left: 0, top: 0, width: 390, height: 844, transformOrigin: "0 0", scale: sc }}>
+          <CamScaleProvider s={sc}>
+            <div style={{ position: "absolute", left: 0, top: PHONE_STATUS, width: 390, height: 844 - PHONE_STATUS, overflow: "hidden" }}>{children}</div>
+            <div style={{ position: "absolute", left: 0, top: 0, width: 390, height: PHONE_STATUS, background: "#F5F5F7" }}>
+              <div style={{ position: "absolute", left: 28, top: 8, fontFamily: FONT, fontSize: 15, fontWeight: 600, color: C.ink }}>09.41</div>
+              <div style={{ position: "absolute", left: 195 - 46, top: 9, width: 92, height: 24, borderRadius: 14, background: "#000" }} />
+              <div style={{ position: "absolute", right: 26, top: 12, width: 26, height: 12, borderRadius: 4, border: `1.5px solid ${C.ink}`, boxSizing: "border-box" }}>
+                <div style={{ position: "absolute", left: 2, top: 2, right: 5, bottom: 2, borderRadius: 2, background: C.ink }} />
+              </div>
+            </div>
+          </CamScaleProvider>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CamScaleProvider: React.FC<{ s: number; children: React.ReactNode }> = ({ s, children }) => (
+  <ScaleCtx.Provider value={s}>{children}</ScaleCtx.Provider>
+);
+
+/** Tangkapan layar ponsel asli (1170×2532 px = 390×844 CSS px × 3). */
+export const MShot: React.FC<{ name: string }> = ({ name }) => (
+  <Img src={staticFile(`captures/${name}.png`)} style={{ position: "absolute", left: 0, top: 0, width: 390, height: 844 }} />
+);

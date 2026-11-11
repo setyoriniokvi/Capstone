@@ -78,23 +78,11 @@ for c in TL["cues"]:
     e = min(N, o + len(s))
     if e > o: mix[o:e] += s[:e - o]
 
-# Underscore: ~104 BPM, pad (Am-F-C-G) + pluk lembut, naik perlahan, hilang ke akhir
-bpm = 104; beat = 60 / bpm; bed = np.zeros(N)
-chords = [[57, 60, 64], [53, 57, 60], [48, 55, 60], [55, 59, 62]]
-bar = beat * 4; nb = int(30 / bar) + 1
-for b in range(nb):
-    o = int(b * bar * SR); ch = chords[b % 4]; d = bar + .5; seg = np.zeros(int(d * SR))
-    for m in ch:
-        seg += (sine(note(m), d) + .25 * sine(note(m) * 2, d)) * .05
-    seg = env(seg, .25, .5)
-    e = min(N, o + len(seg)); bed[o:e] += seg[:e - o]
-for i in range(int(30 / (beat / 2))):
-    o = int(i * beat / 2 * SR); m = [chords[(i // 8) % 4][k % 3] + 12 for k in (0, 1, 2, 1)][i % 4]
-    n = sine(note(m), .35) * decay(.35, 9) * .035
-    e = min(N, o + len(n)); bed[o:e] += n[:e - o]
-tt = np.arange(N) / SR
-bed *= np.minimum(1, tt / 1.5) * np.where(tt > 26.5, np.clip((29.8 - tt) / 3.3, 0, 1), 1) * (0.7 + 0.3 * np.minimum(1, tt / 12))
-mix += bed
+# Underscore musik 120 BPM yang selaras dengan adegan (lihat scripts/music.py)
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
+from music import render_music
+mix += render_music(N, SR) * 1.0
 
 # Voice-over: public/audio/vo/<id>.wav (mono/stereo, laju sampel bebas) ditaruh di frame awal tiap baris (src/vo.json).
 # Underscore & SFX direndahkan saat narasi bicara (ducking).

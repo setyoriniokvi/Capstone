@@ -249,7 +249,10 @@ export const S5: React.FC = () => {
   const ry = (i: number) => 385 + i * 150;
   const rs = 1.45;
   const nx = rx + (224 + 80 + 144) * rs; // tepi kanan sel Nilai
-  const eq = { x: 860, y: 526, w: 450, h: 160 };
+  const eq = { x: 790, y: 520, w: 570, h: 176 };
+  const ops = ["×", "+", "÷", "−"];
+  const oi = f < 64 ? 0 : Math.floor((f - 64) / 16) % 4;
+  const opFlip = f < 64 ? 0 : ((f - 64) % 16) / 16;
   const dotPos = (i: number, t: number) => {
     const p0 = { x: nx, y: ry(i) + 50 * rs };
     const p2 = { x: eq.x, y: eq.y + eq.h / 2 };
@@ -266,9 +269,10 @@ export const S5: React.FC = () => {
     <div style={{ position: "absolute", inset: 0, overflow: "hidden", fontFamily: FONT }}>
       <Bg color={BG.s5} glow="#0F4A2D" gx={1400} gy={500} />
       <Giant f={f} text="15" x={1000} y={380} color="rgba(0,179,136,0.07)" size={760} drift={-0.5} />
-      <RiseLines f={f} at={2} x={96} y={70} size={112} lines={[{ t: "Rubrik jadi nilai.", color: C.white }]} />
-      <Cut name="rub-p0" x={96} y={250} s={0.85} radius={14} opacity={ramp(f, 8, 18, (t) => t)} ty={(1 - ramp(f, 8, 24)) * 30}>
-        <Hi r={{ x: 0, y: 0, w: 1176, h: 110 }} p={pulseRing(f, 26, 34, 44, 52)} radius={14} pad={0} w={3} />
+      <RiseLines f={f} at={2} x={96} y={60} size={112} lines={[{ t: "Rubrik jadi nilai.", color: C.white }]} />
+      <div style={{ position: "absolute", left: 100, top: 196, fontSize: 32, fontWeight: 500, color: C.accent, opacity: ramp(f, 16, 30) }}>Rumus penilaian bisa disesuaikan.</div>
+      <Cut name="rub-p0" x={96} y={262} s={0.85} clip={{ x: 0, y: 0, w: 1176, h: 70 }} radius={14} opacity={ramp(f, 8, 18, (t) => t)} ty={(1 - ramp(f, 8, 24)) * 30}>
+        <Hi r={{ x: 0, y: 0, w: 1176, h: 70 }} p={pulseRing(f, 26, 34, 44, 52)} radius={14} pad={0} w={3} />
       </Cut>
 
       {rows.map((i) => {
@@ -306,8 +310,17 @@ export const S5: React.FC = () => {
           gap: 6,
         }}
       >
-        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "0.2em", color: "#6B7280" }}>RUMUS</div>
-        <div style={{ fontSize: 31, fontWeight: 700, color: C.ink, letterSpacing: "-0.01em" }}>(Skor ÷ 5) × Bobot × Faktor</div>
+        <div style={{ position: "absolute", left: 26, top: 20, fontSize: 18, fontWeight: 700, letterSpacing: "0.18em", color: "#6B7280" }}>RUMUS PENILAIAN</div>
+        <div style={{ position: "absolute", right: 20, top: 14, padding: "6px 14px", borderRadius: 999, background: "#D9F5E8", color: C.deep, fontSize: 18, fontWeight: 700, opacity: ramp(f, 52, 62), transform: `scale(${pop(f, 52, 14)})` }}>Dapat disesuaikan</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 36 }}>
+          {["Skor", "Bobot", "Faktor"].map((t, i) => (
+            <React.Fragment key={t}>
+              <div style={{ padding: "8px 14px", borderRadius: 12, background: "#ECF8F1", border: "1.5px solid #BFE6D0", fontSize: 24, fontWeight: 700, color: C.ink, transform: `scale(${pop(f, 44 + i * 5, 14)})`, opacity: clamp01(pop(f, 44 + i * 5, 14) * 2) }}>{t}</div>
+              <div style={{ width: 24, textAlign: "center", fontSize: 28, fontWeight: 800, color: C.brand, opacity: ramp(f, 48 + i * 5, 58 + i * 5), transform: `scaleY(${Math.abs(Math.cos(opFlip * Math.PI * (f < 64 ? 0 : 1)))})` }}>{ops[(oi + i) % 4]}</div>
+            </React.Fragment>
+          ))}
+          <div style={{ padding: "8px 14px", borderRadius: 12, border: `2px dashed ${C.accent}`, fontSize: 22, fontWeight: 700, color: C.deep, whiteSpace: "nowrap", transform: `scale(${pop(f, 62, 14)})`, opacity: clamp01(pop(f, 62, 14) * 2) }}>+ variabel</div>
+        </div>
       </div>
 
       {rows.map((i) => {
@@ -321,14 +334,14 @@ export const S5: React.FC = () => {
       })}
 
       {/* panah ke hasil */}
-      <div style={{ position: "absolute", left: eq.x + eq.w, top: eq.y + eq.h / 2 - 3, width: 64 * ramp(f, 52, 66), height: 6, background: C.accent, borderRadius: 3, boxShadow: `0 0 16px ${C.accent}` }} />
+      <div style={{ position: "absolute", left: eq.x + eq.w, top: eq.y + eq.h / 2 - 3, width: 90 * ramp(f, 52, 66), height: 6, background: C.accent, borderRadius: 3, boxShadow: `0 0 16px ${C.accent}` }} />
 
       <div
         style={{
           position: "absolute",
-          left: 1384,
+          left: 1430,
           top: 406,
-          width: 450,
+          width: 420,
           height: 400,
           borderRadius: 32,
           background: C.white,
@@ -340,7 +353,7 @@ export const S5: React.FC = () => {
         }}
       >
         <div style={{ fontSize: 28, fontWeight: 600, color: "#6B7280" }}>Nilai akhir</div>
-        <div style={{ fontSize: 140, fontWeight: 800, letterSpacing: "-0.05em", color: C.brand, lineHeight: 1.05, marginTop: 14, fontVariantNumeric: "tabular-nums" }}>{total}</div>
+        <div style={{ fontSize: 124, fontWeight: 800, letterSpacing: "-0.05em", color: C.brand, lineHeight: 1.05, marginTop: 14, fontVariantNumeric: "tabular-nums" }}>{total}</div>
         <div style={{ fontSize: 26, fontWeight: 500, color: "#6B7280", marginTop: 4 }}>dari 100 poin</div>
         <div style={{ marginTop: 28, height: 14, borderRadius: 7, background: "#E5E7EB", overflow: "hidden" }}>
           <div style={{ width: `${94.6 * count}%`, height: "100%", background: `linear-gradient(90deg, ${C.brand}, ${C.accent})` }} />
@@ -550,28 +563,55 @@ export const S7: React.FC = () => {
 /* ===================================================================== S8 */
 
 const TEAM = [
-  { name: "Rizky", img: "team/rizky.jpg", dx: -420, rot: -8 },
-  { name: "Via", img: "team/via.jpg", dx: 0, rot: 0 },
-  { name: "Jay", img: "team/jay.jpg", dx: 420, rot: 8 },
+  { name: "Rizky", img: "team/rizky_cut.png", w: 570, h: 892, cx: 548, top: 526, hh: 560, disc: C.brand, dd: 350, dy: 120, at: 74, rot: -3 },
+  { name: "Via", img: "team/via_cut.png", w: 798, h: 1264, cx: 960, top: 436, hh: 650, disc: C.accent, dd: 400, dy: 135, at: 64, rot: 0 },
+  { name: "Jay", img: "team/jay_cut.png", w: 757, h: 1201, cx: 1372, top: 500, hh: 590, disc: "#CFF3E2", dd: 360, dy: 122, at: 84, rot: 3 },
 ];
+
+const SPARKS = Array.from({ length: 14 }, (_, i) => ({
+  x: 140 + ((i * 397) % 1640),
+  y: 330 + ((i * 211) % 640),
+  d: 10 + ((i * 7) % 16),
+  ph: i * 1.7,
+  plus: i % 3 === 0,
+}));
 
 export const S8: React.FC = () => {
   const f = useCurrentFrame();
   const t1 = ramp(f, 4, 24);
   const t2 = ramp(f, 14, 34);
   const t3 = ramp(f, 24, 44);
-  const k = ramp(f, 56, 84, EASE_IO);
+  const k = ramp(f, 52, 78, EASE_IO);
   const mix = (a: number, b: number) => lerp(a, b, k);
-  const c1 = ramp(f, 70, 90);
+  const c1 = ramp(f, 62, 80);
   const name = "Du Bist Gut Genug";
+  const sway = (ph: number, a = 6) => Math.sin(f / 18 + ph) * a;
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden", fontFamily: FONT, textAlign: "center" }}>
-      <Bg color={BG.s8} glow={C.stageLift} gx={960} gy={500} />
-      <div style={{ position: "absolute", top: mix(250, 52), width: "100%", fontSize: mix(168, 112), fontWeight: 800, letterSpacing: "-0.045em", lineHeight: 1.1, color: C.white, opacity: t1, transform: `translateY(${(1 - t1) * 34}px)` }}>Capstone</div>
-      <div style={{ position: "absolute", top: mix(470, 190), width: "100%", fontSize: mix(34, 28), fontWeight: 500, color: C.softWhite, opacity: t2, transform: `translateY(${(1 - t2) * 20}px)` }}>
+      <Bg color={BG.s8} glow={C.stageLift} gx={960} gy={620} />
+
+      {/* teks raksasa kontur di belakang para figur (kedalaman) */}
+      <div style={{ position: "absolute", left: 0, right: 0, top: 330, opacity: ramp(f, 58, 90) * 0.9, transform: `translateX(${(f - 60) * -0.35}px)`, fontSize: 300, lineHeight: 0.92, fontWeight: 800, letterSpacing: "-0.05em", color: "transparent", WebkitTextStroke: "2px rgba(255,255,255,0.16)", whiteSpace: "nowrap" }}>
+        <div>DU BIST</div>
+        <div style={{ transform: "translateX(120px)" }}>GUT GENUG</div>
+      </div>
+
+      {/* percikan dekoratif */}
+      {SPARKS.map((sp, i) => {
+        const a = ramp(f, 70 + i * 2, 90 + i * 2) * (0.35 + 0.35 * Math.sin(f / 10 + sp.ph));
+        return sp.plus ? (
+          <div key={i} style={{ position: "absolute", left: sp.x, top: sp.y + Math.sin(f / 22 + sp.ph) * 14, width: sp.d * 1.6, height: sp.d * 1.6, opacity: a, color: C.accent, fontSize: sp.d * 2, fontWeight: 800, lineHeight: 1 }}>+</div>
+        ) : (
+          <div key={i} style={{ position: "absolute", left: sp.x, top: sp.y + Math.sin(f / 22 + sp.ph) * 14, width: sp.d, height: sp.d, borderRadius: "50%", background: i % 2 ? C.accent : C.white, opacity: a }} />
+        );
+      })}
+
+      {/* kunci merek */}
+      <div style={{ position: "absolute", top: mix(250, 30), width: "100%", fontSize: mix(168, 84), fontWeight: 800, letterSpacing: "-0.045em", lineHeight: 1.1, color: C.white, opacity: t1, transform: `translateY(${(1 - t1) * 34}px)` }}>Capstone</div>
+      <div style={{ position: "absolute", top: mix(470, 190), width: "100%", fontSize: 34, fontWeight: 500, color: C.softWhite, opacity: t2 * (1 - k), transform: `translateY(${(1 - t2) * 20}px)` }}>
         Capstone Design &amp; Project · Fakultas Rekayasa Industri
       </div>
-      <div style={{ position: "absolute", top: mix(560, 250), left: 0, right: 0, display: "flex", justifyContent: "center", opacity: t2, transform: `translateY(${(1 - t2) * 20}px) scale(${mix(1, 0.72)})` }}>
+      <div style={{ position: "absolute", top: mix(560, 128), left: 0, right: 0, display: "flex", justifyContent: "center", opacity: t2, transform: `translateY(${(1 - t2) * 20}px) scale(${mix(1, 0.5)})`, transformOrigin: "50% 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 36, background: C.white, padding: "22px 40px", borderRadius: 20, boxShadow: "0 24px 70px rgba(0,0,0,0.4)" }}>
           <Img src={staticFile("brand/telu-horizontal.png")} style={{ height: 64 }} />
           <div style={{ width: 2, height: 56, background: "#D8DDD9" }} />
@@ -580,31 +620,84 @@ export const S8: React.FC = () => {
       </div>
       <div style={{ position: "absolute", top: 740, width: "100%", fontSize: 46, fontWeight: 700, letterSpacing: "-0.01em", color: C.accent, opacity: t3 * (1 - k), transform: `translateY(${(1 - t3) * 20}px)` }}>16 minggu. Satu alur.</div>
 
-      <div style={{ position: "absolute", top: 380, width: "100%", fontSize: 24, fontWeight: 600, letterSpacing: "0.34em", color: C.faintWhite, opacity: c1 }}>CREATED BY</div>
-      <div style={{ position: "absolute", top: 420, width: "100%", fontSize: 88, fontWeight: 800, letterSpacing: "-0.035em", color: C.white }}>
+      {/* judul kredit */}
+      <div style={{ position: "absolute", top: 236, width: "100%", fontSize: 22, fontWeight: 600, letterSpacing: "0.36em", color: C.faintWhite, opacity: c1 }}>CREATED BY</div>
+      <div style={{ position: "absolute", top: 268, width: "100%", fontSize: 104, fontWeight: 800, letterSpacing: "-0.04em", color: C.white, lineHeight: 1.05 }}>
         {name.split("").map((ch, i) => {
-          const p = ramp(f, 76 + i * 1.6, 76 + i * 1.6 + 14);
+          const p = ramp(f, 66 + i * 1.5, 66 + i * 1.5 + 14);
           return (
-            <span key={i} style={{ display: "inline-block", whiteSpace: "pre", transform: `translateY(${(1 - p) * 60}px)`, opacity: clamp01(p * 2) }}>
+            <span key={i} style={{ display: "inline-block", whiteSpace: "pre", transform: `translateY(${(1 - p) * 70}px)`, opacity: clamp01(p * 2) }}>
               {ch}
             </span>
           );
         })}
       </div>
-      <div style={{ position: "absolute", top: 580, left: 0, right: 0, height: 300 }}>
-        {TEAM.map((p, i) => {
-          const a = pop(f, 94 + i * 7, 20);
-          const glow = 0.5 + 0.5 * Math.sin(f / 9 + i * 2);
-          return (
-            <div key={p.name} style={{ position: "absolute", left: 960 - 115 + p.dx * 0.78, top: 0, width: 230, textAlign: "center", opacity: clamp01(a * 2), transform: `translateY(${(1 - clamp01(a)) * 120}px) rotate(${p.rot * (1 - clamp01(a)) * 2}deg) scale(${0.6 + 0.4 * a})` }}>
-              <div style={{ width: 210, height: 210, margin: "0 auto", borderRadius: "50%", overflow: "hidden", border: `5px solid ${C.white}`, boxShadow: `0 0 0 ${6 + glow * 5}px rgba(0,179,136,${0.4 + glow * 0.2}), 0 24px 60px rgba(0,0,0,0.45)`, background: C.paper }}>
-                <Img src={staticFile(p.img)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              </div>
-              <div style={{ marginTop: 20, fontSize: 38, fontWeight: 700, color: C.white, letterSpacing: "-0.01em" }}>{p.name}</div>
+
+      {/* tim: potongan foto tanpa latar di atas cakram warna */}
+      {TEAM.map((p, i) => {
+        const dIn = pop(f, p.at - 8, 18);
+        const fIn = pop(f, p.at, 24);
+        const w = (p.hh * p.w) / p.h;
+        const bob = sway(i * 2);
+        return (
+          <React.Fragment key={p.name}>
+            <div
+              style={{
+                position: "absolute",
+                left: p.cx - p.dd / 2,
+                top: p.top + p.dy - p.dd / 2 + bob * 0.5,
+                width: p.dd,
+                height: p.dd,
+                borderRadius: "50%",
+                background: p.disc,
+                transform: `scale(${clamp01(dIn) * (1 + Math.sin(f / 14 + i) * 0.02)})`,
+                boxShadow: `0 0 0 10px ${p.disc}33, 0 30px 80px rgba(0,0,0,0.35)`,
+                opacity: clamp01(dIn * 2),
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: p.cx - p.dd / 2 - 26,
+                top: p.top + p.dy - p.dd / 2 - 26 + bob * 0.5,
+                width: p.dd + 52,
+                height: p.dd + 52,
+                borderRadius: "50%",
+                border: "2px dashed rgba(255,255,255,0.35)",
+                transform: `rotate(${f * (i % 2 ? -0.6 : 0.6)}deg) scale(${clamp01(dIn)})`,
+                opacity: clamp01(dIn * 2) * 0.8,
+              }}
+            />
+            <Img
+              src={staticFile(p.img)}
+              style={{
+                position: "absolute",
+                left: p.cx - w / 2,
+                top: p.top,
+                width: w,
+                height: p.hh,
+                transform: `translateY(${(1 - clamp01(fIn)) * 760 + bob}px) rotate(${p.rot * (1 - clamp01(fIn) * 0.5)}deg) scale(${0.9 + 0.1 * fIn})`,
+                transformOrigin: "50% 100%",
+                opacity: clamp01(fIn * 3),
+                filter: "drop-shadow(0 20px 36px rgba(0,0,0,0.45))",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: p.cx - 110,
+                top: 958,
+                width: 220,
+                textAlign: "center",
+                transform: `translateY(${(1 - clamp01(pop(f, p.at + 18, 16))) * 60}px) scale(${pop(f, p.at + 18, 16)})`,
+                opacity: clamp01(pop(f, p.at + 18, 16) * 2),
+              }}
+            >
+              <span style={{ display: "inline-block", padding: "10px 30px", borderRadius: 999, background: C.white, color: C.ink, fontSize: 36, fontWeight: 800, letterSpacing: "-0.01em", boxShadow: "0 14px 34px rgba(0,0,0,0.35)" }}>{p.name}</span>
             </div>
-          );
-        })}
-      </div>
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 };

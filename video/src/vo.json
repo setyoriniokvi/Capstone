@@ -9,49 +9,49 @@
     },
     {
       "id": "02-admin",
-      "f": 92,
+      "f": 98,
       "max": 118,
       "text": "Syarat dicek otomatis, keputusan akhir... tetap di tangan admin."
     },
     {
       "id": "03-mhs",
-      "f": 232,
+      "f": 233,
       "max": 80,
       "text": "Mahasiswa bisa lihat semuanya, dalam satu layar."
     },
     {
       "id": "04-bimbingan",
-      "f": 332,
+      "f": 327,
       "max": 105,
       "text": "Bimbingan disetujui dosen, progres tim langsung naik. Bahkan di HP."
     },
     {
       "id": "05-rubrik",
-      "f": 448,
-      "max": 100,
-      "text": "Nilai? Dihitung otomatis dari rubrik. Dosen tinggal mengisi, selesai."
+      "f": 443,
+      "max": 108,
+      "text": "Nilai? Dihitung otomatis dari rubrik, rumusnya bisa disesuaikan."
     },
     {
       "id": "06-email",
-      "f": 566,
+      "f": 561,
       "max": 105,
       "text": "Ada dosen yang telat menilai? Tenang... pengingatnya terkirim otomatis lewat email."
     },
     {
       "id": "07-rekap",
-      "f": 686,
+      "f": 681,
       "max": 66,
       "text": "Nilai akhir terekap, siap diekspor ke iGadis."
     },
     {
       "id": "08-outro",
-      "f": 762,
+      "f": 757,
       "max": 70,
       "text": "Capstone. Enam belas minggu, satu alur."
     },
     {
       "id": "09-kredit",
-      "f": 836,
+      "f": 831,
       "max": 62,
       "text": "Dibuat oleh Du Bist Gut Genug."
     }

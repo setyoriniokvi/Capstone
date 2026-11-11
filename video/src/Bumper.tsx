@@ -58,7 +58,7 @@ const NX = (w: number) => DOCK.x + 262 + (w - 1) * 50;
 
 const Dock: React.FC = () => {
   const f = useCurrentFrame();
-  const inP = ramp(f, 56, 76, BACK);
+  const inP = ramp(f, 56, 76, BACK) * (1 - ramp(f, S.s8[0] + 48, S.s8[0] + 62, (t) => t));
   const w = ribbonW(f);
   const wi = Math.round(w);
   const cx = NX(w);

@@ -3,189 +3,101 @@ import { AbsoluteFill, Img, Sequence, cancelRender, continueRender, delayRender,
 import { Audio } from "@remotion/media";
 import timeline from "./timeline.json";
 import { fontsReady } from "./fonts";
-import { C, EASE_IO, FONT, tween } from "./theme";
-import { Admin, Bimbingan, Email, Hook, Outro, Rekap, Rubrik, Student } from "./scenes";
+import { C, EASE_IO, FONT } from "./theme";
+import { BG, S1, S2, S3, S4, S5, S6, S7, S8, WIPE } from "./story";
+import { BACK, clamp01, ramp } from "./kit";
 
 const S = timeline.scenes;
 const len = (k: keyof typeof S) => S[k][1] - S[k][0];
 
-const NODE_Y = 1000;
-const nodeX = (w: number) => 150 + (w - 1) * 108;
-const ribbonW = (f: number) => {
-  const k = timeline.ribbon;
-  return interpolate(f, k.map((x) => x.f), k.map((x) => x.w), {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE_IO,
-  });
+/* ----------------------------------------------------------- gelombang */
+
+/** Lingkaran berwarna latar adegan berikutnya yang membesar dari titik klik, lalu adegan berganti. */
+const WIPES: { end: number; x: number; y: number; color: string }[] = [
+  { end: S.s2[0], ...WIPE.w1, color: BG.s2 },
+  { end: S.s3[0], ...WIPE.w2, color: BG.s3 },
+  { end: S.s4[0], ...WIPE.w3, color: BG.s4 },
+  { end: S.s5[0], ...WIPE.w4, color: BG.s5 },
+  { end: S.s6[0], ...WIPE.w5, color: BG.s6 },
+  { end: S.s7[0], ...WIPE.w6, color: BG.s7 },
+  { end: S.s8[0], ...WIPE.w7, color: BG.s8 },
+];
+const WIPE_LEN = 14;
+
+const Wipes: React.FC = () => {
+  const f = useCurrentFrame();
+  return (
+    <>
+      {WIPES.map((w, i) => {
+        const a = w.end - WIPE_LEN;
+        if (f < a || f >= w.end) return null;
+        const t = ramp(f, a, w.end, (x) => x * x * (3 - 2 * x));
+        const r = 2300 * t;
+        return <div key={i} style={{ position: "absolute", left: w.x - r, top: w.y - r, width: r * 2, height: r * 2, borderRadius: "50%", background: w.color }} />;
+      })}
+    </>
+  );
 };
 
+/* ---------------------------------------------------------------- dock */
+
+const ribbonW = (f: number) => {
+  const k = timeline.ribbon;
+  return interpolate(f, k.map((x) => x.f), k.map((x) => x.w), { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: EASE_IO });
+};
 const ROLES: [number, number, string][] = [
-  [S.admin[0], S.admin[1], "Admin"],
-  [S.mhs[0], S.mhs[1], "Mahasiswa"],
-  [S.bimbingan[0], S.rubrik[1], "Dosen"],
-  [S.email[0], S.email[1], "Admin → Dosen"],
-  [S.rekap[0], S.rekap[1], "Admin"],
+  [S.s2[0], S.s2[1], "Admin"],
+  [S.s3[0], S.s3[1], "Mahasiswa"],
+  [S.s4[0], S.s5[1], "Dosen"],
+  [S.s6[0], S.s6[1], "Admin → Dosen"],
+  [S.s7[0], S.s7[1], "Admin"],
 ];
 
-const Stage: React.FC = () => {
+const DOCK = { x: 320, y: 972, w: 1280, h: 72 };
+const NX = (w: number) => DOCK.x + 262 + (w - 1) * 50;
+
+const Dock: React.FC = () => {
   const f = useCurrentFrame();
-  const drift = Math.sin(f / 90) * 40;
+  const inP = ramp(f, 56, 76, BACK);
+  const w = ribbonW(f);
+  const wi = Math.round(w);
+  const cx = NX(w);
+  const role = ROLES.find((r) => f >= r[0] && f < r[1]);
+  const rp = role ? ramp(f, role[0] + 4, role[0] + 18) * (1 - ramp(f, role[1] - 6, role[1], (t) => t)) : 0;
+  if (inP <= 0.001) return null;
   return (
-    <AbsoluteFill style={{ background: C.stage }}>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `radial-gradient(900px 700px at ${1350 + drift}px 420px, ${C.stageLift} 0%, rgba(7,64,42,0) 70%), radial-gradient(800px 600px at ${300 - drift}px 900px, rgba(0,132,61,0.25) 0%, rgba(0,132,61,0) 70%)`,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%)",
-        }}
-      />
-    </AbsoluteFill>
+    <div style={{ position: "absolute", left: DOCK.x, top: DOCK.y, width: DOCK.w, height: DOCK.h, transform: `translateY(${(1 - clamp01(inP)) * 120}px)`, opacity: clamp01(inP * 2), fontFamily: FONT, zIndex: 60 }}>
+      <div style={{ position: "absolute", inset: 0, borderRadius: 36, background: "rgba(4,22,15,0.94)", border: "1.5px solid rgba(255,255,255,0.14)", boxShadow: "0 24px 60px rgba(0,0,0,0.4)" }} />
+      <div style={{ position: "absolute", left: 34, top: 0, height: DOCK.h, display: "flex", alignItems: "baseline", gap: 12, paddingTop: 16 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.22em", color: C.faintWhite }}>MINGGU</span>
+        <span style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.03em", color: C.white, fontVariantNumeric: "tabular-nums" }}>{String(wi).padStart(2, "0")}</span>
+      </div>
+      <div style={{ position: "absolute", left: 262, top: DOCK.h / 2 - 2, width: 750, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.18)" }} />
+      <div style={{ position: "absolute", left: 262, top: DOCK.h / 2 - 2, width: cx - NX(1), height: 4, borderRadius: 2, background: C.accent }} />
+      {Array.from({ length: 16 }, (_, i) => {
+        const x = 262 + i * 50;
+        const done = DOCK.x + x < cx - 1;
+        if (Math.abs(DOCK.x + x - cx) < 1) return null;
+        return <div key={i} style={{ position: "absolute", left: x - 7, top: DOCK.h / 2 - 7, width: 14, height: 14, borderRadius: "50%", boxSizing: "border-box", background: done ? C.accent : "#0A241A", border: `2.5px solid ${done ? C.accent : "rgba(255,255,255,0.35)"}` }} />;
+      })}
+      <div style={{ position: "absolute", left: cx - DOCK.x - 22, top: DOCK.h / 2 - 22, width: 44, height: 44, borderRadius: "50%", background: C.white, boxShadow: `0 0 0 4px ${C.accent}, 0 0 24px rgba(0,179,136,0.7)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Img src={staticFile("brand/telu-mark.png")} style={{ height: 27 }} />
+      </div>
+      <div style={{ position: "absolute", right: 30, top: 0, height: DOCK.h, display: "flex", alignItems: "center", fontSize: 21, fontWeight: 700, color: C.white, opacity: rp, transform: `translateY(${(1 - rp) * 8}px)` }}>{role ? role[2] : ""}</div>
+    </div>
   );
 };
 
 const Grain: React.FC = () => {
   const f = useCurrentFrame();
   const seed = Math.floor(f / 2);
-  const dots = Array.from({ length: 70 }, (_, i) => ({
-    x: random(`x${seed}${i}`) * 1920,
-    y: random(`y${seed}${i}`) * 1080,
-  }));
+  const dots = Array.from({ length: 60 }, (_, i) => ({ x: random(`x${seed}${i}`) * 1920, y: random(`y${seed}${i}`) * 1080 }));
   return (
-    <svg width={1920} height={1080} style={{ position: "absolute", inset: 0, opacity: 0.05 }}>
+    <svg width={1920} height={1080} style={{ position: "absolute", inset: 0, opacity: 0.05, mixBlendMode: "multiply" }}>
       {dots.map((d, i) => (
-        <circle key={i} cx={d.x} cy={d.y} r={1.2} fill="#fff" />
+        <circle key={i} cx={d.x} cy={d.y} r={1.2} fill="#000" />
       ))}
     </svg>
-  );
-};
-
-const Hud: React.FC = () => {
-  const f = useCurrentFrame();
-  const w = Math.round(ribbonW(f));
-  const role = ROLES.find((r) => f >= r[0] && f < r[1]);
-  const a = tween(f, 112, 130, 0, 1) * tween(f, 760, 770, 1, 0, (t) => t);
-  const rp = role ? tween(f, role[0] + 2, role[0] + 16, 0, 1) * tween(f, role[1] - 8, role[1], 1, 0, (t) => t) : 0;
-  return (
-    <div style={{ position: "absolute", left: 96, top: 84, fontFamily: FONT, opacity: a }}>
-      <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "0.22em", color: C.faintWhite }}>MINGGU</div>
-      <div style={{ fontSize: 76, fontWeight: 700, letterSpacing: "-0.03em", color: C.white, lineHeight: 1 }}>
-        {String(w).padStart(2, "0")}
-        <span style={{ fontSize: 30, fontWeight: 500, color: C.faintWhite, marginLeft: 10 }}>/ 16</span>
-      </div>
-      <div
-        style={{
-          marginTop: 16,
-          display: "inline-block",
-          padding: "8px 18px",
-          borderRadius: 999,
-          fontSize: 22,
-          fontWeight: 600,
-          color: C.white,
-          background: "rgba(0,179,136,0.22)",
-          border: "1.5px solid rgba(0,179,136,0.7)",
-          opacity: rp,
-        }}
-      >
-        {role ? role[2] : ""}
-      </div>
-    </div>
-  );
-};
-
-const Mark: React.FC<{ d: number }> = ({ d }) => (
-  <div
-    style={{
-      width: d,
-      height: d,
-      borderRadius: "50%",
-      background: C.white,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      boxSizing: "border-box",
-    }}
-  >
-    <Img src={staticFile("brand/telu-mark.png")} style={{ height: d * 0.6 }} />
-  </div>
-);
-
-const Ribbon: React.FC = () => {
-  const f = useCurrentFrame();
-  const appear = tween(f, 108, 126, 0, 1);
-  const out = tween(f, 868, 884, 0, 1, (t) => t);
-  const w = ribbonW(f);
-  const cx = nodeX(w);
-  const complete = tween(f, 645, 675, 0, 1);
-  if (appear <= 0) return null;
-  return (
-    <div style={{ position: "absolute", inset: 0, opacity: appear * (1 - out * 0.0) }}>
-      <div style={{ position: "absolute", left: 150, top: NODE_Y - 1.5, width: 1620, height: 3, background: "rgba(255,255,255,0.16)" }} />
-      <div style={{ position: "absolute", left: 150, top: NODE_Y - 2, width: cx - 150, height: 4, background: C.accent, borderRadius: 2 }} />
-      {Array.from({ length: 16 }, (_, i) => {
-        const x = nodeX(i + 1);
-        const done = x < cx - 1;
-        const isCur = Math.abs(x - cx) < 1;
-        if (isCur) return null;
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: x - 8,
-              top: NODE_Y - 8,
-              width: 16,
-              height: 16,
-              borderRadius: "50%",
-              background: done ? C.accent : C.stage,
-              border: `2.5px solid ${done ? C.accent : "rgba(255,255,255,0.35)"}`,
-              boxSizing: "border-box",
-            }}
-          />
-        );
-      })}
-      <div style={{ position: "absolute", left: cx - 22, top: NODE_Y - 22, boxShadow: `0 0 0 5px ${C.accent}, 0 0 28px rgba(0,179,136,0.7)`, borderRadius: "50%" }}>
-        <Mark d={44} />
-      </div>
-      <div style={{ position: "absolute", left: 0, top: NODE_Y + 36, width: 1920, fontFamily: FONT, fontSize: 18, fontWeight: 500, color: C.faintWhite }}>
-        <span style={{ position: "absolute", left: 150 - 20, width: 40, textAlign: "center" }}>1</span>
-        <span style={{ position: "absolute", left: 1770 - 20, width: 40, textAlign: "center", color: C.white, opacity: 0.5 + 0.5 * complete }}>16</span>
-      </div>
-    </div>
-  );
-};
-
-/** Cakram logo: dari tengah layar ke simpul 1 pita (f96–126). */
-const HeroDisc: React.FC = () => {
-  const f = useCurrentFrame();
-  const appear = tween(f, 80, 92, 0, 1);
-  const trav = tween(f, 96, 126, 0, 1, EASE_IO);
-  if (f < 80 || f >= 127) return null;
-  const x = 960 + (nodeX(1) - 960) * trav;
-  const y = 540 + (NODE_Y - 540) * trav;
-  const d = 300 + (44 - 300) * trav;
-  const ring = 1 - trav;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: x - d / 2,
-        top: y - d / 2,
-        opacity: appear,
-        scale: String(0.7 + 0.3 * appear),
-        boxShadow: `0 0 0 ${6 * (1 - trav) + 5 * trav}px ${C.accent}, 0 0 ${50 * ring}px rgba(0,179,136,0.6)`,
-        borderRadius: "50%",
-      }}
-    >
-      <Mark d={d} />
-    </div>
   );
 };
 
@@ -195,37 +107,24 @@ export const Bumper: React.FC = () => {
     fontsReady.then(() => continueRender(handle)).catch((e) => cancelRender(e));
   }, [handle]);
 
+  const seq = (k: keyof typeof S, node: React.ReactNode) => (
+    <Sequence from={S[k][0]} durationInFrames={len(k)} premountFor={30}>
+      {node}
+    </Sequence>
+  );
   return (
     <AbsoluteFill style={{ background: C.stage, fontFamily: FONT }}>
       <Audio src={staticFile("audio/bumper.wav")} />
-      <Stage />
-      <Sequence from={S.hook[0]} durationInFrames={len("hook")} premountFor={30}>
-        <Hook />
-      </Sequence>
-      <Sequence from={S.admin[0]} durationInFrames={len("admin")} premountFor={30}>
-        <Admin d={len("admin")} />
-      </Sequence>
-      <Sequence from={S.mhs[0]} durationInFrames={len("mhs")} premountFor={30}>
-        <Student d={len("mhs")} />
-      </Sequence>
-      <Sequence from={S.bimbingan[0]} durationInFrames={len("bimbingan")} premountFor={30}>
-        <Bimbingan d={len("bimbingan")} />
-      </Sequence>
-      <Sequence from={S.rubrik[0]} durationInFrames={len("rubrik")} premountFor={30}>
-        <Rubrik d={len("rubrik")} />
-      </Sequence>
-      <Sequence from={S.email[0]} durationInFrames={len("email")} premountFor={30}>
-        <Email d={len("email")} />
-      </Sequence>
-      <Sequence from={S.rekap[0]} durationInFrames={len("rekap")} premountFor={30}>
-        <Rekap d={len("rekap")} />
-      </Sequence>
-      <Sequence from={S.outro[0]} durationInFrames={len("outro")}>
-        <Outro />
-      </Sequence>
-      <Ribbon />
-      <Hud />
-      <HeroDisc />
+      {seq("s1", <S1 />)}
+      {seq("s2", <S2 />)}
+      {seq("s3", <S3 />)}
+      {seq("s4", <S4 />)}
+      {seq("s5", <S5 />)}
+      {seq("s6", <S6 />)}
+      {seq("s7", <S7 />)}
+      {seq("s8", <S8 />)}
+      <Wipes />
+      <Dock />
       <Grain />
     </AbsoluteFill>
   );

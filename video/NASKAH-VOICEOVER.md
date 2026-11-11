@@ -6,15 +6,15 @@ Bahasa Indonesia santai (bukan gaya pembaca berita), seperti orang yang sedang c
 
 | # | Mulai | Maks. | Adegan | Naskah | Arahan ekspresi |
 |---|---|---|---|---|---|
-| 1 | 00:00.33 | 2.5 dtk | Hook · foto gedung → logo TelU | **Enam belas minggu... satu alur yang rapi.** | Tenang dan sedikit penasaran, seperti membuka cerita. Jeda ringan di "..." lalu "satu alur" sedikit ditekan. |
-| 2 | 00:03.83 | 3.7 dtk | Admin menerima tim | **Syarat dicek otomatis, keputusan akhir... tetap di tangan admin.** | Mantap, yakin. Jeda singkat sebelum "tetap di tangan admin" — nada turun, seperti meyakinkan. |
-| 3 | 00:08.27 | 2.6 dtk | Dashboard mahasiswa | **Mahasiswa bisa lihat semuanya, dalam satu layar.** | Ringan, bersahabat, agak tersenyum. "satu layar" naik sedikit. |
-| 4 | 00:11.20 | 4.0 dtk | Dosen menyetujui bimbingan + ponsel | **Bimbingan disetujui dosen, bisa dari HP. Delapan sesi, baru boleh presentasi.** | Dua napas: kalimat pertama santai, kalimat kedua lebih tegas ("baru boleh presentasi" seperti aturan main). |
-| 5 | 00:15.73 | 3.5 dtk | Rubrik jadi nilai | **Nilai? Dihitung otomatis dari rubrik. Dosen tinggal mengisi, selesai.** | "Nilai?" seperti bertanya ke penonton, lalu dijawab santai. "selesai" pendek, mantap. |
-| 6 | 00:19.73 | 3.2 dtk | Email pengingat ke dosen (ponsel) | **Dosen telat menilai? Tenang... pengingat dikirim otomatis lewat email.** | Sedikit usil/menggoda di "telat menilai?", lalu lega di "Tenang...". |
-| 7 | 00:23.13 | 2.4 dtk | Rekap nilai + ekspor iGadis | **Nilai akhir terekap, siap diekspor ke iGadis.** | Cepat dan puas, seperti pekerjaan beres. Kata "iGadis" jelas. |
-| 8 | 00:25.67 | 2.2 dtk | Penutup & lockup | **Capstone. Enam belas minggu, satu alur.** | Hangat dan percaya diri. "Capstone." berdiri sendiri, jeda, lalu sisanya mengalun turun. |
-| 9 | 00:27.93 | 2.1 dtk | Kredit tim | **Dibuat oleh Du Bist Gut Genug.** | Bangga tapi rendah hati, tersenyum di suara. Nama tim diucapkan perlahan dan jelas. |
+| 1 | 00:00.27 | 2.4 dtk | Intro · logo & judul | **Enam belas minggu... satu alur yang rapi.** | Tenang dan sedikit penasaran, seperti membuka cerita. Jeda ringan di "...", lalu "satu alur" sedikit ditekan. |
+| 2 | 00:03.07 | 3.9 dtk | Admin menerima tim | **Syarat dicek otomatis, keputusan akhir... tetap di tangan admin.** | Mantap, yakin. Jeda singkat sebelum "tetap di tangan admin", nada turun, meyakinkan. |
+| 3 | 00:07.73 | 2.7 dtk | Dashboard mahasiswa + ponsel | **Mahasiswa bisa lihat semuanya, dalam satu layar.** | Ringan, bersahabat, agak tersenyum. "satu layar" naik sedikit. |
+| 4 | 00:11.07 | 3.5 dtk | Dosen menyetujui bimbingan | **Bimbingan disetujui dosen, progres tim langsung naik. Bahkan di HP.** | Dua napas: kalimat pertama santai, "Bahkan di HP." pendek dan kagum. |
+| 5 | 00:14.93 | 3.3 dtk | Rubrik jadi nilai | **Nilai? Dihitung otomatis dari rubrik. Dosen tinggal mengisi, selesai.** | "Nilai?" seperti bertanya ke penonton, dijawab santai. "selesai" pendek, mantap. |
+| 6 | 00:18.87 | 3.5 dtk | Email pengingat ke dosen | **Ada dosen yang telat menilai? Tenang... pengingatnya terkirim otomatis lewat email.** | Sedikit usil di "telat menilai?", lalu lega di "Tenang...". |
+| 7 | 00:22.87 | 2.2 dtk | Rekap nilai + ekspor iGadis | **Nilai akhir terekap, siap diekspor ke iGadis.** | Cepat dan puas, seperti pekerjaan beres. "iGadis" jelas. |
+| 8 | 00:25.40 | 2.3 dtk | Penutup & lockup | **Capstone. Enam belas minggu, satu alur.** | Hangat dan percaya diri. "Capstone." berdiri sendiri, jeda, sisanya mengalun turun. |
+| 9 | 00:27.87 | 2.1 dtk | Kredit tim | **Dibuat oleh Du Bist Gut Genug.** | Bangga tapi rendah hati, tersenyum di suara. Nama tim diucapkan perlahan dan jelas. |
 
 ## Tips rekaman
 

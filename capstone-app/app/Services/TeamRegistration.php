@@ -37,12 +37,12 @@ class TeamRegistration
      * Mahasiswa yang dapat di-invite ketua dari menu Tim Saya: aktif, belum bertim pada periode ini, bukan ketua sendiri.
      * Akun tetap tersimpan walau timnya dihapus admin, jadi anggota lama dapat dipilih lagi.
      */
-    public function availableStudents(Period $period, User $leader): Collection
+    public function availableStudents(Period $period, ?User $leader = null): Collection
     {
-        return User::query()->students()->where('is_active', true)->whereKeyNot($leader->id)
+        return User::query()->students()->inPeriod($period, true)->when($leader, fn ($q) => $q->whereKeyNot($leader->id))
             ->whereDoesntHave('memberships', fn ($q) => $q->where('invite_status', 'diterima')
                 ->whereHas('team', fn ($t) => $t->where('period_id', $period->id)))
-            ->orderBy('name')->get(['id', 'name', 'nim', 'email', 'specialization', 'origin_region']);
+            ->orderBy('name')->get(['id', 'name', 'nim', 'class_name', 'email', 'specialization', 'origin_region']);
     }
 
     /**
@@ -68,7 +68,7 @@ class TeamRegistration
         });
     }
 
-    /** Pilihan formulir: mata kuliah prasyarat & peminatan dari aturan periode, indeks nilai dari config. */
+    /** Pilihan formulir: mata kuliah prasyarat, peminatan & kelas dari aturan periode, indeks nilai dari config. */
     public function options(?Period $period): array
     {
         $rule = $period?->registrationRule()->with('courses', 'specializations')->first();
@@ -76,6 +76,7 @@ class TeamRegistration
         return [
             'courses' => $rule?->courses ?? collect(),
             'specializations' => $rule?->specializations->pluck('name') ?? collect(),
+            'classes' => collect($rule?->classes ?? []),
             'grades' => config('capstone.course_grades'),
             'teamSize' => config('capstone.team_size'),
         ];
@@ -275,8 +276,11 @@ class TeamRegistration
             "{$path}.name" => ['required', 'string', 'max:150'],
             "{$path}.email" => ['required', 'email', 'max:150'],
             "{$path}.specialization" => ['nullable', 'string', Rule::in($options['specializations']->all())],
+            // Kelas wajib bila admin sudah mengisi daftar kelas periode ini
+            "{$path}.class_name" => $options['classes']->isEmpty() ? ['nullable', 'string', 'max:30'] : ['required', Rule::in($options['classes']->all())],
             "{$path}.sks_passed" => ['required', 'integer', 'between:0,200'],
-            "{$path}.origin_region" => ['required', 'string', 'max:100'],
+            // Dari daftar kabupaten/kota, atau diketik manual bila tidak ada di daftar
+            "{$path}.origin_region" => ['required', 'string', 'min:3', 'max:100'],
             "{$path}.khs" => ['required', 'file',
                 'mimes:'.implode(',', config('capstone.upload.attachment_mimes')), 'max:'.config('capstone.upload.attachment_max_kb')],
         ];
@@ -297,6 +301,12 @@ class TeamRegistration
             '*.nim.regex' => 'NIM hanya berisi angka.',
             '*.specialization.in' => 'Pilih peminatan dari daftar.',
             '*.khs.required' => 'Unggah KHS.',
+            '*.origin_region.min' => 'Daerah asal minimal 3 karakter.',
+            'members.*.origin_region.min' => 'Daerah asal minimal 3 karakter.',
+            '*.class_name.required' => 'Pilih kelas.',
+            'members.*.class_name.required' => 'Pilih kelas.',
+            '*.class_name.in' => 'Pilih kelas dari daftar.',
+            'members.*.class_name.in' => 'Pilih kelas dari daftar.',
             '*.grades.*.required' => 'Pilih indeks nilai.',
             'leader.password.confirmed' => 'Konfirmasi password tidak sama.',
         ];
@@ -379,6 +389,9 @@ class TeamRegistration
             'sks_passed' => (int) $d['sks_passed'],
             'origin_region' => trim($d['origin_region']),
         ]);
+        if (filled($d['class_name'] ?? null)) {
+            $user->class_name = $d['class_name'];
+        }
         // Peminatan kosong tidak menimpa peminatan yang sudah diisi admin untuk NIM ini.
         if (filled($d['specialization'] ?? null)) {
             $user->specialization = $d['specialization'];

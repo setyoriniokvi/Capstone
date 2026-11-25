@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DocumentVersion extends Model
 {
+    /** Disk penyimpanan salinan lokal revisi (tempat transit sebelum tersinkron ke Google Drive). */
+    public const DISK = 'local';
+
     protected $fillable = [
         'document_id', 'revision_no', 'original_name', 'stored_name', 'mime', 'size', 'local_path', 'checksum',
         'idempotency_key', 'sync_action', 'sync_status', 'sync_attempts', 'sync_error', 'synced_at', 'uploaded_by',

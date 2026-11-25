@@ -9,6 +9,15 @@ class TeamMember extends Model
 {
     protected $fillable = ['team_id', 'user_id', 'is_leader', 'account_created', 'invite_status', 'khs_path', 'domicile_path', 'responded_at'];
 
+    /** Anggota tim otomatis terdaftar di periode tim (daftar Mahasiswa Dashboard Periode). */
+    protected static function booted(): void
+    {
+        static::created(function (self $member) {
+            $period = Team::query()->whereKey($member->team_id)->value('period_id');
+            User::query()->find($member->user_id)?->joinPeriod($period);
+        });
+    }
+
     protected function casts(): array
     {
         return [

@@ -1,9 +1,12 @@
 {{-- Dashboard awal admin (tanpa sidebar): kelola periode, lalu buka "Dashboard Periode" untuk mengelola isinya.
-     Periode aktif = periode yang dipakai mahasiswa & dosen; membuka dashboard periode tidak mengubahnya. --}}
+     Periode aktif = periode yang dipakai mahasiswa & dosen; beberapa periode boleh aktif bersamaan (prodi paralel).
+     Membuka dashboard periode tidak mengubahnya. --}}
 <x-layouts.app title="Kelola Periode">
-    <x-page-head title="Kelola Periode" lede="Atur periode, timeline, dan aturan registrasinya di sini. Buka dashboard periode untuk mengelola tim, topik, penilaian, dan data lain pada periode tersebut.">
+    <x-page-head title="Kelola Periode">
         <x-slot:actions><a href="{{ route('admin.periods.create') }}" class="btn btn-primary"><x-heroicon-o-plus class="h-5 w-5" />Periode baru</a></x-slot:actions>
     </x-page-head>
+
+    @error('period')<p class="mb-4 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
     @if ($periods->isEmpty())
         <div class="panel"><x-empty title="Belum ada periode" icon="calendar-days">Buat periode pertama untuk memulai siklus Capstone.</x-empty></div>
@@ -34,15 +37,16 @@
                             </form>
                             <a href="{{ route('admin.periods.edit', $period) }}" class="btn btn-secondary w-full"><x-heroicon-o-cog-6-tooth class="h-5 w-5" /> Ubah Pengaturan Periode</a>
                             <div class="grid grid-cols-2 gap-2">
-                                <form method="POST" action="{{ route('admin.periods.activate', $period) }}" data-confirm="Aktifkan {{ $period->name }} untuk mahasiswa dan dosen? Periode aktif lain akan dinonaktifkan." data-confirm-label="Aktifkan" data-confirm-tone="positive">
+                                <form method="POST" action="{{ route('admin.periods.activate', $period) }}" data-confirm="Aktifkan {{ $period->name }} untuk mahasiswa dan dosen? Periode aktif lain tetap berjalan." data-confirm-label="Aktifkan" data-confirm-tone="positive">
                                     @csrf
                                     <button class="btn btn-secondary btn-sm w-full text-ok-ink disabled:cursor-not-allowed disabled:opacity-50" @disabled($period->is_active) @if ($period->is_active) title="Periode ini sudah aktif" @endif>Aktifkan Periode</button>
                                 </form>
-                                <form method="POST" action="{{ route('admin.periods.deactivate', $period) }}" data-confirm="Nonaktifkan {{ $period->name }}? Mahasiswa dan dosen tidak memiliki periode aktif sampai periode lain diaktifkan." data-confirm-label="Nonaktifkan">
+                                <form method="POST" action="{{ route('admin.periods.deactivate', $period) }}" data-confirm="Nonaktifkan {{ $period->name }}? Mahasiswa dan dosen periode ini tidak dapat lagi bekerja di periode tersebut." data-confirm-label="Nonaktifkan">
                                     @csrf
                                     <button class="btn btn-secondary btn-sm w-full text-bad-ink disabled:cursor-not-allowed disabled:opacity-50" @disabled(! $period->is_active) @unless ($period->is_active) title="Periode ini tidak aktif" @endunless>Nonaktifkan Periode</button>
                                 </form>
                             </div>
+                            @include('admin.periods._delete', ['period' => $period, 'teamCount' => $teamCounts[$period->id] ?? 0])
                         </div>
                     </div>
                 </article>

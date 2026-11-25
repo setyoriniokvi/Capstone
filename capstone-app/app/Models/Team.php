@@ -126,6 +126,12 @@ class Team extends Model
         return $this->hasMany(Assessment::class);
     }
 
+    /** Penyesuaian Nilai dosen pembimbing per anggota (nilai akhir spesifik). */
+    public function scoreAdjustments(): HasMany
+    {
+        return $this->hasMany(ScoreAdjustment::class);
+    }
+
     public function peerReviews(): HasMany
     {
         return $this->hasMany(PeerReview::class);

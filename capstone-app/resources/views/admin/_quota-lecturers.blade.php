@@ -1,17 +1,20 @@
 {{-- Kartu daftar dosen di Kuota Dosen (Alpine "peekTable"): cari kode/nama + filter peminatan, area gulir setinggi
      10,5 baris (baris ke-11 terlihat setengah) dengan tombol bulat panah ke bawah bila lebih dari 10 dosen.
-     Kolom: Kode, Nama, Kontak, Peminatan, Status dosen (Pembimbing/Penguji), Kuota yang berlaku sebagai pembimbing & penguji
+     Kolom: Kode, Nama, Kontak, Peminatan, Status dosen (Dosen Kelas/Pembimbing/Penguji), Kuota yang berlaku sebagai pembimbing & penguji
      (minimum · maksimum), lalu Edit (aturan kuota per dosen) dan Reset (kuota per dosen menjadi 0).
      Butuh $rows, $specializations, $greenHead, $cells. --}}
 @php $phone = fn (?string $p) => $p ? preg_replace('/^(\d{4})(\d{4})(\d+)$/', '$1-$2-$3', $p) : null; @endphp
-<section x-data="peekTable" class="panel mt-6 overflow-hidden" aria-labelledby="dosen-kuota-judul">
+<section x-data="peekTable" data-sort-scope class="panel mt-6 overflow-hidden" aria-labelledby="dosen-kuota-judul">
     <div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
         <h2 id="dosen-kuota-judul" class="shrink-0 text-lg font-semibold text-ink">Kuota per dosen</h2>
         <div class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:justify-end">
-            <div class="relative min-w-0 sm:w-80">
-                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-                <label for="cari-dosen-kuota" class="sr-only">Cari kode atau nama dosen</label>
-                <input id="cari-dosen-kuota" type="search" class="input pl-9" placeholder="Cari kode atau nama dosen" @input="search">
+            <div class="flex gap-2 sm:w-[26rem]">
+                <div class="relative min-w-0 flex-1">
+                    <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                    <label for="cari-dosen-kuota" class="sr-only">Cari kode atau nama dosen</label>
+                    <input id="cari-dosen-kuota" type="search" class="input pl-9" placeholder="Cari kode atau nama dosen" @input="search">
+                </div>
+                <x-sort-by id="urut-kuota-dosen" default="kode" :options="['kode' => 'Kode', 'nama' => 'Nama', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Peminatan)']" />
             </div>
             <label for="filter-peminatan-kuota" class="sr-only">Filter peminatan</label>
             <select id="filter-peminatan-kuota" class="input sm:w-56" @change="pick">
@@ -26,28 +29,30 @@
     @else
         <div class="relative border-t border-rule">
             <x-scroll-pager>
-            <div x-ref="scroller" class="min-w-[62rem] overflow-y-auto" @scroll="track">
+            {{-- x-ref "rows" (bukan "scroller") agar tidak menimpa penggulir samping milik x-scroll-pager --}}
+            <div x-ref="rows" class="min-w-[62rem] overflow-y-auto" @scroll="track">
                 <table class="data-table w-full {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                     <thead class="sticky top-0 z-10 {{ $greenHead }}"><tr>
                         <th>Kode</th><th>Nama</th><th>Kontak</th><th>Peminatan</th><th>Status dosen</th><th>Kuota</th><th><span class="sr-only">Aksi</span></th>
                     </tr></thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($rows as $row)
                             @php
                                 $l = $row['lecturer'];
                                 $profile = $l->lecturerProfile;
-                                $roles = array_keys(array_filter(['pembimbing' => $profile?->can_supervise, 'penguji' => $profile?->can_examine]));
+                                $roles = array_keys(array_filter(['Dosen Kelas' => $profile?->is_class_lecturer, 'Pembimbing' => $profile?->can_supervise, 'Penguji' => $profile?->can_examine]));
                                 $editing = $errors->any() && old('_quota') === 'dosen-'.$l->id;
                             @endphp
                             <tr x-data="registrationForm" data-open="{{ $editing ? 'true' : 'false' }}" class="[&>td]:py-3 [&>td]:align-top"
+                                data-sort-item data-sort-kode="{{ $profile?->lecturer_code }}" data-sort-nama="{{ $l->name }}" data-sort-terbaru="{{ $l->created_at?->timestamp }}" data-sort-kategori="{{ $profile?->specialization }}"
                                 data-search="{{ \Illuminate\Support\Str::lower(($profile?->lecturer_code ?? '').' '.$l->name) }}" data-category="{{ $profile?->specialization }}">
                                 <td class="code font-medium text-ink">{{ $profile?->lecturer_code ?? '—' }}</td>
                                 <td><p class="font-medium text-ink">{{ $l->name }}</p>@if ($profile?->nip)<p class="code text-caption text-muted">{{ $profile->nip }}</p>@endif</td>
-                                <td class="text-sm"><p class="text-ink">{{ $l->email }}</p><p class="tabular text-muted">{{ $l->phone ? 'WA '.$phone($l->phone) : '— WA belum diisi' }}</p></td>
+                                <td class="text-sm"><p class="text-ink">{{ $l->email }}</p><p class="whitespace-nowrap tabular text-muted">{{ $l->waNumber() ? $phone($l->waNumber()) : '-' }}</p></td>
                                 <td class="text-sm text-ink">{{ $profile?->specialization ?? '—' }}</td>
                                 <td>
                                     <div class="flex flex-wrap gap-1">
-                                        @forelse ($roles as $role)<span class="rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted">{{ ucfirst($role) }}</span>@empty<span class="text-sm text-muted">Dosen</span>@endforelse
+                                        @forelse ($roles as $role)<span class="rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted">{{ $role }}</span>@empty<span class="text-sm text-muted">Dosen</span>@endforelse
                                     </div>
                                 </td>
                                 <td class="text-sm">
@@ -65,10 +70,11 @@
                                     </div>
                                 </td>
                                 <td class="!align-middle">
-                                    <div class="flex justify-end gap-1">
-                                        <button type="button" class="btn btn-ghost btn-sm" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
-                                        <form method="POST" action="{{ route('admin.quotas.reset', $l) }}" data-confirm="Reset kuota {{ $l->name }}? Kuota pembimbing dan penguji menjadi 0 — dosen ini tidak menerima tim bimbingan maupun uji." data-confirm-label="Reset">
-                                            @csrf<button class="btn btn-ghost btn-sm text-bad-ink"><x-heroicon-o-arrow-path class="h-4 w-4" /> Reset</button>
+                                    {{-- Edit (bergaris) di atas Reset (bertumpuk) agar kolom aksi hemat tempat; kedua tombol selebar yang terlebar --}}
+                                    <div class="ml-auto grid w-max gap-0.5">
+                                        <button type="button" class="btn btn-secondary btn-sm w-full" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
+                                        <form method="POST" action="{{ route('admin.quotas.reset', $l) }}" data-confirm="Reset kuota {{ $l->name }}? Kuota pembimbing dan penguji menjadi 0 - dosen ini tidak menerima tim bimbingan maupun uji." data-confirm-label="Reset">
+                                            @csrf<button class="btn btn-ghost btn-sm w-full text-bad-ink"><x-heroicon-o-arrow-path class="h-4 w-4" /> Reset</button>
                                         </form>
                                     </div>
                                     {{-- Edit = simpan aturan kuota khusus dosen ini (menimpa aturan per dosen yang ada) --}}

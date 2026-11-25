@@ -2,10 +2,12 @@
      milestone dokumen (dibuat admin) dikelompokkan per tanggal deadline. Pengumpulan per tim: unggahan satu
      anggota menyelesaikan milestone untuk seluruh tim. Kanan: tombol unggah (nonaktif "Sudah Dikumpulkan" setelah
      terkumpul); di bawahnya, selebar kartu: info pengumpulan, Lihat file / Unggah file ulang, dan feedback dosen.
+     Setelah deadline lewat, Unggah file / Unggah file ulang nonaktif; milestone yang belum dikumpulkan bertanda "Overdue" (merah).
      Mahasiswa tidak dapat menghapus pengumpulan (penghapusan hanya oleh admin). --}}
 @php
     $locked = fn ($m) => match (true) {
-        $m->requiresLogbookMinimum() && $approvedLogbooks < $minLogbooks => "Terkunci — minimal {$minLogbooks} log bimbingan disetujui ({$approvedLogbooks}/{$minLogbooks}).",
+        $m->isPast() => 'Deadline sudah lewat; dokumen tidak dapat diunggah lagi.',
+        $m->requiresLogbookMinimum() && $approvedLogbooks < $minLogbooks => "Terkunci - minimal {$minLogbooks} log bimbingan disetujui ({$approvedLogbooks}/{$minLogbooks}).",
         ! $m->hasStarted() => 'Dibuka '.$m->starts_at->translatedFormat('j M Y, H:i').'.',
         default => null,
     };
@@ -16,10 +18,11 @@
     @if ($gate)
         <div class="panel"><x-empty :title="$gate" icon="lock-closed" /></div>
     @else
-        {{-- Filter rentang deadline (dropdown) --}}
-        <form method="GET" action="{{ route('mahasiswa.documents.index') }}" x-data="autoSubmit" class="mb-6">
+        {{-- Filter rentang deadline (dropdown) — langsung di browser (Alpine "listFilter") --}}
+        <div x-data="listFilter">
+        <form method="GET" action="{{ route('mahasiswa.documents.index') }}" @submit.prevent="apply" class="mb-6">
             <label for="rentang" class="sr-only">Rentang deadline</label>
-            <select id="rentang" name="rentang" class="input min-h-[48px] w-full rounded-xl sm:w-64" @change="submit">
+            <select id="rentang" name="rentang" data-filter="rentang" class="input min-h-[48px] w-full rounded-xl sm:w-64" @change="filter">
                 @foreach (\App\Http\Controllers\Student\DocumentController::RANGES as $key => $label)
                     <option value="{{ $key }}" @selected($range === $key)>{{ $label }}</option>
                 @endforeach
@@ -29,7 +32,7 @@
 
         <section class="panel divide-y divide-rule" aria-label="Pengumpulan dokumen milestone">
             @forelse ($groups as $date => $milestones)
-                <div class="px-5 py-6 sm:px-8">
+                <div data-filter-section class="px-5 py-6 sm:px-8">
                     <h2 class="text-xl font-semibold tracking-tight text-ink">{{ \Illuminate\Support\Carbon::parse($date)->translatedFormat('l, j F Y') }}</h2>
 
                     <ul class="mt-2 divide-y divide-rule">
@@ -38,9 +41,16 @@
                                 $doc = $submissions->get($m->id);
                                 $latest = $doc?->versions->first();
                                 $reason = $locked($m);
-                                $fileUrl = $doc?->driveUrl() ?? ($latest ? route('documents.download', $latest) : null);
+                                // Status sinkronisasi Drive urusan admin. File dibuka lewat aplikasi: dari server bila belum
+                                // tersinkron, dari Google Drive (diteruskan server) bila sudah; selalu revisi terbaru.
+                                $fileUrl = $latest ? route('documents.download', $latest) : null;
                             @endphp
-                            <li x-data="disclosure" class="grid gap-x-5 gap-y-4 py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)_16rem]">
+                            @php
+                                // Rentang deadline: "semua" selalu; "7" / "30" bila deadline antara sekarang dan 7 / 30 hari ke depan
+                                $ranges = collect(\App\Http\Controllers\Student\DocumentController::RANGES)->keys()
+                                    ->filter(fn ($key) => $key === 'semua' || $m->due_at->between(now(), now()->addDays((int) $key)))->implode('|');
+                            @endphp
+                            <li x-data="disclosure" data-filter-item data-filter-rentang="{{ $ranges }}" class="grid gap-x-5 gap-y-4 py-5 sm:grid-cols-[2.5rem_minmax(0,1fr)_16rem]">
                                 <span class="hidden h-10 w-10 place-items-center rounded-lg {{ $doc ? 'bg-ok-tint text-ok-ink' : 'bg-brand-wash text-brand' }} sm:grid" aria-hidden="true">
                                     @if ($doc)<x-heroicon-o-document-check class="h-6 w-6" />@else<x-heroicon-o-document-arrow-up class="h-6 w-6" />@endif
                                 </span>
@@ -48,7 +58,9 @@
                                 <div class="min-w-0">
                                     <h3 class="font-semibold leading-snug text-ink">{{ $m->name }}</h3>
                                     <p class="mt-1 text-sm text-muted">{{ $team->name }}</p>
-                                    <p class="mt-2 text-sm tabular {{ ! $doc && $m->isPast() ? 'font-medium text-bad-ink' : 'text-muted' }}">{{ $m->due_at->format('H:i') }}@if (! $doc && $m->isPast()) · deadline terlewat @endif</p>
+                                    <p class="mt-2 flex flex-wrap items-center gap-2 text-sm tabular text-muted">{{ $m->due_at->format('H:i') }}
+                                        @if (! $doc && $m->isPast())<span class="rounded-md bg-bad-tint px-2 py-0.5 text-caption font-semibold text-bad-ink">Overdue</span>@endif
+                                    </p>
                                 </div>
 
                                 {{-- Kanan: tombol unggah (popup pilih file); setelah terkumpul tetap tampil tetapi nonaktif --}}
@@ -56,8 +68,8 @@
                                     @if ($doc)
                                         <button type="button" class="btn btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60" disabled><x-heroicon-o-check-circle class="h-5 w-5" /> Sudah Dikumpulkan</button>
                                     @elseif ($reason)
-                                        <button type="button" class="btn btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50" disabled><x-heroicon-o-arrow-up-tray class="h-5 w-5" /> Unggah file</button>
-                                        <p class="mt-2 text-caption text-muted">{{ $reason }}</p>
+                                        <button type="button" class="btn btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50" disabled title="{{ $reason }}"><x-heroicon-o-arrow-up-tray class="h-5 w-5" /> Unggah file</button>
+                                        @unless ($m->isPast())<p class="mt-2 text-caption text-muted">{{ $reason }}</p>@endunless
                                     @else
                                         {{-- Pilih file dilakukan di popup setelah tombol diklik --}}
                                         <button type="button" class="btn btn-primary w-full" @click="toggle"><x-heroicon-o-arrow-up-tray class="h-5 w-5" /> Unggah file</button>
@@ -73,7 +85,6 @@
                                     <div class="min-w-0 sm:col-span-2 sm:col-start-2">
                                         <p class="text-caption text-muted">
                                             Dikumpulkan oleh <span class="font-medium text-ink">{{ $latest->uploader?->name }}</span> · {{ $latest->created_at->translatedFormat('j M Y, H:i') }}@if ($latest->revision_no > 1) · revisi {{ $latest->revision_no }} @endif
-                                            @if ($doc->is_late) · <span class="font-medium text-bad-ink">terlambat</span>@endif
                                         </p>
 
                                         <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -82,13 +93,6 @@
                                                 <x-heroicon-o-arrow-up-tray class="h-4 w-4" /> Unggah file ulang
                                             </button>
                                         </div>
-                                        @if ($driveEnabled && $latest->sync_status === 'gagal')
-                                            <div class="mt-2 flex flex-wrap items-center gap-2 text-caption text-bad-ink">Sinkronisasi ke Google Drive gagal.
-                                                <form method="POST" action="{{ route('mahasiswa.documents.retry', $latest) }}">@csrf<button class="link text-caption">Coba lagi</button></form>
-                                            </div>
-                                        @elseif ($driveEnabled && ! $doc->drive_file_id)
-                                            <p class="mt-2 text-caption text-muted">Sedang disinkronkan ke Google Drive…</p>
-                                        @endif
 
                                         {{-- Unggah file ulang = file pengganti (revisi baru); mahasiswa tidak dapat menghapus pengumpulan --}}
                                         <x-modal width="sm:max-w-lg">
@@ -113,8 +117,10 @@
                     </ul>
                 </div>
             @empty
-                <x-empty :title="$range === 'semua' ? 'Belum ada milestone pengumpulan dokumen' : 'Tidak ada deadline dalam '.$range.' hari ke depan'" icon="document-arrow-up" />
+                <x-empty title="Belum ada milestone pengumpulan dokumen" icon="document-arrow-up" />
             @endforelse
+            <p x-show="empty" x-cloak class="px-5 py-6 text-sm text-muted sm:px-8">Tidak ada deadline dalam rentang ini.</p>
         </section>
+        </div>
     @endif
 </x-layouts.app>

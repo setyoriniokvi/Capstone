@@ -9,13 +9,14 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Support\PeriodContext;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 use Illuminate\View\View;
 
 /**
- * F13 — master resume penilaian per CLO dalam satu tabel (CLO · Komponen Penilaian · Skema Penilaian · Bobot Penilaian,
+ * F13 — master resume penilaian per CLO dalam satu tabel (CLO · CLO iGadis · Komponen Penilaian · Skema Penilaian · Bobot Penilaian,
  * baris Total di bawah). Kotak centang tiap baris; kanan atas: Hapus Pilihan · Edit Pilihan · Tambah CLO (modal).
  * Bobot CLO = jumlah pembagian bobotnya ke setiap bentuk penilaian (diisi di form tambah / edit).
  */
@@ -33,7 +34,7 @@ class CloController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate(self::rules('') + [
-            'code' => ['required', 'string', 'max:10', Rule::unique('clos', 'code')],
+            'code' => ['required', 'string', 'max:10', Rule::unique('clos', 'code')->where('period_id', PeriodContext::id())],
         ]);
         $this->save(new Clo, $data);
 
@@ -87,6 +88,7 @@ class CloController extends Controller
     private static function rules(string $prefix): array
     {
         return [
+            "{$prefix}igadis_code" => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9.\-\s]+$/'],
             "{$prefix}description" => ['required', 'string', 'max:2000'],
             "{$prefix}assessment_scheme" => ['nullable', 'string', 'max:150'],
             "{$prefix}weights" => ['array'],
@@ -102,6 +104,8 @@ class CloController extends Controller
         DB::transaction(function () use ($clo, $data, $weights) {
             $clo->fill([
                 'code' => Str::upper($data['code']),
+                // Kode CLO iGadis disimpan utuh (mis. PLO02-CLO05); kosong = belum dipetakan
+                'igadis_code' => filled($data['igadis_code'] ?? null) ? Str::upper(preg_replace('/\s+/', '', $data['igadis_code'])) : null,
                 'description' => $data['description'],
                 'assessment_scheme' => $data['assessment_scheme'] ?? null,
                 'weight' => $weights->sum(), // bobot CLO = jumlah pembagian bobotnya

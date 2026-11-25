@@ -49,7 +49,7 @@ class StudentDashboard
             'documentSummary' => $this->documentSummary($documents),
             'uploadBlocker' => $uploadBlocker,
             'logbook' => $logbook,
-            'recentLogbooks' => $team ? $team->logbooks()->reorder()->latest('session_no')->limit(3)->get(['id', 'team_id', 'session_no', 'session_date', 'activity', 'status']) : collect(),
+            'recentLogbooks' => $team ? $team->logbooks()->reorder()->latest('session_no')->get(['id', 'team_id', 'session_no', 'session_date', 'activity', 'status']) : collect(),
             'actions' => $this->actions($period, $team, $eligibility, $documents, $logbook),
             'waiting' => $this->waiting($team),
             'deadline' => $this->deadline($period, $team),
@@ -231,7 +231,7 @@ class StudentDashboard
                 // Rincian per syarat ada di halaman Tim Saya; tindakan cukup merangkum.
                 $actions->push($this->action(
                     'Prasyarat Capstone belum terpenuhi',
-                    $failed->count().' syarat belum terpenuhi — tim belum dapat didaftarkan. Rincian ada di halaman Tim Saya.',
+                    $failed->count().' syarat belum terpenuhi - tim belum dapat didaftarkan. Rincian ada di halaman Tim Saya.',
                     route('mahasiswa.team.show'), 'bad',
                 ));
             }
@@ -277,8 +277,9 @@ class StudentDashboard
             $m = $row['milestone'];
             if ($row['state'] === 'revisi') {
                 $actions->push($this->action('Revisi '.$m->name, $row['document']->feedback ?: 'Dosen meminta revisi dokumen.', route('mahasiswa.documents.index'), 'bad'));
-            } elseif (in_array($row['state'], ['open', 'missed'], true)) {
-                $actions->push($this->action('Kumpulkan '.$m->name, $row['state'] === 'missed' ? 'Deadline terlewat — unggahan tetap diterima dan ditandai terlambat.' : '', route('mahasiswa.documents.index'), $row['state'] === 'missed' ? 'bad' : 'warn', $m->due_at));
+            } elseif ($row['state'] === 'open') {
+                // Milestone yang sudah lewat (missed) tidak dapat dikumpulkan lagi, jadi bukan tindakan.
+                $actions->push($this->action('Kumpulkan '.$m->name, '', route('mahasiswa.documents.index'), 'warn', $m->due_at));
             }
         }
 

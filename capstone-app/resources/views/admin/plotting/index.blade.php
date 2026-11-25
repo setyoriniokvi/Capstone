@@ -12,7 +12,7 @@
     {{-- Tab --}}
     <section class="panel mb-6 p-2" aria-label="Jenis plotting">
         <nav class="grid gap-1 sm:grid-cols-2">
-            @foreach (['tim' => 'Plotting Tim Mahasiswa', 'dosen' => 'Plotting Dosen'] as $key => $label)
+            @foreach (['tim' => 'Plotting Tim Mahasiswa', 'dosen' => 'Summary Plottingan Dosen'] as $key => $label)
                 <a href="{{ route('admin.plotting.index', $key === 'dosen' ? ['tab' => 'dosen'] : []) }}" @if ($tab === $key) aria-current="page" @endif
                    class="flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium {{ $tab === $key ? 'bg-brand-tint text-brand-deep' : 'text-muted hover:bg-sunken hover:text-ink' }}">
                     {{ $label }}

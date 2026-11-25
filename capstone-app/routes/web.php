@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\DocumentFileController;
 use App\Http\Controllers\Lecturer;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PeriodSwitchController;
 use App\Http\Controllers\QrResolveController;
 use App\Http\Controllers\Student;
 use App\Http\Controllers\SupportFileController;
@@ -33,6 +34,9 @@ Route::post('/atur-password/{user}', [PasswordSetupController::class, 'store'])-
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
+    // Dosen / mahasiswa di beberapa periode aktif: ganti periode kerja (per sesi / perangkat)
+    Route::post('/periode-saya/{period}', PeriodSwitchController::class)->name('period.switch');
+
     // F48
     Route::get('/notifikasi/{id}', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifikasi/baca-semua', [NotificationController::class, 'readAll'])->name('notifications.read-all');
@@ -52,27 +56,34 @@ Route::middleware('auth')->group(function () {
 });
 
 /* ------------------------------------------------------------------ Admin */
-Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name('admin.')->group(function () {
+// Admin fakultas (role admin): CRUD periode + Dashboard Periode mana pun. Admin prodi (role admin_prodi): hanya
+// Dashboard Periode miliknya (periods.admin_user_id), langsung terbuka saat masuk.
+Route::middleware(['auth', 'role:admin,admin_prodi', 'admin.period'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [Admin\DashboardController::class, 'index'])->name('dashboard');
 
-    // Dashboard awal admin (Kelola Periode) ⇄ Dashboard Periode
+    // Ganti periode (admin prodi: hanya periode miliknya — divalidasi di controller)
     Route::post('periode/{period}/masuk', [Admin\PeriodController::class, 'enter'])->name('workspace.enter');
-    Route::post('periode-keluar', [Admin\PeriodController::class, 'leave'])->name('workspace.leave');
 
-    // F2
-    Route::resource('periode', Admin\PeriodController::class)->parameters(['periode' => 'period'])->names('periods')->except('show');
-    Route::post('periode/{period}/aktifkan', [Admin\PeriodController::class, 'activate'])->name('periods.activate');
-    Route::post('periode/{period}/nonaktifkan', [Admin\PeriodController::class, 'deactivate'])->name('periods.deactivate');
-    Route::post('periode/{period}/milestone', [Admin\MilestoneController::class, 'store'])->name('milestones.store');
-    Route::post('periode/{period}/bentuk-penilaian', [Admin\AssessmentComponentController::class, 'store'])->name('periods.components.store');
-    Route::put('periode/{period}/bentuk-penilaian/{component}', [Admin\AssessmentComponentController::class, 'update'])->name('periods.components.update');
-    Route::delete('periode/{period}/bentuk-penilaian/{component}', [Admin\AssessmentComponentController::class, 'destroy'])->name('periods.components.destroy');
-    Route::put('milestone/{milestone}', [Admin\MilestoneController::class, 'update'])->name('milestones.update');
-    Route::delete('milestone/{milestone}', [Admin\MilestoneController::class, 'destroy'])->name('milestones.destroy');
+    // Dashboard awal admin fakultas (Kelola Periode) ⇄ Dashboard Periode, dan pengaturan periode
+    Route::middleware('role:admin')->group(function () {
+        Route::post('periode-keluar', [Admin\PeriodController::class, 'leave'])->name('workspace.leave');
+
+        // F2
+        Route::resource('periode', Admin\PeriodController::class)->parameters(['periode' => 'period'])->names('periods')->except('show');
+        Route::post('periode/{period}/aktifkan', [Admin\PeriodController::class, 'activate'])->name('periods.activate');
+        Route::post('periode/{period}/nonaktifkan', [Admin\PeriodController::class, 'deactivate'])->name('periods.deactivate');
+        Route::post('periode/{period}/milestone', [Admin\MilestoneController::class, 'store'])->name('milestones.store');
+        Route::post('periode/{period}/bentuk-penilaian', [Admin\AssessmentComponentController::class, 'store'])->name('periods.components.store');
+        Route::put('periode/{period}/bentuk-penilaian/{component}', [Admin\AssessmentComponentController::class, 'update'])->name('periods.components.update');
+        Route::delete('periode/{period}/bentuk-penilaian/{component}', [Admin\AssessmentComponentController::class, 'destroy'])->name('periods.components.destroy');
+        Route::put('milestone/{milestone}', [Admin\MilestoneController::class, 'update'])->name('milestones.update');
+        Route::delete('milestone/{milestone}', [Admin\MilestoneController::class, 'destroy'])->name('milestones.destroy');
+    });
 
     // F3 / F4 + impor
     Route::resource('dosen', Admin\LecturerController::class)->parameters(['dosen' => 'lecturer'])->names('lecturers')->only('index', 'store', 'update');
     Route::post('dosen/{lecturer}/status', [Admin\LecturerController::class, 'toggle'])->name('lecturers.toggle');
+    Route::get('master-data', [Admin\MasterDataController::class, 'index'])->name('master-data.index');
     Route::get('mahasiswa', [Admin\StudentController::class, 'index'])->name('students.index');
     Route::post('mahasiswa', [Admin\StudentController::class, 'store'])->name('students.store');
     Route::put('mahasiswa/{student}', [Admin\StudentController::class, 'update'])->name('students.update');
@@ -100,6 +111,7 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::post('topik/tolak-pilihan', [Admin\TopicController::class, 'rejectMany'])->name('topics.reject-many');
     Route::post('topik/tolak-flag', [Admin\TopicController::class, 'rejectFlagged'])->name('topics.reject-flagged');
     Route::post('topik/{topic}/keputusan', [Admin\TopicController::class, 'decide'])->name('topics.decide');
+    Route::get('topik-dosen', [Admin\TopicController::class, 'bank'])->name('lecturer-topics.index');
     Route::post('topik-dosen', [Admin\TopicController::class, 'storeLecturerTopic'])->name('lecturer-topics.store');
     Route::put('topik-dosen/{topic}', [Admin\TopicController::class, 'updateLecturerTopic'])->name('lecturer-topics.update');
     Route::delete('topik-dosen/{topic}', [Admin\TopicController::class, 'destroyLecturerTopic'])->name('lecturer-topics.destroy');
@@ -120,6 +132,7 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
 
     // F11 / F12
     Route::get('monitoring/progres', [Admin\MonitoringController::class, 'progress'])->name('monitoring.progress');
+    Route::get('monitoring/progres/{team}/penilaian/{component}', [Admin\MonitoringController::class, 'assessment'])->name('monitoring.assessment');
     Route::get('monitoring/penilaian', [Admin\MonitoringController::class, 'assessments'])->name('monitoring.assessments');
     Route::post('monitoring/penilaian/reminder', [Admin\MonitoringController::class, 'remind'])->name('monitoring.remind');
 
@@ -131,6 +144,8 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::get('master/indikator', [Admin\IndicatorController::class, 'index'])->name('indicators.index');
     Route::post('master/indikator', [Admin\IndicatorController::class, 'store'])->name('indicators.store');
     Route::put('master/indikator', [Admin\IndicatorController::class, 'updateMany'])->name('indicators.update-many');
+    Route::put('master/indikator/rumus', [Admin\IndicatorController::class, 'formulas'])->name('indicators.formulas');
+    Route::put('master/indikator/tampilan-form', [Admin\IndicatorController::class, 'formMode'])->name('indicators.form-mode');
     Route::delete('master/indikator', [Admin\IndicatorController::class, 'destroyMany'])->name('indicators.destroy-many');
     Route::get('master/rubrik-dokumen', [Admin\RubricController::class, 'index'])->name('rubrics.index');
     Route::post('master/rubrik-dokumen', [Admin\RubricController::class, 'store'])->name('rubrics.store');
@@ -140,6 +155,10 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::post('master/rubrik-lisan', [Admin\OralRubricController::class, 'store'])->name('oral.store');
     Route::put('master/rubrik-lisan', [Admin\OralRubricController::class, 'updateMany'])->name('oral.update-many');
     Route::delete('master/rubrik-lisan', [Admin\OralRubricController::class, 'destroyMany'])->name('oral.destroy-many');
+    Route::get('master/rubrik-peer-review', [Admin\PeerRubricController::class, 'index'])->name('peer-rubric.index');
+    Route::post('master/rubrik-peer-review', [Admin\PeerRubricController::class, 'store'])->name('peer-rubric.store');
+    Route::put('master/rubrik-peer-review', [Admin\PeerRubricController::class, 'updateMany'])->name('peer-rubric.update-many');
+    Route::delete('master/rubrik-peer-review', [Admin\PeerRubricController::class, 'destroyMany'])->name('peer-rubric.destroy-many');
 
     // F17
     Route::get('file-pendukung', [Admin\SupportFileController::class, 'index'])->name('files.index');
@@ -150,6 +169,7 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     // F18
     Route::get('rekap-nilai', [Admin\RecapController::class, 'index'])->name('recap.index');
     Route::get('rekap-nilai/ekspor', [Admin\RecapController::class, 'export'])->name('recap.export');
+    Route::get('raw-data-penilaian', [Admin\RawScoreController::class, 'index'])->name('raw-scores.index');
 
     // F49–F56
     Route::get('reminder', [Admin\ReminderController::class, 'index'])->name('reminders.index');
@@ -157,6 +177,9 @@ Route::middleware(['auth', 'role:admin', 'admin.period'])->prefix('admin')->name
     Route::put('reminder/aturan/{rule}', [Admin\ReminderController::class, 'update'])->name('reminders.update');
     Route::delete('reminder/aturan/{rule}', [Admin\ReminderController::class, 'destroy'])->name('reminders.destroy');
     Route::post('reminder/log/{dispatch}/ulang', [Admin\ReminderController::class, 'retry'])->name('reminders.retry');
+    Route::patch('reminder/aturan/{rule}/status', [Admin\ReminderController::class, 'toggle'])->name('reminders.toggle');
+    Route::post('reminder/kirim-manual', [Admin\ReminderController::class, 'sendManual'])->middleware('throttle:5,1')->name('reminders.manual');
+    Route::post('reminder/uji', [Admin\ReminderController::class, 'test'])->middleware('throttle:10,1')->name('reminders.test');
 
     // F33 / F40 — status sinkronisasi dokumen
     Route::get('dokumen', [Admin\DocumentController::class, 'index'])->name('documents.index');
@@ -185,7 +208,6 @@ Route::middleware(['auth', 'role:mahasiswa'])->prefix('mahasiswa')->name('mahasi
     // F26 / F33–F41
     Route::get('dokumen', [Student\DocumentController::class, 'index'])->name('documents.index');
     Route::post('dokumen/{milestone}', [Student\DocumentController::class, 'store'])->name('documents.store');
-    Route::post('dokumen/versi/{version}/ulang', [Student\DocumentController::class, 'retry'])->name('documents.retry');
 
     // F27
     Route::get('bimbingan', [Student\LogbookController::class, 'index'])->name('logbooks.index');
@@ -208,6 +230,10 @@ Route::middleware(['auth', 'role:mahasiswa'])->prefix('mahasiswa')->name('mahasi
 Route::middleware(['auth', 'role:dosen'])->prefix('dosen')->name('dosen.')->group(function () {
     Route::get('/', [Lecturer\DashboardController::class, 'index'])->name('dashboard');
 
+    // Ganti password sendiri (akun hasil impor memakai password default)
+    Route::get('ganti-password', [Lecturer\PasswordController::class, 'edit'])->name('password.edit');
+    Route::put('ganti-password', [Lecturer\PasswordController::class, 'update'])->middleware('throttle:10,1')->name('password.update');
+
     // F42 / F43
     Route::resource('topik', Lecturer\TopicController::class)->parameters(['topik' => 'topic'])->names('topics')->except('show');
     Route::get('pelamar', [Lecturer\ApplicationController::class, 'index'])->name('applications.index');
@@ -227,12 +253,15 @@ Route::middleware(['auth', 'role:dosen'])->prefix('dosen')->name('dosen.')->grou
 
     // F47 / F60
     Route::get('penilaian', [Lecturer\AssessmentController::class, 'index'])->name('assessments.index');
+    // Penyesuaian Nilai (pembimbing): nilai akhir spesifik per mahasiswa bimbingan
+    Route::get('penilaian-penyesuaian', [Lecturer\ScoreAdjustmentController::class, 'index'])->name('adjustments.index');
+    Route::put('penilaian-penyesuaian/{team}/{student}', [Lecturer\ScoreAdjustmentController::class, 'update'])->name('adjustments.update');
     Route::get('penilaian/{team}/{component}', [Lecturer\AssessmentController::class, 'edit'])->name('assessments.edit');
     Route::put('penilaian/{team}/{component}', [Lecturer\AssessmentController::class, 'update'])->name('assessments.update');
     Route::put('penilaian/{team}/{component}/skor', [Lecturer\AssessmentController::class, 'scores'])->name('assessments.scores');
     Route::delete('penilaian/{team}/{component}/skor', [Lecturer\AssessmentController::class, 'destroyScores'])->name('assessments.scores.destroy');
 
-    // F18
+    // F18 — Rekap Nilai Kelas (dosen kelas): pilih kelas, lalu ekspor iGadis kelas itu
     Route::get('rekap-nilai', [Lecturer\RecapController::class, 'index'])->name('recap.index');
     Route::get('rekap-nilai/ekspor', [Lecturer\RecapController::class, 'export'])->name('recap.export');
 });

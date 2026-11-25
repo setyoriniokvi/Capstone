@@ -19,7 +19,8 @@ use Illuminate\View\View;
 
 /**
  * F7 / F8 — approval topik (seperti Approval Registrasi Tim): kartu instruksi & kata kunci terlarang, lalu tab Topik Mandiri
- * (menunggu approval + riwayat) dan Topik Dosen (menunggu approval + bank topik dosen yang dapat dikelola admin).
+ * (menunggu approval) dan Topik Dosen (menunggu approval). Bank topik dosen (dapat dikelola admin) ada di menu
+ * tersendiri — bank().
  */
 class TopicController extends Controller
 {
@@ -39,20 +40,24 @@ class TopicController extends Controller
             'pending' => $base($tab)->where('status', 'menunggu')->with(['team', 'lecturer.lecturerProfile', 'proposers'])->oldest('updated_at')->get(),
         ];
 
-        if ($tab === 'mandiri') {
-            // Riwayat keputusan: 3 terbaru per halaman (?riwayat=n)
-            $data['decided'] = $base('mandiri')->whereIn('status', ['diterima', 'ditolak'])->with('team')
-                ->latest('reviewed_at')->latest('id')->paginate(3, ['*'], 'riwayat')->withQueryString();
-        } else {
-            $data['bank'] = $base('dosen')->where('status', 'diterima')->with(['lecturer', 'proposers'])
+        return view('admin.topics.index', $data);
+    }
+
+    /** Menu Bank Topik Dosen: topik dosen yang sudah terbit pada periode yang dibuka, beserta formulir tambah / ubah. */
+    public function bank(): View
+    {
+        $period = Period::workspace();
+
+        return view('admin.topics.bank', [
+            'period' => $period,
+            'bank' => Topic::query()->where('source', 'dosen')->where('status', 'diterima')
+                ->when($period, fn ($q) => $q->where('period_id', $period->id))
+                ->with(['lecturer', 'proposers'])
                 ->withCount([
                     'applications as accepted_count' => fn ($q) => $q->where('status', 'diterima'),
                     'applications as pending_count' => fn ($q) => $q->where('status', 'menunggu'),
-                ])->get()->sortBy(fn (Topic $t) => [$t->lecturer?->name, $t->title])->values();
-            $data += $this->formData($period);
-        }
-
-        return view('admin.topics.index', $data);
+                ])->get()->sortBy(fn (Topic $t) => [$t->lecturer?->name, $t->title])->values(),
+        ] + $this->formData($period));
     }
 
     /** Setujui sekaligus topik yang dicentang di tabel "Menunggu Approval"; topik yang sudah diputuskan dilewati. */
@@ -114,7 +119,7 @@ class TopicController extends Controller
         $period = Period::workspace() ?? abort(409, 'Buka dashboard periode terlebih dahulu.');
         $topic = $topics->saveByAdmin(null, $this->validatedLecturerTopic($request, $period->id, $topics), $request->user(), $period->id);
 
-        return redirect()->route('admin.topics.index', ['tab' => 'dosen'])->with('status', "Topik “{$topic->title}” ditambahkan ke bank topik dosen.");
+        return redirect()->route('admin.lecturer-topics.index')->with('status', "Topik “{$topic->title}” ditambahkan ke bank topik dosen.");
     }
 
     public function updateLecturerTopic(Request $request, Topic $topic, TopicService $topics): RedirectResponse
@@ -122,7 +127,7 @@ class TopicController extends Controller
         abort_unless($topic->source === 'dosen', 404);
         $topics->saveByAdmin($topic, $this->validatedLecturerTopic($request, $topic->period_id, $topics), $request->user(), $topic->period_id);
 
-        return redirect()->route('admin.topics.index', ['tab' => 'dosen'])->with('status', "Topik “{$topic->title}” diperbarui.");
+        return redirect()->route('admin.lecturer-topics.index')->with('status', "Topik “{$topic->title}” diperbarui.");
     }
 
     /** Admin dapat menghapus topik apa pun, termasuk yang sudah memiliki pelamar / tim diterima (lihat TopicService). */
@@ -137,7 +142,7 @@ class TopicController extends Controller
     private function validatedLecturerTopic(Request $request, int $periodId, TopicService $topics): array
     {
         [$rules, $messages] = $topics->lecturerTopicRules($periodId);
-        $rules['lecturer_id'] = ['required', 'integer', Rule::exists('users', 'id')->where('role', 'dosen')->where('is_active', true)];
+        $rules['lecturer_id'] = ['required', 'integer', User::lecturerRule($periodId)];
 
         return $request->validate($rules, $messages);
     }
@@ -149,7 +154,7 @@ class TopicController extends Controller
             'programs' => StudyProgram::query()->orderBy('name')->get(),
             'prodiSpecializations' => $period ? RegistrationRule::query()->where('period_id', $period->id)->with('specializations')->get()
                 ->flatMap(fn (RegistrationRule $rule) => $rule->specializations->pluck('name'))->unique()->sort()->values() : collect(),
-            'lecturers' => User::query()->where('role', 'dosen')->where('is_active', true)->with('lecturerProfile')->orderBy('name')->get(),
+            'lecturers' => User::query()->lecturers()->inPeriod(active: true)->with('lecturerProfile')->orderBy('name')->get(),
         ];
     }
 

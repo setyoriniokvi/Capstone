@@ -4,7 +4,7 @@
     $tone = match ($status) {
         'diterima', 'disetujui', 'berhasil', 'terkirim', 'final', 'lengkap', 'aktif', 'OK', 'tersedia' => 'ok',
         'menunggu', 'diundang', 'dikumpulkan', 'antre', 'proses', 'diproses', 'draft', 'UNDER', 'parsial' => 'warn',
-        'ditolak', 'revisi', 'gagal', 'OVER', 'penuh', 'terlambat' => 'bad',
+        'ditolak', 'revisi', 'gagal', 'OVER', 'penuh' => 'bad',
         default => 'neutral',
     };
     $classes = [

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToPeriod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SupportFile extends Model
 {
+    use BelongsToPeriod;
+
     protected $fillable = ['title', 'description', 'category', 'visible_to', 'path', 'original_name', 'mime', 'size', 'uploaded_by'];
 
     /** Role yang dapat dipilih sebagai pembaca file (admin selalu dapat melihat semua file). */

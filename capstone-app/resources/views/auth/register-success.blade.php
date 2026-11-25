@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tim Diajukan · Capstone FRI</title>
+    <title>Tim Diajukan - Capstone FRI</title>
     <x-head-assets />
 </head>
 {{-- F21 — konfirmasi setelah registrasi akun + tim berhasil dikirim (hanya tampil sekali, dari flash "registered"). --}}

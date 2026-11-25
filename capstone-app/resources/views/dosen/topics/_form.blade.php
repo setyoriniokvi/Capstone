@@ -27,10 +27,10 @@
             <x-field label="Topik" name="title" required class="sm:col-span-2">
                 <input id="title" x-ref="title" name="title" class="input" value="{{ old('title', $topic->title) }}" required maxlength="255">
             </x-field>
-            <x-field label="Deskripsi" name="description" required class="sm:col-span-2" hint="Topik wajib mencakup permasalahan pada sistem terintegrasi.">
+            <x-field label="Deskripsi" name="description" required class="sm:col-span-2">
                 <textarea id="description" x-ref="description" name="description" rows="6" class="input" required>{{ old('description', $topic->description) }}</textarea>
             </x-field>
-            <x-field label="Kompetensi yang diharapkan" name="competencies" required class="sm:col-span-2" hint="Kemampuan yang perlu dimiliki tim untuk mengerjakan topik ini.">
+            <x-field label="Kompetensi yang diharapkan" name="competencies" required class="sm:col-span-2">
                 <textarea id="competencies" name="competencies" rows="4" class="input" required maxlength="5000">{{ old('competencies', $topic->competencies) }}</textarea>
             </x-field>
 
@@ -104,7 +104,6 @@
                     </template>
                     <li x-show="noResults" class="px-3 py-2 text-sm text-muted">Dosen tidak ditemukan atau sudah dipilih.</li>
                 </ul>
-                <p class="field-hint">Dosen yang diundang menerima notifikasi, tercantum sebagai pengusul di bank topik, dan dapat mengubah topik serta memutuskan tim pelamar.</p>
                 @error('proposer_ids')<p class="field-error">{{ $message }}</p>@enderror
                 @error('proposer_ids.*')<p class="field-error">{{ $message }}</p>@enderror
             </div>
@@ -113,6 +112,5 @@
             <button type="button" class="btn btn-ghost" @click="close">Batal</button>
             <button class="btn btn-primary" data-once x-text="submitLabel">{{ $topic->exists ? 'Simpan perubahan' : 'Kirim ke admin' }}</button>
         </div>
-        <p class="mt-3 text-caption text-muted">Topik baru dan perubahan isi topik ditinjau admin sebelum terbit di bank topik; mengubah jumlah tim atau dosen pengusul saja tidak perlu ditinjau ulang.</p>
     </form>
 </x-modal>

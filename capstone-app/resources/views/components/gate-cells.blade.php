@@ -8,7 +8,7 @@
             <span class="text-muted"> · {{ $pending }} menunggu</span>
         @endif
         @if ($approved >= $min)
-            <span class="ml-1 font-medium text-ok-ink">· syarat presentasi akhir terpenuhi</span>
+            <span class="ml-1 font-medium text-ok-ink">· syarat Laporan Akhir & Materi Presentasi terpenuhi</span>
         @endif
     </p>
 </div>

@@ -14,8 +14,8 @@ class Navigation
     public static function for(User $user): array
     {
         return match ($user->role) {
-            'admin' => self::admin(),
-            'dosen' => self::lecturer(),
+            'admin', 'admin_prodi' => self::admin(),
+            'dosen' => self::lecturer($user),
             default => self::student(),
         };
     }
@@ -47,22 +47,30 @@ class Navigation
             ['label' => 'Proses', 'items' => [
                 self::item('Approval Registrasi Tim', 'admin.teams.index', 'user-group', 'admin.teams.*'),
                 self::item('Approval Topik', 'admin.topics.index', 'light-bulb', 'admin.topics.index'),
+                self::item('Bank Topik Dosen', 'admin.lecturer-topics.index', 'book-open', 'admin.lecturer-topics.*'),
                 self::item('Kuota Dosen', 'admin.quotas.index', 'scale', 'admin.quotas.*'),
                 self::item('Plotting Dosen', 'admin.plotting.index', 'arrows-right-left', 'admin.plotting.*'),
             ]],
             ['label' => 'Pemantauan', 'items' => [
-                self::item('Progres Tim', 'admin.monitoring.progress', 'chart-bar'),
+                self::item('Tim Mahasiswa', 'admin.monitoring.progress', 'chart-bar'),
                 self::item('Penilaian & Reminder', 'admin.monitoring.assessments', 'bell-alert'),
+                self::item('Reminder Otomatis', 'admin.reminders.index', 'paper-airplane', 'admin.reminders.*'),
                 self::item('Sinkronisasi Dokumen', 'admin.documents.index', 'cloud-arrow-up', 'admin.documents.*'),
-                self::item('Notifikasi Otomatis', 'admin.reminders.index', 'paper-airplane', 'admin.reminders.*'),
-                self::item('Rekap Nilai', 'admin.recap.index', 'table-cells', 'admin.recap.*'),
+                // Alur pengolahan nilai: raw data (per indikator / CLO) → rekap per bentuk penilaian × CLO iGadis (+ ekspor iGadis)
+                self::item('Raw Data Penilaian', 'admin.raw-scores.index', 'clipboard-document-list', 'admin.raw-scores.*'),
+                self::item('Rekap Penilaian', 'admin.recap.index', 'table-cells', 'admin.recap.*'),
             ]],
             ['label' => 'Master Penilaian', 'items' => [
                 self::item('Resume CLO', 'admin.clos.index', 'squares-2x2', 'admin.clos.*'),
                 self::item('Indikator', 'admin.indicators.index', 'list-bullet', 'admin.indicators.*'),
                 self::item('Rubrik Dokumen', 'admin.rubrics.index', 'document-text', 'admin.rubrics.*'),
                 self::item('Rubrik Lisan', 'admin.oral.index', 'chat-bubble-left-right', 'admin.oral.*'),
+                self::item('Rubrik Peer Review', 'admin.peer-rubric.index', 'user-group', 'admin.peer-rubric.*'),
                 self::item('File Pendukung', 'admin.files.index', 'folder', 'admin.files.*'),
+            ]],
+            // Paling bawah: log seluruh data mahasiswa / dosen (sebelum & sesudah setiap perubahan)
+            ['label' => 'Log', 'items' => [
+                self::item('Master Data', 'admin.master-data.index', 'circle-stack', 'admin.master-data.*'),
             ]],
         ];
     }
@@ -88,18 +96,28 @@ class Navigation
         ];
     }
 
-    private static function lecturer(): array
+    /**
+     * Dosen: menu mengikuti perannya di periode yang dibuka. Pembimbing saja → tanpa Tim Uji; penguji saja → tanpa
+     * Tim Bimbingan & Approval Bimbingan; belum pembimbing/penguji → tanpa menu tim, approval bimbingan, dan penilaian.
+     */
+    private static function lecturer(User $user): array
     {
+        $roles = $user->lecturerRoles();
+        $supervises = in_array('pembimbing', $roles, true);
+        $examines = in_array('penguji', $roles, true);
+
         return [
-            ['label' => null, 'items' => [
+            ['label' => null, 'items' => array_values(array_filter([
                 self::item('Dashboard', 'dosen.dashboard', 'home', 'dosen.dashboard'),
                 self::item('Topik Dosen', 'dosen.topics.index', 'light-bulb', 'dosen.topics.*'),
                 self::item('Approval Pengajuan Topik', 'dosen.applications.index', 'inbox-arrow-down', 'dosen.applications.*'),
-                self::item('Tim Bimbingan', 'dosen.teams.supervised', 'user-group', 'dosen.teams.supervised'),
-                self::item('Tim Uji', 'dosen.teams.examined', 'academic-cap', 'dosen.teams.examined'),
-                self::item('Approval Bimbingan', 'dosen.logbooks.index', 'clipboard-document-check', 'dosen.logbooks.*'),
-                self::item('Penilaian', 'dosen.assessments.index', 'pencil-square', 'dosen.assessments.*'),
-            ]],
+                $supervises ? self::item('Tim Bimbingan', 'dosen.teams.supervised', 'user-group', 'dosen.teams.supervised') : null,
+                $examines ? self::item('Tim Uji', 'dosen.teams.examined', 'academic-cap', 'dosen.teams.examined') : null,
+                $supervises ? self::item('Approval Bimbingan', 'dosen.logbooks.index', 'clipboard-document-check', 'dosen.logbooks.*') : null,
+                $roles ? self::item('Penilaian', 'dosen.assessments.index', 'pencil-square', ['dosen.assessments.*', 'dosen.adjustments.*']) : null,
+                // Dosen kelas: rekap & ekspor iGadis per kelas mahasiswa (semua kelas dapat dipilih)
+                $user->lecturerProfile?->is_class_lecturer ? self::item('Rekap Nilai Kelas', 'dosen.recap.index', 'table-cells', 'dosen.recap.*') : null,
+            ]))],
             ['label' => 'Informasi', 'items' => [
                 self::item('File Pendukung', 'files.index', 'folder', 'files.*'),
             ]],

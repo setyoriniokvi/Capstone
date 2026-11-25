@@ -7,6 +7,7 @@ use App\Models\Period;
 use App\Models\User;
 use App\Services\ScreeningService;
 use App\Services\TeamRegistration;
+use App\Support\Sorting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -22,23 +23,39 @@ class StudentController extends Controller
     public function index(Request $request, TeamRegistration $registration): View
     {
         $period = Period::workspace();
-        $students = User::query()->students()
+        // Mahasiswa periode yang sedang dibuka (registrasi, impor, atau input admin di periode ini).
+        $query = User::query()->students()->inPeriod($period)->withPeriodStatus()
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = '%'.$request->string('q').'%';
-                $q->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('nim', 'like', $term)->orWhere('email', 'like', $term));
+                $q->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('nim', 'like', $term)->orWhere('email', 'like', $term)->orWhere('class_name', 'like', $term));
             })
             ->when($request->input('tim') === 'belum' && $period, fn ($q) => $q->whereDoesntHave('memberships', fn ($m) => $m->where('invite_status', 'diterima')->whereHas('team', fn ($t) => $t->where('period_id', $period->id))))
-            ->with(['memberships' => fn ($m) => $m->where('invite_status', 'diterima')->with('team:id,name,period_id')])
-            ->orderBy('nim')
-            ->paginate(25)->withQueryString();
+            ->with(['memberships' => fn ($m) => $m->where('invite_status', 'diterima')->with('team:id,name,period_id')]);
+        // Data tetap: bawaan kolom paling kiri (NIM) naik
+        Sorting::apply($query, $request, ['nim' => 'nim', 'nama' => 'name', 'kelas' => 'class_name', 'terbaru' => 'created_at', 'kategori' => 'specialization'], 'nim');
+        $students = $query->paginate(25)->withQueryString();
 
         return view('admin.students.index', ['students' => $students, 'period' => $period] + $registration->options($period));
     }
 
     public function store(Request $request, TeamRegistration $registration): RedirectResponse
     {
+        // Mahasiswa yang sudah punya akun (terdaftar di periode lain) cukup ditambahkan ke periode ini.
+        $existing = User::query()->students()->where('email', Str::lower(trim((string) $request->input('email'))))->first();
+        if ($existing) {
+            if ($existing->periods()->whereKey(Period::workspace()?->id)->exists()) {
+                return back()->withErrors(['email' => 'Mahasiswa dengan email ini sudah terdaftar di periode ini.'])->withInput();
+            }
+            $existing->joinPeriod(Period::workspace(), true);
+            $existing->syncActiveFromPeriods();
+
+            return redirect()->route('admin.students.index')->with('status', "{$existing->name} sudah memiliki akun mahasiswa dan kini ditambahkan ke periode ini. Data dan password akun tidak diubah.");
+        }
+
         [$data, $grades] = $this->validated($request, $registration);
-        (new User($data + ['role' => 'mahasiswa']))->setCourseGrades($grades)->save();
+        $student = (new User($data + ['role' => 'mahasiswa']))->setCourseGrades($grades);
+        $student->save();
+        $student->joinPeriod(Period::workspace());
 
         return redirect()->route('admin.students.index')->with('status', 'Akun mahasiswa dibuat. Mahasiswa dapat masuk dengan email '.$data['email'].'.');
     }
@@ -58,9 +75,12 @@ class StudentController extends Controller
     public function toggle(User $student): RedirectResponse
     {
         abort_unless($student->isStudent(), 404);
-        $student->update(['is_active' => ! $student->is_active]);
+        // Status per periode; akun tidak dapat masuk bila nonaktif di semua periodenya.
+        $active = ! $student->activeInPeriod();
+        $student->joinPeriod(active: $active);
+        $student->syncActiveFromPeriods();
 
-        return back()->with('status', $student->is_active ? 'Akun mahasiswa diaktifkan.' : 'Akun mahasiswa dinonaktifkan.');
+        return back()->with('status', $active ? 'Mahasiswa diaktifkan di periode ini.' : 'Mahasiswa dinonaktifkan di periode ini.');
     }
 
     /**
@@ -80,7 +100,10 @@ class StudentController extends Controller
             $screening->apply($team);
         }
 
-        return back()->with('status', "Peminatan {$student->name} ".($student->specialization ? "diatur ke {$student->specialization}." : 'dikosongkan.'));
+        $message = "Peminatan {$student->name} ".($student->specialization ? "diatur ke {$student->specialization}." : 'dikosongkan.');
+
+        // Dari Detail tim (Registrasi Tim / Monitoring progres / Riwayat): kembali dan buka lagi detail timnya.
+        return ($team ? TeamController::returnTo($team) : back())->with('status', $message);
     }
 
     /**
@@ -92,6 +115,8 @@ class StudentController extends Controller
         $options = $registration->options(Period::workspace());
         // Peminatan lama yang tidak ada di daftar periode tetap boleh dipertahankan.
         $specializations = $options['specializations']->push($student?->specialization)->filter()->unique()->all();
+        // Kelas dari aturan registrasi periode (kelas lama di luar daftar tetap boleh dipertahankan); opsional untuk admin.
+        $classes = $options['classes']->push($student?->class_name)->filter()->unique()->all();
         $data = $request->validate([
             'nim' => ['required', 'string', 'max:20', Rule::unique('users', 'nim')->ignore($student?->id)],
             'name' => ['required', 'string', 'max:150'],
@@ -101,11 +126,13 @@ class StudentController extends Controller
             'grades' => ['nullable', 'array'],
             'grades.*' => ['nullable', Rule::in($options['grades'])],
             'origin_region' => ['required', 'string', 'max:100'],
+            'class_name' => ['nullable', 'string', 'max:30', ...($options['classes']->isEmpty() ? [] : [Rule::in($classes)])],
             'specialization' => ['nullable', 'string', Rule::in($specializations)],
             'password' => [$student ? 'nullable' : 'required', 'string', 'min:6', 'max:100'],
         ], ['phone.regex' => 'Nomor WhatsApp hanya berisi angka, spasi, atau tanda +.']);
         $data['email'] = Str::lower($data['email']);
         $data['specialization'] = ($data['specialization'] ?? null) ?: null;
+        $data['class_name'] = ($data['class_name'] ?? null) ? Str::upper(trim($data['class_name'])) : null;
         $grades = $options['courses']->mapWithKeys(fn ($c) => [$c->code => $data['grades'][$c->id] ?? null])->filter()->all();
         unset($data['grades']);
 

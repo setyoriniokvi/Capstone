@@ -9,24 +9,28 @@
 <x-layouts.app :title="$title">
     <x-page-head :title="$title" :lede="$role === 'pembimbing' ? 'Tim yang Anda bimbing pada periode aktif.' : 'Tim yang Anda uji pada periode aktif.'" />
 
-    {{-- Pencarian + filter jenis topik (dropdown di samping kolom cari) --}}
-    <form method="GET" action="{{ route($routeName) }}" x-data="autoSubmit" class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" role="search">
-        <div class="relative w-full min-w-0 sm:flex-1">
-            <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-            <label for="cari-tim" class="sr-only">Cari tim</label>
-            <input id="cari-tim" type="search" name="q" value="{{ $q }}" class="input min-h-[48px] rounded-xl pl-12" placeholder="Cari nama tim, anggota, NIM, atau topik">
+    {{-- Pencarian + filter jenis topik (dropdown di samping kolom cari) — langsung di browser (Alpine "listFilter") --}}
+    <div x-data="listFilter">
+    <form method="GET" action="{{ route($routeName) }}" @submit.prevent="apply" class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" role="search">
+        <div class="flex gap-2 w-full sm:flex-1">
+            <div class="relative min-w-0 flex-1">
+                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+                <label for="cari-tim" class="sr-only">Cari tim</label>
+                <input id="cari-tim" type="search" name="q" value="{{ $q }}" class="input min-h-[48px] rounded-xl pl-12" placeholder="Cari nama tim, anggota, NIM, atau topik" autocomplete="off" data-filter-search @input="search">
+            </div>
+            <x-sort-by tall target="#daftar-tim" id="urut-tim-dosen" default="tim" :options="['tim' => 'Tim', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Jenis topik)']" />
         </div>
         <label for="jenis" class="sr-only">Filter jenis topik</label>
-        <select id="jenis" name="jenis" class="input min-h-[48px] w-full rounded-xl sm:w-60 sm:shrink-0" @change="submit">
+        <select id="jenis" name="jenis" data-filter="jenis" class="input min-h-[48px] w-full rounded-xl sm:w-60 sm:shrink-0" @change="filter">
             <option value="">Semua</option>
             @foreach ($jenisLabel as $value => $label)<option value="{{ $value }}" @selected($jenis === $value)>{{ $label }}</option>@endforeach
         </select>
         <noscript><button class="btn btn-secondary">Terapkan</button></noscript>
     </form>
 
-    <section class="panel overflow-hidden" aria-label="Daftar {{ strtolower($title) }}">
+    <section id="daftar-tim" data-sort-scope class="panel overflow-hidden" aria-label="Daftar {{ strtolower($title) }}">
         @if ($teams->isEmpty())
-            <x-empty :title="$q !== '' || $jenis ? 'Tidak ada tim yang cocok' : 'Belum ada '.strtolower($title)" icon="user-group" />
+            <x-empty :title="'Belum ada '.strtolower($title)" icon="user-group" />
         @else
             {{-- Kartu menu utama: tabel pas selebar kartu (table-fixed, teks membungkus), tanpa scroll samping. --}}
             <table class="data-table min-w-0 w-full table-fixed [&_tbody_tr:hover_td]:bg-transparent [&_td]:break-words [&_th]:whitespace-normal">
@@ -38,9 +42,12 @@
                             <th>Tim</th><th>Anggota</th><th>Topik</th><th>Jenis Topik</th><th><span class="sr-only">Aksi</span></th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($teams as $team)
-                            <tr x-data="registrationForm" data-open="{{ $openTeam === $team->id ? 'true' : 'false' }}" data-reveal="true" class="[&>td]:py-4 [&>td]:align-top">
+                            @php $teamSearch = mb_strtolower(implode(' ', [$team->name, $team->finalTopic?->title, $team->members->map(fn ($m) => $m->user->name.' '.$m->user->nim)->implode(' ')])); @endphp
+                            <tr x-data="registrationForm" data-open="{{ $openTeam === $team->id ? 'true' : 'false' }}" data-reveal="true"
+                                data-filter-item data-search="{{ $teamSearch }}" data-filter-jenis="{{ $team->finalTopic?->source }}"
+                                data-sort-item data-sort-tim="{{ $team->name }}" data-sort-terbaru="{{ $team->created_at?->timestamp }}" data-sort-kategori="{{ $team->finalTopic ? ($jenisLabel[$team->finalTopic->source] ?? $team->finalTopic->source) : '' }}" class="[&>td]:py-4 [&>td]:align-top">
                                 <td class="font-semibold text-ink">{{ $team->name }}</td>
                                 <td>
                                     <ul class="space-y-1">
@@ -69,6 +76,8 @@
                         @endforeach
                     </tbody>
                 </table>
+            <p x-show="empty" x-cloak class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada tim yang cocok dengan pencarian atau filter.</p>
         @endif
     </section>
+    </div>
 </x-layouts.app>

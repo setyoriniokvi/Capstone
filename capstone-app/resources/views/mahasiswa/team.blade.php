@@ -78,7 +78,7 @@
                                             <div class="min-w-0">
                                                 <p class="font-medium text-ink">{{ $m->user->name }}@if ($m->is_leader) <span class="ml-1.5 rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted inline-block whitespace-nowrap">Ketua</span>@endif</p>
                                                 <p class="text-sm text-muted"><span class="tabular">{{ $m->user->nim }}</span> · {{ $m->user->email }}</p>
-                                                @if ($m->user->awaitingActivation())<p class="text-caption text-muted">{{ $team->status === 'diterima' ? 'Belum mengatur password — cek tautan di email' : 'Akun aktif setelah tim disetujui admin' }}</p>@endif
+                                                @if ($m->user->awaitingActivation())<p class="text-caption text-muted">{{ $team->status === 'diterima' ? 'Belum mengatur password - cek tautan di email' : 'Akun aktif setelah tim disetujui admin' }}</p>@endif
                                             </div>
                                         </div>
                                     </td>
@@ -113,7 +113,7 @@
                                 @if ($check['passed'])<x-heroicon-s-check-circle class="h-4 w-4" />@else<x-heroicon-s-x-circle class="h-4 w-4" />@endif
                             </span>
                             <div class="min-w-0">
-                                <p class="font-medium text-ink">{{ $check['label'] }}<span class="sr-only"> — {{ $check['passed'] ? 'terpenuhi' : 'belum terpenuhi' }}</span></p>
+                                <p class="font-medium text-ink">{{ $check['label'] }}<span class="sr-only"> - {{ $check['passed'] ? 'terpenuhi' : 'belum terpenuhi' }}</span></p>
                                 <p class="text-sm text-muted">{{ $check['detail'] }}</p>
                             </div>
                         </li>

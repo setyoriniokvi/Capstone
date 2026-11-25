@@ -1,4 +1,10 @@
-<x-layouts.app title="Dashboard Dosen">
+<x-layouts.app title="Dashboard Dosen" banner>
+    @if ($usesDefaultPassword)
+        <p role="status" class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warn-line bg-warn-tint px-4 py-3 text-sm text-warn-ink">
+            <span>Akun Anda masih memakai password default. Ganti dengan password Anda sendiri.</span>
+            <a href="{{ route('dosen.password.edit') }}" class="btn btn-secondary btn-sm">Ganti Password</a>
+        </p>
+    @endif
     {{-- Sambutan (sama dengan dashboard mahasiswa) + minggu berjalan --}}
     @php $week = $period?->currentWeek(); @endphp
     {{-- Kartu hijau dengan "tab" menjorok di kiri bawah berisi kuota --}}
@@ -27,9 +33,11 @@
     @if ($quota)
         <div class="relative inline-flex">
             <p class="rounded-bl-lg bg-brand-deep pb-3 pl-5 pr-1 pt-1 text-sm text-on-brand-muted sm:pl-8">
-                Kuota: <span class="tabular font-semibold text-on-brand">{{ $quota['pembimbing']['max'] }}</span> tim bimbingan
-                <span class="mx-1.5 text-on-brand-line" aria-hidden="true">|</span>
-                <span class="tabular font-semibold text-on-brand">{{ $quota['penguji']['max'] }}</span> tim uji
+                Kuota:
+                @foreach ($roles as $role)
+                    @if (! $loop->first)<span class="mx-1.5 text-on-brand-line" aria-hidden="true">|</span>@endif
+                    <span class="tabular font-semibold text-on-brand">{{ $quota[$role]['max'] }}</span> {{ $role === 'pembimbing' ? 'tim bimbingan' : 'tim uji' }}
+                @endforeach
             </p>
             {{-- Sisi kanan tab melengkung miring seperti "/" (kurva S) ke sisi bawah kartu --}}
             <svg class="pointer-events-none absolute left-full top-0 h-full w-12 fill-brand-deep" viewBox="0 0 48 40" preserveAspectRatio="none" aria-hidden="true">
@@ -70,21 +78,20 @@
                             <h3 id="pengingat-{{ $component }}" class="font-semibold text-ink">{{ config("capstone.components.{$component}.label") }}
                                 <span class="ml-1 text-sm font-normal text-muted">· <span class="tabular">{{ $rows->count() }}</span> tim belum dinilai</span></h3>
                             @if ($w)
-                                <p class="text-caption {{ $w->isOpen() ? 'text-ok-ink' : 'text-muted' }}">
-                                    {{ $w->isOpen() ? 'Dibuka' : (now()->lt($w->opens_at) ? 'Belum dibuka' : 'Ditutup') }} · {{ $w->opens_at->translatedFormat('j M') }} – {{ $w->due_at->translatedFormat('j M Y, H:i') }}
+                                <p class="text-caption {{ $w->isOpen() && ! $w->isOverdue() ? 'text-ok-ink' : ($w->isOverdue() ? 'text-warn-ink' : 'text-muted') }}">
+                                    {{ $w->statusLabel() }} · {{ $w->opens_at->translatedFormat('j M') }} – {{ $w->due_at->translatedFormat('j M Y, H:i') }}
                                 </p>
                             @endif
                         </div>
                         <ul class="divide-y divide-rule">
                             @foreach ($rows as $row)
-                                @php $isPartial = $partial->has($row['team']->id.':'.$component); @endphp
                                 <li>
                                     <a href="{{ route('dosen.assessments.edit', [$row['team'], $component]) }}" class="group flex items-center gap-4 px-5 py-3 hover:bg-sunken focus-visible:bg-sunken sm:px-6">
                                         <span class="min-w-0 flex-1">
                                             <span class="block font-medium text-ink">{{ $row['team']->name }}</span>
                                             <span class="block text-caption capitalize text-muted">Sebagai {{ $row['role'] }}</span>
                                         </span>
-                                        <x-badge :status="$isPartial ? 'draft' : 'belum'" :label="$isPartial ? 'Sebagian dinilai' : 'Belum dinilai'" />
+                                        <x-badge status="belum" label="Belum dinilai" />
                                         <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-faint group-hover:bg-surface group-hover:text-ink" aria-hidden="true"><x-heroicon-o-chevron-right class="h-5 w-5" /></span>
                                         <span class="sr-only">Nilai {{ config("capstone.components.{$component}.label") }} {{ $row['team']->name }}</span>
                                     </a>

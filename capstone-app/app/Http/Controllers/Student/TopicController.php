@@ -30,7 +30,7 @@ class TopicController extends StudentController
             ->get();
         $specializations = $all->pluck('specializations')->flatten()->filter()->unique()->sort()->values();
 
-        $topics = Topic::filterBank($all, (string) $request->query('q'), (string) $request->query('peminatan'));
+        $topics = Topic::filterBank($all, '', '') /* cari & peminatan disaring di browser (listFilter) */;
 
         $independent = $team?->independentTopic;
         $acceptedByLecturer = (bool) $team?->applications->contains('status', 'diterima');
@@ -57,6 +57,7 @@ class TopicController extends StudentController
             'title' => ['required', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:5000'],
             'object' => ['required', 'string', 'max:255'],
+            'object_detail' => ['nullable', 'string', 'max:3000'],
         ], [
             'object.required' => 'Isi objek Capstone (perusahaan, instansi, atau objek lainnya).',
         ]);

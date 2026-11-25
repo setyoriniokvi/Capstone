@@ -14,7 +14,7 @@
     $editing = old('_form') === 'edit';
     $editIds = $editing ? array_map('intval', array_keys(old('rows', []))) : [];
     $editCols = $editing ? array_keys(old('components', [])) : [];
-    $isPeer = fn ($key) => in_array('mahasiswa', $components[$key]['roles'] ?? [], true);
+    $isPeer = fn ($key) => \App\Models\AssessmentComponent::isPeerKey($key);
     // Kolom beku (layar ≥ sm): posisi kiri = jumlah lebar kolom sebelumnya (sama dengan <colgroup>).
     $freeze = ['sm:sticky sm:left-0', 'sm:sticky sm:left-[3rem]', 'sm:sticky sm:left-[7.5rem]', 'sm:sticky sm:left-[12rem] sm:border-r-2 sm:border-r-rule-strong'];
     $indicatorFields = function (string $prefix, string $uid, array $values) use ($clos, $schemes, $components, $star) {
@@ -23,7 +23,7 @@
 @endphp
 <x-layouts.app title="Indikator Penilaian">
 <div x-data="rowSelection" data-row-selection>
-    <x-page-head title="Indikator penilaian" lede="Nilai indikator = (Skor ÷ 5) × Bobot × Faktor Pemahaman. Bobot (%) = jumlah bobot pada setiap bentuk penilaian." />
+    <x-page-head title="Indikator penilaian" />
 
     @error('selection')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
@@ -119,13 +119,16 @@
             </div>
     </div>
 
-    <section class="panel overflow-hidden" aria-labelledby="indikator-judul">
+    <section data-sort-scope class="panel overflow-hidden" aria-labelledby="indikator-judul">
         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
             <h2 id="indikator-judul" class="text-lg font-semibold text-ink">Indikator</h2>
-            <p class="text-sm text-muted">
-                <span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $indicators->count() }} indikator ·
-                Total bobot CLO <span class="tabular font-medium {{ abs($summary['clo_total'] - 100) < 0.01 ? 'text-ok-ink' : 'text-bad-ink' }}">{{ $num($summary['clo_total']) }}</span> / 100
-            </p>
+            <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                @if ($indicators->isNotEmpty())<x-sort-by id="urut-indikator" default="clo" :options="['clo' => 'CLO', 'nama' => 'Indikator', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Skema penilaian)']" />@endif
+                <p class="text-sm text-muted">
+                    <span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $indicators->count() }} indikator ·
+                    Total bobot CLO <span class="tabular font-medium {{ abs($summary['clo_total'] - 100) < 0.01 ? 'text-ok-ink' : 'text-bad-ink' }}">{{ $num($summary['clo_total']) }}</span> / 100
+                </p>
+            </div>
         </div>
         @if ($indicators->isEmpty())
             <div class="border-t border-rule"><x-empty title="Belum ada indikator" icon="list-bullet">Tambahkan lewat tombol Tambah Indikator.</x-empty></div>
@@ -142,7 +145,7 @@
                             <th class="{{ $freeze[1] }} sm:z-[1] bg-brand-tint">CLO</th>
                             <th class="{{ $freeze[2] }} sm:z-[1] bg-brand-tint">ID</th>
                             <th class="{{ $freeze[3] }} sm:z-[1] bg-brand-tint">Indikator</th>
-                            <th>Bukti / Bab</th><th class="text-center">%</th><th>Skema Penilaian</th>
+                            <th>Bukti / Dokumen</th><th class="text-center">%</th><th>Skema Penilaian</th>
                             @foreach ($components as $key => $c)
                                 <th class="text-center align-top">
                                     @if ($isPeer($key))
@@ -159,14 +162,14 @@
                             @endforeach
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($indicators as $ind)
-                            <tr>
+                            <tr data-sort-item data-sort-clo="{{ $ind->clo?->code }} {{ $ind->code }}" data-sort-nama="{{ $ind->name }}" data-sort-terbaru="{{ $ind->created_at?->timestamp }}" data-sort-kategori="{{ $ind->scheme }}">
                                 <td class="{{ $freeze[0] }} sm:z-[1] bg-surface !px-0 text-center"><input type="checkbox" class="checkbox" value="{{ $ind->id }}" data-select-row @checked(in_array($ind->id, $editIds, true)) aria-label="Pilih indikator {{ $ind->code }}"></td>
                                 <td class="{{ $freeze[1] }} sm:z-[1] bg-surface code text-ink">{{ $ind->clo?->code }}</td>
                                 <td class="{{ $freeze[2] }} sm:z-[1] bg-surface code font-medium text-ink">{{ $ind->code }}</td>
                                 <td class="{{ $freeze[3] }} sm:z-[1] bg-surface text-ink">{{ $ind->name }}</td>
-                                <td class="{{ $ind->evidence ? 'text-ink' : 'text-muted' }}">{{ $ind->evidence ?: '—' }}</td>
+                                <td class="{{ $ind->evidence ? 'text-ink' : 'text-muted' }}">{{ $ind->evidence ?: '—' }}@if ($ind->document_types)<span class="mt-4 flex flex-wrap gap-1.5">@foreach ($ind->documentTypeLabels() as $docLabel)<span class="rounded-md border border-rule bg-sunken px-1.5 py-0.5 text-caption font-medium text-muted">{{ $docLabel }}</span>@endforeach</span>@endif</td>
                                 <td class="text-center tabular font-medium text-ink">{{ $num($ind->weight) }}</td>
                                 <td class="text-ink">{{ $ind->schemeLabel() }}</td>
                                 @foreach ($components as $key => $c)<td class="text-center tabular text-ink">{{ $ind->weightFor($key) ? $num($ind->weightFor($key)) : '' }}</td>@endforeach
@@ -189,7 +192,6 @@
                     </tfoot>
                 </table>
             </x-scroll-pager>
-            <p class="border-t border-rule px-5 py-3 text-caption text-muted sm:px-6">Centang baris untuk memilih indikator, atau centang judul kolom bentuk penilaian untuk mengubah / menghapus bentuk penilaian itu. Total merah: jumlah bobot indikator belum sama dengan bobot CLO.</p>
         @endif
     </section>
 </div>

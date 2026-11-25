@@ -59,17 +59,17 @@ class WorkflowTest extends TestCase
         $course = Period::active()->registrationRule->courses()->firstOrFail();
         $person = fn (User $u, string $region) => [
             'nim' => $u->nim, 'name' => $u->name, 'email' => $u->email, 'specialization' => '', 'sks_passed' => $u->sks_passed,
-            'grades' => [$course->id => 'B'], 'origin_region' => $region, 'khs' => $khs(),
+            'grades' => [$course->id => 'B'], 'origin_region' => $region, 'class_name' => 'SI-47-02', 'khs' => $khs(),
         ];
         // Ketua membuat akun sekaligus mendaftarkan tim di halaman registrasi publik (F21)
         $form = fn (User $mate) => [
             'name' => 'Tim Uji',
             'leader' => [
                 'nim' => '1030100', 'name' => 'Ketua Uji', 'email' => 'ketua.uji@student.test', 'specialization' => 'Enterprise Resource Planning',
-                'sks_passed' => 125, 'grades' => [$course->id => 'A'], 'origin_region' => 'Bandung, Jawa Barat', 'khs' => $khs(),
+                'sks_passed' => 125, 'grades' => [$course->id => 'A'], 'origin_region' => 'Kota Bandung', 'class_name' => 'SI-47-01', 'khs' => $khs(),
                 'password' => 'rahasia123', 'password_confirmation' => 'rahasia123',
             ],
-            'members' => [$person($mate, 'Medan, Sumatera Utara')],
+            'members' => [$person($mate, 'Kota Medan')],
         ];
 
         // F21 — anggota yang tidak memenuhi prasyarat (SKS kurang) ditolak sistem
@@ -87,7 +87,7 @@ class WorkflowTest extends TestCase
         $team = $leader->teamFor(Period::active());
         $this->assertSame('menunggu', $team->status);
         $this->assertSame($team->id, $other->teamFor(Period::active())?->id);
-        $this->assertSame('Medan, Sumatera Utara', $other->fresh()->origin_region);
+        $this->assertSame('Kota Medan', $other->fresh()->origin_region);
         $this->assertSame([$course->code => 'B'], $other->fresh()->course_grades);
         $this->assertSame('Enterprise Data Management', $other->fresh()->specialization, 'Peminatan kosong tidak menimpa data admin');
         $this->assertSame(100, $team->screening_score);
@@ -107,10 +107,17 @@ class WorkflowTest extends TestCase
             'title' => 'Sistem Informasi Akademik terpadu',
             'description' => str_repeat('Permasalahan integrasi data antar unit. ', 3),
             'object' => 'PT Contoh Logistik',
+            'object_detail' => "Gudang Cikarang.\nProfil: https://contoh-logistik.co.id/profil. <b>tebal</b>",
         ])->assertSessionHasNoErrors();
         $topic = $team->fresh()->independentTopic;
         $this->assertSame(['sistem informasi akademik'], $topic->keyword_hits);
         $this->assertSame('PT Contoh Logistik', $topic->object);
+        // Detail Topik/Objek (opsional): tautan dapat diklik (tab baru), HTML lain tetap di-escape
+        $link = '<a href="https://contoh-logistik.co.id/profil" target="_blank" rel="noopener noreferrer" class="link break-all">https://contoh-logistik.co.id/profil</a>.';
+        $this->actingAs($leader)->get(route('mahasiswa.topic.index'))->assertOk()
+            ->assertSee('Detail Topik/Objek')->assertSee($link, false)->assertSee('&lt;b&gt;tebal&lt;/b&gt;', false);
+        $this->actingAs($admin)->withSession([Period::WORKSPACE_KEY => $team->period_id])->get(route('admin.topics.index'))->assertOk()
+            ->assertSee($link, false);
         $portfolio = ['portfolio_url' => 'https://drive.google.com/drive/folders/portofolio-tim'];
 
         // Topik mandiri & topik dosen paralel: boleh melamar topik dosen sebelum topik mandiri diputuskan admin
@@ -199,7 +206,7 @@ class WorkflowTest extends TestCase
             // Halaman utama: pilih topik ("Lihat Pengajuan") → halaman pengajuan topik itu
             $this->actingAs($lecturer)->get(route('dosen.applications.index'))->assertOk()->assertSee($topic->title)
                 ->assertSee('Lihat Pengajuan')->assertSee(route('dosen.applications.show', $topic));
-            $this->actingAs($lecturer)->get(route('dosen.applications.show', $topic))->assertOk()->assertSee($team->name)->assertSee('Riwayat');
+            $this->actingAs($lecturer)->get(route('dosen.applications.show', $topic))->assertOk()->assertSee($team->name)->assertDontSee('Riwayat');
         }
 
         // Detail tim (waktu pengajuan, SKS, nilai mata kuliah, KHS) dan filter peminatan anggota tim
@@ -210,9 +217,9 @@ class WorkflowTest extends TestCase
         $this->actingAs($coProposer)->get(route('dosen.applications.show', $topic))
             ->assertSee('Detail tim')->assertSee('Waktu pengajuan')->assertSee($application->created_at->translatedFormat('j M Y, H:i'))
             ->assertSee('Jumlah SKS lulus')->assertSee('Lihat KHS');
-        $this->actingAs($coProposer)->get(route('dosen.applications.show', [$topic, 'peminatan' => $spec]))->assertSee($team->name);
-        $this->actingAs($coProposer)->get(route('dosen.applications.show', [$topic, 'peminatan' => 'Peminatan Fiktif']))
-            ->assertDontSee('Detail '.$team->name)->assertSee('Tidak ada pengajuan dari tim berpeminatan Peminatan Fiktif.');
+        // Filter peminatan langsung di browser: semua pengajuan dikirim, baris membawa data-filter-peminatan
+        $this->actingAs($coProposer)->get(route('dosen.applications.show', [$topic, 'peminatan' => $spec]))->assertSee($team->name)
+            ->assertSee('data-filter="peminatan"', false)->assertSee($spec)->assertSee('Tidak ada pengajuan dari tim dengan peminatan ini.');
         $khsMember = $team->members()->whereNotNull('khs_path')->first();
         if ($khsMember) {
             \Illuminate\Support\Facades\Storage::disk('local')->put($khsMember->khs_path, 'pdf');
@@ -284,7 +291,7 @@ class WorkflowTest extends TestCase
         $rows = app(\App\Services\ReminderService::class)->incompleteAssessments($period)->where('component', 'seminar_kemajuan')->where('team.id', $team->id);
         $this->assertSame(['pembimbing', 'penguji'], $rows->pluck('role')->sort()->values()->all());
 
-        // Nilai keduanya wajib final, poinnya dirata-rata: skor 5 & 3 dari bobot 10 → (10 + 6) / 2 = 8
+        // Nilai keduanya wajib final, poinnya dirata-rata: tingkat 5 (95) & 3 (70) dari bobot 10 → (9,5 + 7) / 2 = 8,25
         $calculator = app(ScoreCalculator::class);
         foreach (['pembimbing' => [$team->supervisor->lecturer_id, 5], 'penguji' => [$team->examiner->lecturer_id, 3]] as $role => [$assessor, $score]) {
             $summary = $calculator->componentSummary($team->fresh())->firstWhere('component', 'seminar_kemajuan');
@@ -294,7 +301,7 @@ class WorkflowTest extends TestCase
         }
         $summary = (new ScoreCalculator)->componentSummary($team->fresh())->firstWhere('component', 'seminar_kemajuan');
         $this->assertSame('final', $summary['status']);
-        $this->assertEqualsWithDelta(8.0, $summary['points'], 0.01);
+        $this->assertEqualsWithDelta(8.25, $summary['points'], 0.01);
 
         // Sudah ada nilai → tidak dapat dihapus
         $this->actingAs($admin)->delete(route('admin.periods.components.destroy', [$period, $component]))->assertSessionHasErrors('component');
@@ -339,7 +346,9 @@ class WorkflowTest extends TestCase
         $failed = collect($pending->screening ?? [])->contains('passed', false);
         $this->actingAs($admin)->withSession($session)->get(route('admin.teams.index'))->assertOk()
             ->assertSee('data-requirement="'.($failed ? 'belum' : 'terpenuhi').'"', false)
-            ->assertSee('data-search="'.mb_strtolower($pending->name), false)->assertSee('riwayat-judul', false);
+            ->assertSee('data-search="'.mb_strtolower($pending->name), false)->assertDontSee('riwayat-judul', false);
+        $this->actingAs($admin)->withSession($session)->get(route('admin.master-data.index'))->assertOk()
+            ->assertSee('riwayat-judul', false)->assertSee($accepted->name);
 
         $this->actingAs($admin)->withSession($session)->post(route('admin.teams.reject-many'), [])->assertSessionHasErrors('teams');
         // Tim yang sudah diterima ikut terkirim → dilewati, tetap diterima
@@ -383,11 +392,20 @@ class WorkflowTest extends TestCase
         $independent = Topic::query()->where('source', 'mandiri')->where('status', 'menunggu')->firstOrFail();
         $lecturerTopic = Topic::query()->where('source', 'dosen')->where('status', 'menunggu')->firstOrFail();
 
-        // Tab mandiri: menunggu approval + riwayat; tab dosen: menunggu approval + bank topik dosen
+        // Tab mandiri: hanya menunggu approval (tanpa riwayat), dibagi per halaman; tab dosen: menunggu approval
         $this->actingAs($admin)->withSession($session)->get(route('admin.topics.index'))->assertOk()
-            ->assertSee('Kata kunci terlarang topik mandiri')->assertSee('Approval Topik Mandiri')->assertSee($independent->title)->assertSee('Riwayat')->assertDontSee('Bank Topik Dosen');
+            ->assertSee('Kata kunci terlarang topik mandiri')->assertSee('Approval Topik Mandiri')->assertSee($independent->title)->assertDontSee('Riwayat')->assertDontSee('id="bank-judul"', false)
+            ->assertSee('id="per-halaman-mandiri"', false)->assertSee('data-page-size="10"', false)->assertDontSee('dari 1 data');
         $this->actingAs($admin)->withSession($session)->get(route('admin.topics.index', ['tab' => 'dosen']))->assertOk()
-            ->assertSee($lecturerTopic->title)->assertSee('Bank Topik Dosen')->assertSee('Setujui pilihan')->assertSee('Kata kunci terlarang topik dosen');
+            ->assertSee($lecturerTopic->title)->assertDontSee('id="bank-judul"', false)->assertSee('Setujui pilihan')->assertSee('Kata kunci terlarang topik dosen');
+        // Bank Topik Dosen: menu sidebar tersendiri di bawah Approval Topik
+        $this->actingAs($admin)->withSession($session)->get(route('admin.lecturer-topics.index'))->assertOk()
+            ->assertSee('id="bank-judul"', false)->assertSee('Tambah Topik')->assertSee('topik terbit')
+            ->assertSeeInOrder(['Approval Topik', 'Bank Topik Dosen', 'Kuota Dosen']);
+        // Filter Semua / Flag / Non Flag di samping jumlah menunggu (baris ber-data-requirement)
+        $this->actingAs($admin)->withSession($session)->get(route('admin.topics.index', ['tab' => 'dosen']))
+            ->assertSee('id="filter-flag-dosen"', false)->assertSee('id="per-halaman-dosen"', false)->assertSee('<option value="flag">Flag</option>', false)->assertSee('<option value="nonflag">Non Flag</option>', false)
+            ->assertSee('data-requirement="'.(empty($lecturerTopic->keyword_hits) ? 'nonflag' : 'flag').'"', false);
 
         // Kata kunci terlarang dipisah per jenis topik: kata kunci topik dosen tidak menandai topik mandiri
         $this->actingAs($admin)->withSession($session)->post(route('admin.keywords.store'), ['source' => 'dosen', 'keyword' => 'Blockchain'])->assertSessionHasNoErrors();
@@ -579,11 +597,10 @@ class WorkflowTest extends TestCase
         $this->actingAs($dosen3)->get(route('dosen.teams.examined'))->assertOk()
             ->assertSee('Tim Arunika')->assertDontSee('Tim Lintang')->assertSee('Topik Dosen');
 
-        // Filter jenis topik & pencarian nama anggota
+        // Filter jenis topik & pencarian nama anggota berjalan di browser: baris membawa data-filter-jenis & data-search
         $this->actingAs($dosen3)->get(route('dosen.teams.supervised', ['jenis' => 'dosen']))->assertOk()
-            ->assertDontSee('Tim Lintang')->assertSee('Tidak ada tim yang cocok');
-        $this->actingAs($dosen3)->get(route('dosen.teams.supervised', ['q' => 'Dimas']))->assertOk()->assertSee('Tim Lintang');
-        $this->actingAs($dosen3)->get(route('dosen.teams.supervised', ['q' => 'tidak-ada']))->assertOk()->assertDontSee('Tim Lintang');
+            ->assertSee('Tim Lintang')->assertSee('data-filter-jenis="mandiri"', false)->assertSee('<option value="dosen" selected', false)
+            ->assertSee('dimas prakoso')->assertSee('Tidak ada tim yang cocok dengan pencarian atau filter.');
     }
 
     public function test_lecturer_team_detail_overlay_replaces_old_detail_page(): void
@@ -601,9 +618,9 @@ class WorkflowTest extends TestCase
             ->assertSee(e(route('dosen.assessments.edit', [$team, 'sidang_pembimbing'])), false)
             ->assertSee('sesi minimal')->assertSee('Syarat minimal terpenuhi')
             ->assertSee('Diisi mahasiswa (antar-anggota tim)')
-            ->assertSee('Kemampuan komunikasi dan memfasilitasi tim')->assertSee('Sudah mengisi')->assertSee('Belum mengisi')
-            // Rincian per penilai di bawah rata-rata: Alya sudah menilai, Bima belum
-            ->assertSee('Alya <span class="tabular">', false)->assertSee('Bima <span class="tabular">0</span>', false)
+            ->assertSee('Kemampuan Komunikasi dan Memfasilitasi Tim')->assertSee('Belum mengisi')
+            // Rincian per penilai di bawah rata-rata: Alya sudah menilai, Bima belum (-)
+            ->assertSee('Alya <span class="tabular">', false)->assertSee('Bima <span class="tabular">-</span>', false)
             ->assertSee(e(route('dosen.logbooks.index', ['tab' => 'log'])).'#tim-'.$team->id, false);
 
         // Tombol "Lihat detail" sesi bimbingan menggulir ke tim tersebut di tabel History Bimbingan
@@ -717,8 +734,8 @@ class WorkflowTest extends TestCase
             ->assertSee('Contoh feedback: perkuat data pendukung')
             ->assertSee('Laporan Progress')->assertSee('Belum dinilai')->assertDontSee('Draf rahasia dosen')
             ->assertDontSee('Sumbangan ke nilai akhir')
-            // Nilai akhir belum ditetapkan selama ada tahapan / peer review yang belum lengkap
-            ->assertSee('Nilai Akhir')->assertSee('Menunggu: Laporan Progress');
+            // Nilai akhir & indeks tidak ditampilkan ke mahasiswa
+            ->assertDontSee('Nilai Akhir')->assertDontSee('Menunggu:');
 
         // Lengkapi semua tahapan dosen (skor 4 untuk setiap indikator) + peer review rekan (skor 4 tiap aspek)
         Assessment::query()->where('team_id', $team->id)->delete();
@@ -734,23 +751,26 @@ class WorkflowTest extends TestCase
         foreach ($members as $reviewer) {
             foreach ($members->whereNotIn('id', [$reviewer->id]) as $reviewee) {
                 foreach (array_keys(config('capstone.peer_aspects')) as $aspect) {
-                    PeerReview::create(['team_id' => $team->id, 'reviewer_id' => $reviewer->id, 'reviewee_id' => $reviewee->id, 'aspect' => $aspect, 'score' => 4]);
+                    PeerReview::create(['team_id' => $team->id, 'reviewer_id' => $reviewer->id, 'reviewee_id' => $reviewee->id, 'aspect' => $aspect, 'score' => 75]);
                 }
             }
         }
 
-        // Ketentuan: nilai indikator = (skor/5) × bobot bentuk penilaian × faktor; nilai akhir = Σ seluruh nilai indikator (= Σ CLO)
+        // Ketentuan: nilai indikator = (skor/5) × bobot bentuk penilaian × faktor; peer review = (rata-rata nilai ÷ 100) × bobot;
+        // nilai akhir = Σ seluruh nilai indikator (= Σ CLO)
         $expected = 0.0;
         foreach (array_keys(config('capstone.components')) as $component) {
             foreach ($calculator->indicatorsFor($component) as $indicator) {
-                $expected += (4 / 5) * $indicator->weightFor($component);
+                $expected += ($component === 'peer_review' ? 75 / 100 : 4 / 5) * $indicator->weightFor($component);
             }
         }
         $expected = round($expected, 2);
         $grade = $calculator->gradeInfo($expected);
+        $this->assertSame($expected, round((new ScoreCalculator)->forTeam($team->fresh())['rows']->firstWhere('student.id', $student->id)['total'], 2));
+        // Semua tahapan final: mahasiswa melihat nilai tiap asesmen (4/5 = 80,00), tetapi tetap tanpa nilai akhir / indeks
         $this->actingAs($student)->get(route('mahasiswa.assessments.index'))->assertOk()
-            ->assertSee(number_format($expected, 2, ',', '.'))->assertSee('>'.$grade['grade'].'<', false)
-            ->assertSeeText(number_format($grade['point'], 1, ',', '.').' · '.$grade['label'])->assertDontSee('Menunggu:');
+            ->assertSee('80,00')->assertDontSee('Nilai Akhir')->assertDontSee('Nilai Angka Mutu')
+            ->assertDontSeeText(number_format($grade['point'], 1, ',', '.').' · '.$grade['label']);
 
         // Tim belum diterima → belum ada penilaian
         $this->actingAs($this->user('mahasiswa14@gmail.com'))->get(route('mahasiswa.assessments.index'))->assertOk()
@@ -880,11 +900,11 @@ class WorkflowTest extends TestCase
         $this->assertSame('menunggu', $log->fresh()->status);
         $this->assertGreaterThanOrEqual(3, $log->histories()->count(), 'Histori revisi tersimpan (PRD 6.6)');
 
-        // Gate presentasi akhir: < 8 log disetujui → sidang tidak dapat dinilai
+        // Minimal log bimbingan tidak mengunci penilaian sidang (hanya pengumpulan Laporan Akhir & Materi Presentasi)
         $window = $team->period->assessmentWindows()->where('component', 'sidang_pembimbing')->first();
         $window->update(['opens_at' => now()->subDay(), 'due_at' => now()->addDay()]);
         $this->actingAs($lecturer)->put(route('dosen.assessments.update', [$team, 'sidang_pembimbing']), ['feedback' => 'Catatan'])
-            ->assertSessionHasErrors('gate');
+            ->assertSessionDoesntHaveErrors('gate');
     }
 
     public function test_assessment_formula_and_recap(): void
@@ -898,38 +918,45 @@ class WorkflowTest extends TestCase
 
         $oral = $calculator->indicators()->firstWhere('code', '6.2');
         $this->assertTrue($oral->usesOralFactor());
-        // 6.2 (Lisan): bobot sidang_pembimbing 2, skor 5, faktor 0,5 → 1
-        $this->assertEqualsWithDelta(1.0, $calculator->indicatorValue($oral, 'sidang_pembimbing', 5, 0.5), 0.001);
+        // 6.2 (Lisan): bobot sidang_pembimbing 2, tingkat 5 (nilai 95), faktor 0,5 → 0,95
+        $this->assertEqualsWithDelta(0.95, $calculator->indicatorValue($oral, 'sidang_pembimbing', 5, 0.5), 0.001);
 
         $result = $calculator->forTeam($team);
         $this->assertFalse($result['complete']);
         $this->assertNotContains('proposal', $result['missing']);
         $this->assertContains('peer_review', $result['missing']);
 
-        // Ekspor penuh diblokir bila belum lengkap; ekspor iGadis tersedia
+        // Hanya Ekspor iGadis (kapan saja, termasuk saat belum lengkap); tanpa Ekspor penuh, Indeks, dan jumlah tim lengkap
         $admin = User::query()->where('role', 'admin')->first();
-        $this->actingAs($admin)->get(route('admin.recap.export'))->assertSessionHasErrors('export');
+        $this->actingAs($admin)->get(route('admin.recap.export'))->assertOk()->assertDownload();
         $this->actingAs($admin)->get(route('admin.recap.export', ['mode' => 'igadis']))->assertOk()->assertDownload();
-        $this->actingAs($admin)->get(route('admin.recap.index'))->assertOk()->assertSee('Ekspor iGadis')->assertSee('Nama Tim')->assertSee($team->name);
+        $this->actingAs($admin)->get(route('admin.recap.index'))->assertOk()->assertSee('Ekspor iGadis')->assertSee('Nama Tim')->assertSee($team->name)
+            ->assertDontSee('Ekspor penuh')->assertDontSee('tim lengkap')->assertDontSee('>Indeks<', false)->assertDontSee('Belum:')
+            ->assertSeeInOrder(['Sidang Capstone (Penguji)', 'Peer Review', 'Pameran']);
 
-        // Format template iGadis: identitas A–F (digabung 2 baris), kolom bentuk penilaian × CLO berbobot, rumus total
+        // Format template iGadis (sheet "Indikator Draft -> Igadis"): identitas A–F digabung 4 baris; kolom bentuk penilaian ×
+        // CLO berbobot dengan judul bentuk penilaian · CLO · CLO iGadis · bobot; data mulai baris 5; NA = rumus total
         $path = app(\App\Services\RecapExporter::class)->toIgadis(collect([['team' => $team] + $result]));
         $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path)->getActiveSheet();
         unlink($path);
         $this->assertSame(['COURSEID', 'SUBJECTCODE', 'CLASS', 'STUDENTID', 'OLDSTUDENTID', 'FULLNAME'],
             array_map(fn ($c) => $sheet->getCell("{$c}1")->getValue(), ['A', 'B', 'C', 'D', 'E', 'F']));
-        $this->assertContains('A1:A2', $sheet->getMergeCells());
-        $this->assertSame('Proposal [CLO1] (6%)', $sheet->getCell('G1')->getValue());
-        $this->assertSame('1 (100%)', $sheet->getCell('G2')->getValue());
+        $this->assertContains('A1:A4', $sheet->getMergeCells());
+        $this->assertContains('G1:H1', $sheet->getMergeCells());            // Proposal: CLO1 & CLO2
+        $this->assertEquals(['Proposal', 'CLO1', 'PLO01-CLO10', 6], [$sheet->getCell('G1')->getValue(), $sheet->getCell('G2')->getValue(), $sheet->getCell('G3')->getValue(), $sheet->getCell('G4')->getValue()]);
+        $this->assertEquals(['CLO2', 'PLO02-CLO05', 7], [$sheet->getCell('H2')->getValue(), $sheet->getCell('H3')->getValue(), $sheet->getCell('H4')->getValue()]);
+        $last = $sheet->getHighestColumn();
+        $this->assertEquals(['NA', 100], [$sheet->getCell("{$last}1")->getValue(), $sheet->getCell("{$last}4")->getValue()]);
         $student = $result['rows']->first()['student'];
-        $this->assertSame((string) $student->nim, (string) $sheet->getCell('D3')->getValue());
-        $this->assertSame($student->name, $sheet->getCell('F3')->getValue());
-        $this->assertNull($sheet->getCell('A3')->getValue());
-        $this->assertIsNumeric($sheet->getCell('G3')->getValue());      // proposal sudah final
-        $headers = collect($sheet->rangeToArray('G1:'.$sheet->getHighestColumn().'1')[0]);
-        $peerCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(7 + $headers->search(fn ($h) => str_starts_with((string) $h, 'Peer Review')));
-        $this->assertNull($sheet->getCell("{$peerCol}3")->getValue());  // peer review belum lengkap → kosong
-        $this->assertStringStartsWith('=(G3*0.06+', (string) $sheet->getCell($sheet->getHighestColumn().'3')->getValue());
+        $this->assertSame((string) $student->nim, (string) $sheet->getCell('D5')->getValue());
+        $this->assertSame($student->name, $sheet->getCell('F5')->getValue());
+        $this->assertNull($sheet->getCell('A5')->getValue());
+        $this->assertIsNumeric($sheet->getCell('G5')->getValue());      // proposal sudah final
+        $columns = app(\App\Services\RecapExporter::class)->igadisColumns();
+        $peerCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(7 + collect($columns)->search(fn ($c) => $c['component'] === 'peer_review'));
+        $this->assertSame('PLO03-CLO04', $sheet->getCell("{$peerCol}3")->getValue());
+        $this->assertNull($sheet->getCell("{$peerCol}5")->getValue());  // peer review belum lengkap → kosong
+        $this->assertStringStartsWith('=(G5*0.06+', (string) $sheet->getCell("{$last}5")->getValue());
     }
 
     public function test_lecturer_scores_checked_indicators_then_submits_final(): void
@@ -942,19 +969,24 @@ class WorkflowTest extends TestCase
         $indicators = app(ScoreCalculator::class)->indicatorsFor('proposal');
         $clo1 = $indicators->where('clo_id', $indicators->first()->clo_id)->values();
         $route = fn (string $name) => route($name, [$team, 'proposal']);
+        // Interval per baris: scores[indicator_id][score|oral_level]
+        $rows = fn (iterable $ids, $score, $oral = null) => ['scores' => collect($ids)->mapWithKeys(fn ($id) => [$id => ['score' => $score, 'oral_level' => $oral]])->all()];
 
-        // Tabel rubrik + toolbar progres / skor / Simpan penilaian + keterangan warna
+        // Tabel: CLO · Indikator · Poin Penilaian · Rubrikasi (baris [1]…[N]) · Bobot · Interval + isi baris terpilih
         $this->actingAs($lecturer)->get($route('dosen.assessments.edit'))->assertOk()
-            ->assertSee('indikator sudah dinilai')->assertSee('Hapus<span class="hidden sm:inline"> pilihan</span>', false)->assertSee('Bekukan kolom indikator')->assertSee('Sudah dinilai')->assertSee('Belum dinilai')->assertSee('5 - Menguasai penuh (1,00)')
-            ->assertSee('Contoh Pemenuhan Tingkat 5')->assertSee($clo1->first()->rubric->level_5);
+            ->assertSee('indikator sudah dinilai')->assertDontSee('Isi baris terpilih')->assertDontSee('Hapus pilihan')->assertSee('data-select-group', false)->assertDontSee('data-group-interval', false)->assertSee('Sudah dinilai')->assertSee('Belum dinilai')
+            ->assertSee('Rubrikasi')->assertSee('Dokumen')->assertSee('Lisan')->assertSee('data-kind="oral"', false)->assertSee('5 (95)')
+            ->assertSee('CLO '.$clo1->first()->code)->assertSee('Maks. '.$clo1->first()->maxInterval())
+            ->assertSee('Menguasai penuh (1,00)')->assertSee('5 - 1,00')->assertDontSee('Contoh Pemenuhan Tingkat 5')->assertSee(trim($clo1->first()->rubric->level_5));
 
-        // Wajib mencentang indikator & memilih skor; indikator lisan wajib pemahaman lisan
-        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['score' => 4])->assertSessionHasErrors('indicator_ids');
-        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['indicator_ids' => $clo1->pluck('id')->all(), 'score' => 4])->assertSessionHasErrors('oral_level');
+        // Wajib mengisi interval; indikator lisan wajib pemahaman lisan; interval tidak boleh melebihi interval maksimum
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), [])->assertSessionHasErrors('scores');
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), $rows($clo1->pluck('id'), 4))->assertSessionHasErrors('scores.'.$clo1->first()->id.'.oral_level');
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), $rows([$clo1->first()->id], 9, 5))->assertSessionHasErrors('scores.'.$clo1->first()->id.'.score');
 
         // Satu CLO sekaligus (beberapa indikator), lalu satu indikator diubah sendiri
-        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['indicator_ids' => $clo1->pluck('id')->all(), 'score' => 4, 'oral_level' => 5])->assertSessionHasNoErrors();
-        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['indicator_ids' => [$clo1->last()->id], 'score' => 2, 'oral_level' => 3])->assertSessionHasNoErrors();
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), $rows($clo1->pluck('id'), 4, 5))->assertSessionHasNoErrors();
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), $rows([$clo1->last()->id], 2, 3))->assertSessionHasNoErrors();
         $assessment = $team->assessments()->where('component', 'proposal')->where('assessor_id', $lecturer->id)->first();
         $this->assertSame(4, $assessment->scores()->where('indicator_id', $clo1->first()->id)->value('score'));
         $this->assertSame(2, $assessment->scores()->where('indicator_id', $clo1->last()->id)->value('score'));
@@ -963,23 +995,48 @@ class WorkflowTest extends TestCase
         // Hapus pilihan: skor indikator yang dicentang dikosongkan, lalu dinilai lagi
         $this->actingAs($lecturer)->delete($route('dosen.assessments.scores.destroy'), ['indicator_ids' => [$clo1->last()->id]])->assertSessionHasNoErrors();
         $this->assertNull($assessment->scores()->where('indicator_id', $clo1->last()->id)->first());
-        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['indicator_ids' => [$clo1->last()->id], 'score' => 2, 'oral_level' => 3])->assertSessionHasNoErrors();
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), $rows([$clo1->last()->id], 2, 3))->assertSessionHasNoErrors();
 
-        // Real time: sebagian dinilai → status draft (belum masuk rekap); tidak ada lagi tombol draf / final
+        // Sebagian indikator (Simpan Draft) → draft = "Belum dinilai"; tombol Simpan Final + status simpan otomatis; tidak ada "Sebagian dinilai"
         $this->actingAs($lecturer)->get($route('dosen.assessments.edit'))->assertOk()
             ->assertSee($clo1->count().'</span> dari <span class="tabular">'.$indicators->count().'</span> indikator sudah dinilai', false)
-            ->assertSee('Sebagian dinilai')->assertDontSee('Kirim nilai final')->assertDontSee('Simpan draf');
+            ->assertSee('Submit Final')->assertSee('tersimpan otomatis sebagai draft')->assertDontSee('Simpan Draft')->assertSee('Belum dinilai')->assertDontSee('Sebagian dinilai');
+        $this->assertSame('draft', $assessment->fresh()->status);
+        $this->actingAs($lecturer)->get(route('dosen.assessments.index'))->assertDontSee('Sebagian dinilai');
+        $this->actingAs($lecturer)->get(route('dosen.dashboard'))->assertOk()->assertDontSee('Sebagian dinilai');
+
+        // Draft belum terlihat mahasiswa & masih belum dinilai di ringkasan; masih kena reminder (belum final)
+        $student = $team->activeUsers()->first();
+        $proposalStage = fn () => app(ScoreCalculator::class)->componentSummary($team->fresh())->firstWhere('component', 'proposal');
+        $this->assertSame('belum', $proposalStage()['status']);
+        $this->assertTrue(app(\App\Services\ReminderService::class)->incompleteAssessments($team->period)
+            ->contains(fn ($r) => $r['team']->id === $team->id && $r['component'] === 'proposal' && ! $r['done']));
+
+        // Simpan Final ditolak selama ada indikator yang belum dinilai (skor yang dikirim ikut dibatalkan)
+        $rest = $indicators->whereNotIn('id', $clo1->pluck('id'))->pluck('id')->all();
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['mode' => 'final'] + $rows(array_slice($rest, 0, 1), 5, 5))
+            ->assertSessionHasErrors('scores');
+        $this->assertSame($clo1->count(), $assessment->scores()->count());
         $this->assertSame('draft', $assessment->fresh()->status);
 
-        // Semua indikator dinilai → otomatis lengkap (final) tanpa tombol kirim; feedback opsional
-        $rest = $indicators->whereNotIn('id', $clo1->pluck('id'))->pluck('id')->all();
-        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['indicator_ids' => $rest, 'score' => 5, 'oral_level' => 5])->assertSessionHasNoErrors();
+        // Semua indikator dinilai lewat Simpan Draft → tetap draft (belum dinilai) sampai Simpan Final
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['mode' => 'draft'] + $rows($rest, 5, 5))->assertSessionHasNoErrors();
+        $this->assertSame('draft', $assessment->fresh()->status);
+        $this->assertNull($assessment->fresh()->submitted_at);
+
+        // Simpan Final (tanpa centang = hanya memfinalkan) → sudah dinilai, terlihat mahasiswa, tidak kena reminder lagi
+        $this->actingAs($lecturer)->put($route('dosen.assessments.scores'), ['mode' => 'final'])->assertSessionHasNoErrors();
         $this->assertSame('final', $assessment->fresh()->status);
         $this->assertNotNull($assessment->fresh()->submitted_at);
+        $this->assertSame('final', $proposalStage()['status']);
+        $this->actingAs($student)->get(route('mahasiswa.assessments.index'))->assertOk()->assertSee('Sudah dinilai');
+        $this->assertFalse(app(\App\Services\ReminderService::class)->incompleteAssessments($team->period)
+            ->contains(fn ($r) => $r['team']->id === $team->id && $r['component'] === 'proposal' && $r['lecturer']->id === $lecturer->id && ! $r['done']));
+        $this->actingAs($lecturer)->get(route('dosen.assessments.index'))->assertSee('Sudah dinilai');
         $this->actingAs($lecturer)->put($route('dosen.assessments.update'), ['feedback' => 'Baik'])->assertSessionHasNoErrors();
         $this->assertSame(['Baik', 'final'], [$assessment->fresh()->feedback, $assessment->fresh()->status]);
 
-        // Menghapus skor → tidak lengkap lagi, kembali sebagian (draft)
+        // Menghapus skor → kembali draft (belum dinilai)
         $this->actingAs($lecturer)->delete($route('dosen.assessments.scores.destroy'), ['indicator_ids' => [$clo1->first()->id]])->assertSessionHasNoErrors();
         $this->assertSame('draft', $assessment->fresh()->status);
     }
@@ -1074,7 +1131,10 @@ class WorkflowTest extends TestCase
         $this->actingAs($admin)->delete(route('admin.indicators.destroy-many'), ['ids' => [$new->id], 'components' => ['pameran']])->assertSessionHasNoErrors();
         $this->assertModelMissing($new);
         $this->assertNull(\App\Models\AssessmentComponent::query()->where('key', 'pameran')->first());
-        $this->assertSame(0, DB::table('indicator_component_weights')->where('component', 'pameran')->count());
+        // Hanya bobot milik periode ini yang ikut terhapus; bobot data master bawaan / periode lain dengan kunci sama tetap ada.
+        $periodIndicators = DB::table('indicators')->where('period_id', $clo1->period_id)->pluck('id');
+        $this->assertSame(0, DB::table('indicator_component_weights')->where('component', 'pameran')->whereIn('indicator_id', $periodIndicators)->count());
+        $this->assertGreaterThan(0, DB::table('indicator_component_weights')->where('component', 'pameran')->whereNotIn('indicator_id', $periodIndicators)->count());
     }
 
     public function test_score_calculation_card_is_information_only(): void
@@ -1086,11 +1146,11 @@ class WorkflowTest extends TestCase
 
         // Kartu informasi di atas tabel indikator, isi dari berkas rubrik, tanpa tombol ubah
         $this->actingAs($admin)->get(route('admin.indicators.index'))->assertOk()
-            ->assertSee('Cara nilai dihitung')->assertSee('Faktor Pemahaman')->assertSee('gerbang anti-AI')->assertDontSee('Tambah Baris');
+            ->assertSee('Cara nilai dihitung')->assertSee('Faktor Lisan')->assertSee('Ubah rumus')->assertDontSee('gerbang anti-AI')->assertDontSee('Tambah Baris');
 
         // Faktor lisan hanya untuk skema lisan; indikator lain dikali 1,00
         $this->assertEqualsWithDelta(0.8, $calculator->indicatorValue($docLisan, 'proposal', 4, 0.5), 0.001);
-        $this->assertEqualsWithDelta(2.0, $calculator->indicatorValue($dokumen, 'sidang_pembimbing', 5, 0.5), 0.001);
+        $this->assertEqualsWithDelta(1.9, $calculator->indicatorValue($dokumen, 'sidang_pembimbing', 5, 0.5), 0.001);
     }
 
     public function test_admin_manages_rubrics_in_bulk(): void
@@ -1101,23 +1161,25 @@ class WorkflowTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.rubrics.index'))->assertOk()
             ->assertSee('Tambah Rubrik')->assertSee('Edit Pilihan')->assertSee('Hapus Pilihan')
-            ->assertSee('5 - Sangat Baik (95)')->assertSee('Contoh Pemenuhan Tingkat 5')->assertSee($a->rubric->level_5);
+            ->assertSee('5 - Sangat Baik (95)')->assertDontSee('Contoh pemenuhan tingkat 5')->assertSee($a->rubric->level_5);
 
-        // Hapus Pilihan → indikator tetap, rubrik hilang; Tambah: semua wajib kecuali poin penilaian
+        // Hapus Pilihan → indikator tetap, rubrik hilang; Tambah: tingkat 0 & 1 wajib, tingkat 2–5 boleh kosong dari atas
         $this->actingAs($admin)->delete(route('admin.rubrics.destroy-many'), ['ids' => [$a->id, $b->id]])->assertSessionHasNoErrors();
         $this->assertNull($a->rubric()->first());
         $this->assertModelExists($a);
-        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $a->id] + $levels)->assertSessionHasErrors('example_level_5');
-        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $a->id, 'example_level_5' => 'Contoh'] + $levels)->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $a->id, 'level_1' => ''] + $levels)->assertSessionHasErrors('level_1');
+        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $a->id, 'level_4' => ''] + $levels)->assertSessionHasErrors('level_4');
+        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $a->id] + $levels)->assertSessionHasNoErrors();
         $this->assertNull($a->rubric()->first()->assessment_points);
-        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $b->id, 'example_level_5' => 'Contoh', 'assessment_points' => 'Poin'] + $levels)->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('admin.rubrics.store'), ['indicator_id' => $b->id, 'assessment_points' => 'Poin'] + $levels)->assertSessionHasNoErrors();
 
         // Edit Pilihan: beberapa rubrik sekaligus; data indikator (kode, nama) tidak dapat diubah dari sini
         $this->actingAs($admin)->put(route('admin.rubrics.update-many'), ['rows' => [
-            $a->id => ['example_level_5' => 'Baru A', 'code' => '9.9', 'name' => 'Nama lain'] + $levels,
-            $b->id => ['example_level_5' => 'Baru B', 'assessment_points' => 'Poin B'] + $levels,
+            $a->id => ['level_5' => 'Baru A', 'code' => '9.9', 'name' => 'Nama lain'] + $levels,
+            $b->id => ['assessment_points' => 'Poin B'] + $levels,
         ]])->assertSessionHasNoErrors();
-        $this->assertSame('Baru A', $a->rubric()->first()->example_level_5);
+        $this->assertSame('Baru A', $a->rubric()->first()->level_5);
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('document_rubrics', 'example_level_5'));
         $this->assertSame('Poin B', $b->rubric()->first()->assessment_points);
         $this->assertSame([$a->code, $a->name], [$a->fresh()->code, $a->fresh()->name]);
 
@@ -1146,17 +1208,65 @@ class WorkflowTest extends TestCase
         $this->actingAs($this->user('dosen5@gmail.com'))->get(route('dosen.assessments.edit', [$team, 'proposal']))->assertForbidden();
     }
 
+    public function test_admin_manages_peer_review_rubric_used_by_student_form(): void
+    {
+        $admin = User::query()->where('role', 'admin')->first();
+        $student = $this->user('mahasiswa@gmail.com');
+        $session = [Period::WORKSPACE_KEY => Period::active()->id];
+
+        // Rubrik bawaan (6 aspek, deskripsi nilai 1–5) dari rubrik peer review yang sudah ada
+        $this->assertSame(6, \App\Models\PeerAspect::query()->count());
+        $komunikasi = \App\Models\PeerAspect::query()->where('key', 'komunikasi')->sole();
+        $this->assertSame(config('peer_rubric.komunikasi.levels.5'), $komunikasi->level_5);
+        $this->actingAs($admin)->withSession($session)->get(route('admin.peer-rubric.index'))->assertOk()
+            ->assertSee('Rubrik Peer Review')->assertSee('Kemampuan Komunikasi dan Memfasilitasi Tim')->assertSee('Nilai 90')
+            ->assertSee('6 aspek');
+
+        // Tambah: wajib semua
+        $fields = ['_form' => 'tambah', 'name' => 'Kemampuan presentasi', 'definition' => 'Menyampaikan hasil kerja tim di depan audiens.',
+            'level_1' => 'Tidak tampil', 'level_2' => 'Membaca slide', 'level_3' => 'Cukup jelas', 'level_4' => 'Jelas dan runtut', 'level_5' => 'Meyakinkan dan menjawab pertanyaan'];
+        $this->actingAs($admin)->withSession($session)->post(route('admin.peer-rubric.store'), ['level_3' => ''] + $fields)
+            ->assertSessionHasErrors(['level_3' => 'Deskripsi nilai 65 wajib diisi.']);
+        $this->actingAs($admin)->withSession($session)->post(route('admin.peer-rubric.store'), $fields)->assertSessionHasNoErrors();
+        $new = \App\Models\PeerAspect::query()->where('name', 'Kemampuan presentasi')->sole();
+        $this->assertSame('kemampuan_presentasi', $new->key);
+        $this->assertSame(7, $new->sort_order);
+
+        // Edit Pilihan (nama, definisi, deskripsi nilai); kunci aspek tidak berubah
+        $this->actingAs($admin)->withSession($session)->put(route('admin.peer-rubric.update-many'), ['_form' => 'edit',
+            'rows' => [$new->id => ['name' => 'Presentasi tim'] + collect($fields)->except(['_form', 'name'])->all()]])->assertSessionHasNoErrors();
+        $this->assertSame(['Presentasi tim', 'kemampuan_presentasi'], [$new->fresh()->name, $new->fresh()->key]);
+
+        // Formulir peer review mahasiswa memakai rubrik terbaru (7 aspek: nama & definisi)
+        \App\Models\PeerAspect::syncConfig();
+        $this->actingAs($student)->get(route('mahasiswa.peer.index'))->assertOk()
+            ->assertSee('Presentasi tim')->assertSee('Menyampaikan hasil kerja tim di depan audiens.');
+        $team = Team::query()->where('name', 'Tim Arunika')->first();
+        $mate = $team->activeUsers()->whereKeyNot($student->id)->value('users.id');
+        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $mate, 'scores' => array_fill_keys(array_keys(config('capstone.peer_aspects')), 75)])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(7, PeerReview::query()->where('reviewer_id', $student->id)->where('reviewee_id', $mate)->count());
+
+        // Hapus Pilihan: aspek & nilai peer review pada aspek itu ikut terhapus
+        $this->actingAs($admin)->withSession($session)->delete(route('admin.peer-rubric.destroy-many'), ['ids' => [$new->id]])->assertSessionHasNoErrors();
+        $this->assertModelMissing($new);
+        $this->assertSame(0, PeerReview::query()->where('aspect', 'kemampuan_presentasi')->count());
+        $this->assertSame(6, PeerReview::query()->where('reviewer_id', $student->id)->where('reviewee_id', $mate)->count());
+        \App\Models\PeerAspect::syncConfig();
+        $this->assertCount(6, config('capstone.peer_aspects'));
+    }
+
     public function test_peer_review_flow(): void
     {
         $student = $this->user('mahasiswa@gmail.com');
 
         $team = Team::query()->where('name', 'Tim Arunika')->first();
-        $scores = array_fill_keys(array_keys(config('capstone.peer_aspects')), 4);
+        $scores = array_fill_keys(array_keys(config('capstone.peer_aspects')), 75);
         $mates = $team->activeUsers()->whereKeyNot($student->id)->pluck('users.id');
 
         // Terbuka selama periode berlangsung: tanpa menunggu Laporan Akhir maupun jadwal milestone
         $this->assertFalse($team->documents()->where('document_type', 'laporan_akhir')->exists());
-        $this->actingAs($student)->get(route('mahasiswa.peer.index'))->assertOk()->assertSee('Terbuka selama periode berlangsung')->assertDontSee('disabled title=', false);
+        $this->actingAs($student)->get(route('mahasiswa.peer.index'))->assertOk()->assertDontSee('disabled title=', false);
 
         // Setiap rekan dinilai terpisah (6 aspek per rekan)
         $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $mates[0], 'scores' => $scores])->assertSessionHasNoErrors();
@@ -1172,9 +1282,9 @@ class WorkflowTest extends TestCase
         $this->assertSame(12, PeerReview::query()->where('reviewer_id', $student->id)->count());
 
         // Boleh dikirim ulang berkali-kali; nilai terbaru yang dipakai
-        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $mates[0], 'scores' => array_fill_keys(array_keys($scores), 2)])->assertSessionHasNoErrors();
+        $this->actingAs($student)->post(route('mahasiswa.peer.store'), ['reviewee_id' => $mates[0], 'scores' => array_fill_keys(array_keys($scores), 50)])->assertSessionHasNoErrors();
         $this->assertSame(12, PeerReview::query()->where('reviewer_id', $student->id)->count());
-        $this->assertSame([2], PeerReview::query()->where('reviewer_id', $student->id)->where('reviewee_id', $mates[0])->distinct()->pluck('score')->all());
+        $this->assertSame([50], PeerReview::query()->where('reviewer_id', $student->id)->where('reviewee_id', $mates[0])->distinct()->pluck('score')->all());
 
         // Menu Hasil Penilaian mahasiswa sudah dihapus (nilai dilihat di sistem eksternal)
         $this->actingAs($student)->get('/mahasiswa/nilai')->assertNotFound();
@@ -1193,7 +1303,7 @@ class WorkflowTest extends TestCase
             $this->markTestSkipped('Tim demo Tim Lintang belum boleh mengunggah dokumen apa pun.');
         }
         $upload()->assertSessionHasErrors(['file' => 'Minimal 8 log bimbingan harus disetujui sebelum mengumpulkan '.$report->name.'.']);
-        $this->actingAs($student)->get(route('mahasiswa.documents.index'))->assertSee('Terkunci — minimal 8 log bimbingan disetujui (2/8).');
+        $this->actingAs($student)->get(route('mahasiswa.documents.index'))->assertSee('Terkunci - minimal 8 log bimbingan disetujui (2/8).');
 
         // Setelah 8 log disetujui → boleh mengumpulkan
         $logs = Logbook::query()->where('team_id', $team->id)->pluck('id');
@@ -1247,6 +1357,23 @@ class WorkflowTest extends TestCase
         $milestone->update(['allowed_types' => ['pdf']]);
         $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('slide.pptx', 10), 'idempotency_key' => (string) Str::uuid()])
             ->assertSessionHasErrors(['file' => 'Format file harus PDF.']);
+
+        // Setelah deadline: unggah ulang ditolak (Overdue), tombol nonaktif; tidak ada lagi penanda "terlambat"
+        $versions = $document->versions()->count();
+        $milestone->update(['due_at' => now()->subMinute()]);
+        $this->actingAs($student)->post(route('mahasiswa.documents.store', $milestone), ['file' => UploadedFile::fake()->create('telat.pdf', 50, 'application/pdf'), 'idempotency_key' => (string) Str::uuid()])
+            ->assertSessionHasErrors(['file' => 'Deadline '.$milestone->name.' sudah lewat (Overdue); dokumen tidak dapat diunggah lagi.']);
+        $this->assertSame($versions, $document->versions()->count());
+        // Sudah dikumpulkan → tanpa label Overdue, tetapi Unggah file ulang nonaktif
+        $page = $this->actingAs($student)->get(route('mahasiswa.documents.index', ['rentang' => 'semua']))->assertOk()
+            ->assertDontSee('terlambat');
+        $overdue = fn (string $html) => substr_count($html, '>Overdue</span>');
+        $before = $overdue($page->getContent());
+        $this->assertMatchesRegularExpression('/<button[^>]*disabled[^>]*>\s*<svg[^>]*>.*?<\/svg>\s*Unggah file ulang/s', $page->getContent());
+        // Belum dikumpulkan → label Overdue muncul untuk milestone ini
+        $document->update(['state' => 'trash']);
+        $this->assertSame($before + 1, $overdue($this->actingAs($student)->get(route('mahasiswa.documents.index', ['rentang' => 'semua']))->getContent()));
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('documents', 'is_late'));
     }
 
     public function test_drive_sync_updates_same_file_and_records_failures(): void
@@ -1291,6 +1418,14 @@ class WorkflowTest extends TestCase
         $this->assertSame('file-1', $document->fresh()->drive_file_id);
         $this->assertSame(2, $document->fresh()->current_revision);
 
+        // Server hanya transit: setelah tersinkron, salinan lokal revisi 1 & 2 dihapus; file dibuka lewat aplikasi dari Drive.
+        // Revisi lama tidak disimpan (Drive sudah tertimpa revisi terbaru).
+        $synced = $document->versions()->get(); // terbaru dulu
+        $synced->each(fn ($v) => Storage::disk('local')->assertMissing($v->local_path));
+        $body = $this->actingAs($student)->get(route('documents.download', $synced->first()))->assertOk()->streamedContent();
+        $this->assertSame('isi-drive-file-1', $body);
+        $this->actingAs($student)->get(route('documents.download', $synced->last()))->assertNotFound();
+
         // Kegagalan: versi lama tetap tercatat sebagai versi terkini (F40)
         $fake->fail = true;
         try {
@@ -1301,6 +1436,11 @@ class WorkflowTest extends TestCase
         $document->refresh();
         $this->assertSame(2, $document->current_revision);
         $this->assertSame('gagal', DocumentVersion::query()->where('document_id', $document->id)->where('revision_no', 3)->value('sync_status'));
+        // Sinkron gagal: file tetap di server dan tetap bisa dibuka (revisi terbaru); mahasiswa tidak melihat status sinkron.
+        $failed = DocumentVersion::query()->where('document_id', $document->id)->where('revision_no', 3)->first();
+        Storage::disk('local')->assertExists($failed->local_path);
+        $this->actingAs($student)->get(route('documents.download', $failed))->assertOk();
+        $this->actingAs($student)->get(route('mahasiswa.documents.index'))->assertDontSee('Sinkronisasi ke Google Drive')->assertDontSee('Coba lagi');
         $this->assertDatabaseHas('drive_operations', ['document_id' => $document->id, 'status' => 'gagal']);
 
         // Mahasiswa tidak dapat menghapus pengumpulan; tombolnya kini "Unggah file ulang"
@@ -1363,6 +1503,7 @@ class WorkflowTest extends TestCase
 
     public function test_manual_reminder_requires_contact(): void
     {
+        config(['capstone.automation.sender' => 'n8n']);
         $admin = User::query()->where('role', 'admin')->first();
         $dsn4 = $this->user('dosen4@gmail.com'); // tanpa nomor WA
         $team = Team::query()->where('name', 'Tim Bentala')->first();
@@ -1371,6 +1512,113 @@ class WorkflowTest extends TestCase
         $this->actingAs($admin)->post(route('admin.monitoring.remind'), ['lecturer_ids' => [$dsn4->id], 'channels' => ['email', 'whatsapp']])->assertSessionHasNoErrors();
         $this->assertSame('antre', ReminderDispatch::query()->where('lecturer_id', $dsn4->id)->where('channel', 'email')->value('status'));
         $this->assertSame('gagal', ReminderDispatch::query()->where('lecturer_id', $dsn4->id)->where('channel', 'whatsapp')->value('status'));
+    }
+
+    public function test_reminders_sent_directly_via_fonnte_whatsapp(): void
+    {
+        config(['capstone.automation.sender' => 'app', 'capstone.fonnte.token' => 'token-fonnte']);
+        \Illuminate\Support\Facades\Mail::fake();
+        $fonnteDown = false;
+        \Illuminate\Support\Facades\Http::fake(['api.fonnte.com/send' => function () use (&$fonnteDown) {
+            return \Illuminate\Support\Facades\Http::response($fonnteDown
+                ? ['status' => false, 'reason' => 'invalid token']
+                : ['status' => true, 'detail' => 'success! message in queue']);
+        }]);
+        $admin = User::query()->where('role', 'admin')->first();
+        $dsn4 = $this->user('dosen4@gmail.com');
+        $dsn4->forceFill(['phone' => '0812-3456-7890'])->save();
+        $team = Team::query()->where('name', 'Tim Bentala')->first();
+        TeamLecturer::create(['team_id' => $team->id, 'lecturer_id' => $dsn4->id, 'role' => 'penguji', 'source' => 'admin']);
+
+        // Reminder manual langsung terkirim: WhatsApp lewat Fonnte (token di header Authorization, nomor 62…), email lewat SMTP
+        $this->actingAs($admin)->post(route('admin.monitoring.remind'), ['lecturer_ids' => [$dsn4->id], 'channels' => ['email', 'whatsapp']])
+            ->assertSessionHasNoErrors()->assertSessionHas('status', fn ($status) => str_contains($status, 'pengingat terkirim'));
+        $manual = ReminderDispatch::query()->where('lecturer_id', $dsn4->id)->where('trigger', 'manual')->get();
+        $this->assertSame(['email', 'whatsapp'], $manual->pluck('channel')->unique()->sort()->values()->all());
+        $this->assertSame(['terkirim'], $manual->pluck('status')->unique()->values()->all());
+        \Illuminate\Support\Facades\Http::assertSent(fn ($request) => $request->url() === 'https://api.fonnte.com/send'
+            && $request->header('Authorization') === ['token-fonnte'] && $request['target'] === '6281234567890'
+            && str_contains($request['message'], 'Tim Bentala'));
+
+        // Uji Reminder: WhatsApp dan/atau email (minimal salah satu), pesan wajib; alasan gagal dari Fonnte ditampilkan
+        $uji = fn (array $data) => $this->actingAs($admin)->post(route('admin.reminders.test'), $data + ['_form' => 'uji']);
+        $uji(['test_message' => 'Halo'])->assertSessionHasErrors(['test_phone', 'test_email']);
+        $uji(['test_phone' => '081234567890'])->assertSessionHasErrors('test_message');
+        $uji(['test_phone' => '081234567890', 'test_message' => 'Uji WA'])
+            ->assertSessionHasNoErrors()->assertSessionHas('status', 'Pesan uji terkirim ke WhatsApp 6281234567890.');
+        \Illuminate\Support\Facades\Http::assertSent(fn ($request) => $request['target'] === '6281234567890' && $request['message'] === 'Uji WA');
+        $uji(['test_email' => 'uji@gmail.com', 'test_message' => 'Uji email'])->assertSessionHas('status', 'Pesan uji terkirim ke email uji@gmail.com.');
+        $uji(['test_phone' => '0812 3456 7890', 'test_email' => 'uji@gmail.com', 'test_message' => 'Uji keduanya'])
+            ->assertSessionHas('status', 'Pesan uji terkirim ke WhatsApp 6281234567890 dan email uji@gmail.com.');
+        $fonnteDown = true;
+        $uji(['test_phone' => '081234567890', 'test_message' => 'Uji WA'])->assertSessionHasErrors(['test_phone' => 'Fonnte: invalid token']);
+        $fonnteDown = false;
+        $uji(['test_phone' => 'bukan nomor', 'test_message' => 'Uji'])->assertSessionHasErrors('test_phone');
+
+        // Tanpa token: kanal WhatsApp gagal dengan alasan jelas, email tetap terkirim
+        config(['capstone.fonnte.token' => null]);
+        ReminderDispatch::query()->delete();
+        $this->actingAs($admin)->post(route('admin.monitoring.remind'), ['lecturer_ids' => [$dsn4->id], 'channels' => ['whatsapp']]);
+        $this->assertSame('FONNTE_TOKEN belum diisi di .env.', ReminderDispatch::query()->where('channel', 'whatsapp')->value('last_error'));
+        $this->artisan('capstone:send-reminders')->assertSuccessful();
+    }
+
+    public function test_admin_manages_automatic_reminders_with_custom_message(): void
+    {
+        config(['capstone.automation.sender' => 'app', 'capstone.fonnte.token' => 'token-fonnte']);
+        \Illuminate\Support\Facades\Mail::fake();
+        \Illuminate\Support\Facades\Http::fake(['api.fonnte.com/send' => \Illuminate\Support\Facades\Http::response(['status' => true])]);
+        $admin = User::query()->where('role', 'admin')->first();
+        \App\Models\ReminderRule::query()->delete();
+
+        // Halaman Reminder Otomatis: kartu Pengiriman Reminder dengan Tambah, Kirim Manual Reminder, Uji Reminder
+        $this->actingAs($admin)->get(route('admin.reminders.index'))->assertOk()
+            ->assertSee('Pengiriman Reminder')->assertSee('Kirim Manual Reminder')->assertSee('Uji Reminder')->assertSee('Belum ada reminder otomatis')
+            ->assertSee('Penilaian Proposal')->assertSee('Penilaian Sidang Capstone (Penguji)')->assertSee('Approval log bimbingan');
+
+        // Tambah: wajib semua; jenis deadline penilaian per bentuk penilaian
+        $base = ['_form' => 'tambah', 'deadline' => 'penilaian:proposal', 'hours_before' => 24, 'channels' => ['whatsapp'],
+            'message' => "Halo {nama_dosen}, mohon nilai proposal:\n{daftar_tim}\nSebelum {deadline}."];
+        $this->actingAs($admin)->post(route('admin.reminders.store'), ['_form' => 'tambah'])
+            ->assertSessionHasErrors(['deadline']);
+        $this->actingAs($admin)->post(route('admin.reminders.store'), ['message' => ''] + $base)->assertSessionHasErrors('message');
+        $this->actingAs($admin)->post(route('admin.reminders.store'), ['channels' => []] + $base)->assertSessionHasErrors('channels');
+        $this->actingAs($admin)->post(route('admin.reminders.store'), ['deadline' => 'penilaian:peer_review'] + $base)->assertSessionHasErrors('deadline');
+        $this->actingAs($admin)->post(route('admin.reminders.store'), $base)->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('admin.reminders.store'), $base)->assertSessionHasErrors('hours_before');
+        $rule = \App\Models\ReminderRule::query()->sole();
+        $this->assertSame(['penilaian', 'proposal', 24, ['whatsapp'], true], [$rule->job_type, $rule->component, $rule->hours_before, $rule->channels, $rule->is_active]);
+        $this->actingAs($admin)->get(route('admin.reminders.index'))->assertSee('24 jam sebelum deadline')->assertSee('Halo {nama_dosen}');
+
+        // Ubah, nonaktifkan / aktifkan
+        $this->actingAs($admin)->put(route('admin.reminders.update', $rule), ['_form' => 'ubah-'.$rule->id, 'hours_before' => 30] + $base)->assertSessionHasNoErrors();
+        $this->assertSame(30, $rule->fresh()->hours_before);
+        $this->actingAs($admin)->patch(route('admin.reminders.toggle', $rule));
+        $this->assertFalse($rule->fresh()->is_active);
+        $this->actingAs($admin)->patch(route('admin.reminders.toggle', $rule));
+        $this->assertTrue($rule->fresh()->is_active);
+
+        // Reminder aktif terkirim otomatis dengan pesan tulisan admin, hanya untuk bentuk penilaian yang dipilih
+        $period = Period::active();
+        $period->assessmentWindows()->update(['opens_at' => now()->subDays(3), 'due_at' => now()->addHours(20)]);
+        $this->artisan('capstone:send-reminders')->assertSuccessful();
+        $sent = ReminderDispatch::query()->where('trigger', 'otomatis')->get();
+        $this->assertNotEmpty($sent);
+        $this->assertTrue($sent->every(fn ($d) => $d->channel === 'whatsapp' && str_contains($d->job_ref, ':proposal:')));
+        $first = $sent->first();
+        $this->assertStringStartsWith("Halo {$first->lecturer->name}, mohon nilai proposal:\n• ", $first->payload['message']);
+        \Illuminate\Support\Facades\Http::assertSent(fn ($request) => str_starts_with($request['message'], 'Halo '));
+        // Sudah terkirim → tidak dikirim ulang pada pemeriksaan berikutnya
+        $this->artisan('capstone:send-reminders')->assertSuccessful();
+        $this->assertSame($sent->count(), ReminderDispatch::query()->where('trigger', 'otomatis')->count());
+
+        // Kirim Manual Reminder ke semua dosen yang belum lengkap menilai
+        $this->actingAs($admin)->post(route('admin.reminders.manual'))->assertSessionHas('status', fn ($status) => str_starts_with($status, 'Reminder manual untuk'));
+        $this->assertTrue(ReminderDispatch::query()->where('trigger', 'manual')->exists());
+
+        // Hapus
+        $this->actingAs($admin)->delete(route('admin.reminders.destroy', $rule))->assertSessionHasNoErrors();
+        $this->assertModelMissing($rule);
     }
 
     public function test_qr_resolution_rules(): void
@@ -1570,7 +1818,7 @@ class WorkflowTest extends TestCase
             ->assertSessionHasErrors('drive');
         $this->actingAs($admin)->withSession(['gdrive_oauth_state' => 'abc'])->get(route('admin.drive.callback', ['state' => 'abc', 'code' => 'k']))
             ->assertRedirect(route('admin.documents.index'))->assertSessionHasNoErrors();
-        $this->assertStringNotContainsString('refresh-1', Storage::disk('local')->get('google-drive-oauth.json'));
+        $this->assertStringNotContainsString('refresh-1', Storage::disk('local')->get('google-drive-oauth-'.Period::active()->id.'.json'));
         $oauth = app(\App\Services\Drive\DriveOAuth::class);
         $this->assertSame('pribadi@gmail.com', $oauth->status()['email']);
         $this->assertSame('akses-1', $oauth->accessToken());
@@ -1679,5 +1927,13 @@ class FakeDrive implements DriveGateway
             throw new RuntimeException('Email bukan akun Google');
         }
         $this->calls[] = ['share', $email];
+    }
+
+    public function download(string $fileId): \Psr\Http\Message\StreamInterface
+    {
+        $this->guard();
+        $this->calls[] = ['download', $fileId];
+
+        return \GuzzleHttp\Psr7\Utils::streamFor("isi-drive-{$fileId}");
     }
 }

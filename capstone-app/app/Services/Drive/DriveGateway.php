@@ -2,6 +2,8 @@
 
 namespace App\Services\Drive;
 
+use Psr\Http\Message\StreamInterface;
+
 interface DriveGateway
 {
     public function createFolder(string $name, ?string $parentId): string;
@@ -16,4 +18,7 @@ interface DriveGateway
     public function delete(string $fileId): void;
 
     public function shareWith(string $fileId, string $email): void;
+
+    /** Isi file (stream) untuk diteruskan server ke pengguna; file lokal sudah dihapus setelah sinkron. */
+    public function download(string $fileId): StreamInterface;
 }

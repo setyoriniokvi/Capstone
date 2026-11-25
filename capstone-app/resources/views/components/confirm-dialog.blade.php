@@ -1,5 +1,6 @@
 {{-- Dialog konfirmasi tunggal untuk form ber-atribut data-confirm (lihat resources/js/app.js).
-     data-confirm-notes="nama_field" menampilkan kolom catatan opsional yang ikut dikirim bersama form. --}}
+     data-confirm-notes="nama_field" menampilkan kolom catatan opsional yang ikut dikirim bersama form.
+     data-confirm-type="teks" + data-confirm-type-field="nama_field": admin harus mengetik teks itu persis sebelum tombol aktif. --}}
 <div x-data="confirmDialog" x-cloak x-show="open"
      x-transition:enter="motion-fade" x-transition:enter-start="opacity-0"
      x-transition:leave="motion-fade" x-transition:leave-end="opacity-0"
@@ -12,10 +13,14 @@
                 <label class="field-label" for="confirm-notes" x-text="notesLabel"></label>
                 <textarea id="confirm-notes" x-ref="notes" rows="3" class="input" maxlength="2000"></textarea>
             </div>
+            <div x-show="withTyping" class="mt-4">
+                <label class="field-label" for="confirm-typed">Ketik <span class="font-semibold text-ink" x-text="typeText"></span> untuk melanjutkan</label>
+                <input id="confirm-typed" x-ref="typed" type="text" class="input" autocomplete="off" spellcheck="false" @input="typing">
+            </div>
         </div>
         <div class="flex flex-col-reverse gap-2 border-t border-rule px-4 py-3 sm:flex-row sm:justify-end sm:px-6">
             <button type="button" class="btn btn-ghost" x-ref="cancel" @click="cancel">Batal</button>
-            <button type="button" class="btn" :class="acceptClass" @click="accept" x-text="label"></button>
+            <button type="button" class="btn disabled:cursor-not-allowed disabled:opacity-50" :class="acceptClass" :disabled="blocked" @click="accept" x-text="label"></button>
         </div>
     </div>
 </div>

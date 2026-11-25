@@ -78,7 +78,7 @@ class ScreeningService
         $checks = [];
 
         if ($student->sks_passed === null) {
-            $checks[] = $this->check('sks', 'SKS lulus', false, 'Data SKS belum tersedia — hubungi admin');
+            $checks[] = $this->check('sks', 'SKS lulus', false, 'Data SKS belum tersedia - hubungi admin');
         } else {
             $minSks = $rule?->min_sks ?? 0;
             $checks[] = $this->check('sks', "SKS lulus minimal {$minSks}", $student->sks_passed >= $minSks, "{$student->sks_passed} SKS");
@@ -91,7 +91,7 @@ class ScreeningService
             $grade = $grades->get(mb_strtoupper($course->code));
             $checks[] = $this->check(
                 'mk_'.$course->code,
-                "Lulus {$course->code} — {$course->name}",
+                "Lulus {$course->code} - {$course->name}",
                 $passed,
                 $grade ? "Indeks nilai {$grade}" : ($passed ? 'Lulus' : 'Belum tercatat lulus')
             );

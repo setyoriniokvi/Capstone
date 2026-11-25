@@ -15,7 +15,7 @@ use Illuminate\View\View;
 
 /**
  * F43 — dosen memilih topiknya di halaman utama (kuota, peminatan, tombol "Lihat Pengajuan"), lalu menerima / menolak tim
- * pelamar topik itu di halaman detail (alasan penolakan opsional) beserta riwayat keputusannya.
+ * pelamar topik itu di halaman detail (alasan penolakan opsional).
  * Pelamar topik bersama masuk ke approval seluruh dosen pengusul; siapa pun boleh memutuskan.
  * Pengajuan aktif dapat disaring menurut peminatan anggota tim; tombol "Detail tim" membuka identitas akademik
  * anggota (asal daerah, SKS lulus, indeks nilai mata kuliah prasyarat, KHS) dan waktu pengajuan.
@@ -28,7 +28,8 @@ class ApplicationController extends Controller
         $period = Period::active();
 
         return view('dosen.applications', [
-            'topics' => Topic::query()->where('source', 'dosen')->proposedBy($request->user()->id)
+            // Hanya topik yang sudah terbit (disetujui admin): topik menunggu / ditolak belum dapat dilamar tim
+            'topics' => Topic::query()->where('source', 'dosen')->where('status', 'diterima')->proposedBy($request->user()->id)
                 ->when($period, fn ($q, $period) => $q->where('period_id', $period->id))
                 ->withCount([
                     'applications as accepted_count' => fn ($q) => $q->where('status', 'diterima'),
@@ -38,7 +39,7 @@ class ApplicationController extends Controller
         ]);
     }
 
-    /** Detail satu topik: pengajuan yang menunggu keputusan dan riwayat keputusan. */
+    /** Detail satu topik: pengajuan yang menunggu keputusan. */
     public function show(Request $request, Topic $topic): View
     {
         abort_unless($topic->source === 'dosen' && $topic->isProposer($request->user()), 403);
@@ -46,21 +47,17 @@ class ApplicationController extends Controller
         $peminatan = (string) $request->query('peminatan');
         $base = $topic->applications()->with(['team.members.user', 'team.independentTopic']);
         $ruleOfPeriod = fn ($q) => $q->where('period_id', $topic->period_id);
+        // Riwayat keputusan tidak ditampilkan di sini; admin melihatnya di Master Data Mahasiswa
+        // ("Log Pengajuan Topik Dosen oleh Mahasiswa").
 
         return view('dosen.applications-topic', [
             'topic' => $topic,
-            // Tim yang salah satu anggotanya berpeminatan terpilih
-            'pending' => (clone $base)->where('status', 'menunggu')
-                ->when($peminatan !== '', fn ($q) => $q->whereHas('team.members', fn ($m) => $m->where('invite_status', 'diterima')
-                    ->whereHas('user', fn ($u) => $u->where('specialization', $peminatan))))
-                ->oldest()->get(),
+            // Semua pengajuan menunggu; filter peminatan anggota tim berjalan di browser (data-filter-peminatan)
+            'pending' => (clone $base)->where('status', 'menunggu')->oldest()->get(),
             'peminatan' => $peminatan,
             'specializations' => RuleSpecialization::query()->whereHas('rule', $ruleOfPeriod)->orderBy('name')->pluck('name')->unique()->values(),
             // Mata kuliah prasyarat periode (indeks nilai anggota disimpan per kode mata kuliah)
             'courses' => PrerequisiteCourse::query()->whereHas('rule', $ruleOfPeriod)->orderBy('code')->get()->unique('code')->values(),
-            // Riwayat keputusan: 3 terbaru per halaman (?riwayat=n)
-            'decided' => (clone $base)->whereIn('status', ['diterima', 'ditolak'])->latest('decided_at')->latest('id')
-                ->paginate(3, ['*'], 'riwayat')->withQueryString(),
         ]);
     }
 

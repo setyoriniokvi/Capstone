@@ -2,14 +2,38 @@
 
 namespace App\Models;
 
+use App\Support\PeriodContext;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Period extends Model
 {
     protected $fillable = ['name', 'academic_year', 'semester', 'prodi_name', 'starts_on', 'ends_on', 'is_active',
-        'min_approved_logbooks'];
+        'min_approved_logbooks', 'assessment_form_mode'];
+
+    /**
+     * Tampilan form penilaian dosen (diatur admin di halaman Indikator):
+     * split = skenario 2 (bawaan) — kolom Dokumen & Lisan berdampingan, masing-masing dengan centang sendiri;
+     * sequential = skenario 1 — satu centang untuk interval + lisan, CLO berikutnya terbuka setelah CLO sebelumnya selesai.
+     */
+    public const FORM_MODES = [
+        'split' => 'Dokumen & Lisan berdampingan (centang terpisah)',
+        'sequential' => 'Satu centang, CLO dinilai berurutan',
+    ];
+
+    public function formMode(): string
+    {
+        return array_key_exists((string) $this->assessment_form_mode, self::FORM_MODES) ? $this->assessment_form_mode : 'split';
+    }
+
+    /**
+     * Sumber data master untuk periode baru (diisi sebelum create): id periode lain, null = data master bawaan,
+     * false = tidak disalin. Penyalinan dijalankan PeriodObserver.
+     */
+    public int|false|null $masterSource = null;
 
     protected function casts(): array
     {
@@ -27,9 +51,10 @@ class Period extends Model
         return $period?->min_approved_logbooks ?? (int) config('capstone.min_approved_logbooks');
     }
 
+    /** Periode aktif (diingat selama satu request, lihat PeriodContext). */
     public static function active(): ?self
     {
-        return static::query()->where('is_active', true)->latest('starts_on')->first();
+        return PeriodContext::activePeriod();
     }
 
     /** Kunci sesi periode yang sedang dibuka admin ("Dashboard Periode"). */
@@ -46,6 +71,23 @@ class Period extends Model
         return $id ? static::query()->find($id) : null;
     }
 
+    /** Akun admin prodi periode ini (satu akun boleh dipakai beberapa periode). */
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin_user_id');
+    }
+
+    /** Dosen & mahasiswa yang terdaftar di periode ini. */
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'period_users')->withPivot('is_active')->withTimestamps();
+    }
+
+    public function label(): string
+    {
+        return $this->academic_year.' · '.ucfirst($this->semester);
+    }
+
     public function milestones(): HasMany
     {
         // Urut deadline paling awal (sama dengan "Mg" yang dihitung dari due_at); sort_order tidak bisa diatur admin.
@@ -55,6 +97,16 @@ class Period extends Model
     public function assessmentWindows(): HasMany
     {
         return $this->hasMany(AssessmentWindow::class);
+    }
+
+    /** Jadwal pengisian nilai satu bentuk penilaian: disimpan bila waktu dibuka & deadline diisi, selain itu dihapus. */
+    public function syncAssessmentWindow(string $component, ?string $opensAt, ?string $dueAt): void
+    {
+        if (filled($opensAt) && filled($dueAt)) {
+            $this->assessmentWindows()->updateOrCreate(['component' => $component], ['opens_at' => $opensAt, 'due_at' => $dueAt]);
+        } else {
+            $this->assessmentWindows()->where('component', $component)->delete();
+        }
     }
 
     public function registrationRules(): HasMany

@@ -14,19 +14,18 @@ use App\Services\Drive\DriveGateway;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
+use Psr\Http\Message\StreamInterface;
 use Throwable;
 
 /**
- * F26, F33–F41 — unggah, revisi, hapus, dan sinkronisasi dokumen milestone.
- * Database adalah sumber kebenaran; status Drive hanya "berhasil" setelah
- * Google Drive mengonfirmasi operasi.
+ * F26, F36–F41 — unggah, revisi, hapus, dan buka dokumen milestone. Database adalah sumber kebenaran; pengiriman ke
+ * Google Drive dijalankan di antrean (job SyncDocumentVersion → DocumentDriveSync).
  */
 class DocumentService
 {
-    public const DISK = 'local';
+    /** @deprecated pakai DocumentVersion::DISK */
+    public const DISK = DocumentVersion::DISK;
 
     public function __construct(private readonly DriveGateway $drive) {}
 
@@ -47,6 +46,10 @@ class DocumentService
 
         if (! $milestone->hasStarted()) {
             throw ValidationException::withMessages(['file' => 'Pengumpulan milestone ini belum dibuka.']);
+        }
+        // Setelah deadline pengumpulan ditutup (Overdue): unggah maupun unggah ulang ditolak.
+        if ($milestone->isPast()) {
+            throw ValidationException::withMessages(['file' => 'Deadline '.$milestone->name.' sudah lewat (Overdue); dokumen tidak dapat diunggah lagi.']);
         }
 
         $version = DB::transaction(function () use ($team, $milestone, $owner, $file, $idempotencyKey) {
@@ -71,7 +74,7 @@ class DocumentService
             // Tiap revisi disimpan di foldernya sendiri agar revisi lama tidak tertimpa walau namanya sama.
             $storedName = self::fileName($milestone->name, $team->name, $extension);
             $directory = "documents/{$team->period_id}/tim-{$team->id}/{$document->id}/r{$revision}";
-            $path = $file->storeAs($directory, $storedName, self::DISK);
+            $path = $file->storeAs($directory, $storedName, DocumentVersion::DISK);
 
             $version = $document->versions()->create([
                 'revision_no' => $revision,
@@ -89,7 +92,6 @@ class DocumentService
             $document->update([
                 'state' => 'aktif',
                 'review_status' => 'dikumpulkan',
-                'is_late' => now()->greaterThan($milestone->due_at),
             ]);
 
             // Tanpa Drive, salinan lokal adalah satu-satunya penyimpanan.
@@ -134,11 +136,12 @@ class DocumentService
         }
 
         if ($document->drive_file_id && $this->driveEnabled()) {
+            $action = $permanent ? 'delete' : 'trash';
             try {
                 $permanent ? $this->drive->delete($document->drive_file_id) : $this->drive->trash($document->drive_file_id);
-                $this->log($document, null, $permanent ? 'delete' : 'trash', 'berhasil', null, $actor);
+                DriveOperation::record($document, null, $action, 'berhasil', null, $actor);
             } catch (Throwable $e) {
-                $this->log($document, null, $permanent ? 'delete' : 'trash', 'gagal', $e->getMessage(), $actor);
+                DriveOperation::record($document, null, $action, 'gagal', $e->getMessage(), $actor);
 
                 throw ValidationException::withMessages(['document' => 'Gagal menghapus file di Google Drive. Status dokumen tidak diubah, silakan coba lagi.']);
             }
@@ -146,7 +149,7 @@ class DocumentService
 
         if ($permanent) {
             foreach ($document->versions as $version) {
-                Storage::disk(self::DISK)->delete($version->local_path);
+                Storage::disk(DocumentVersion::DISK)->delete($version->local_path);
             }
             ActivityLog::record('delete_document_permanent', $document);
             $document->delete();
@@ -158,76 +161,27 @@ class DocumentService
         ActivityLog::record('trash_document', $document);
     }
 
-    /** Dipanggil job: jalankan satu versi ke Drive. */
-    public function sync(DocumentVersion $version): void
-    {
-        $document = $version->document()->with('team.period', 'owner')->first();
-
-        // Hanya revisi terbaru yang disinkronkan; versi lama yang tertunda dilewati
-        // agar tidak menimpa konten yang lebih baru.
-        $latest = (int) $document->versions()->max('revision_no');
-        if ($version->revision_no < $latest) {
-            $version->update(['sync_status' => 'dilewati', 'sync_error' => "Digantikan revisi {$latest}."]);
-
-            return;
-        }
-
-        $version->update(['sync_status' => 'proses', 'sync_attempts' => $version->sync_attempts + 1]);
-        $localPath = Storage::disk(self::DISK)->path($version->local_path);
-
-        try {
-            if ($document->drive_file_id) {
-                $action = 'update';
-                $this->drive->update($document->drive_file_id, $this->driveName($document, $version), $version->mime, $localPath);
-            } else {
-                $action = 'create';
-                $folderId = $this->milestoneFolder($document);
-                $fileId = $this->drive->upload($folderId, $this->driveName($document, $version), $version->mime, $localPath);
-                $document->update(['drive_file_id' => $fileId, 'drive_folder_id' => $folderId]);
-
-                if (config('capstone.drive.share_with_owner')) {
-                    $this->shareWithOwner($document, $version, $fileId);
-                }
-            }
-        } catch (Throwable $e) {
-            $version->update(['sync_status' => 'gagal', 'sync_error' => Str::limit($e->getMessage(), 1000)]);
-            $this->log($document, $version, $action ?? 'create', 'gagal', $e->getMessage());
-
-            throw $e;
-        }
-
-        $version->update(['sync_status' => 'berhasil', 'sync_action' => $action, 'sync_error' => null, 'synced_at' => now()]);
-        $document->update(['current_version_id' => $version->id, 'current_revision' => $version->revision_no]);
-        $this->log($document, $version, $action, 'berhasil');
-    }
-
     /**
-     * Bagikan akses baca ke pemilik dokumen. Hanya pelengkap: bila gagal (mis. email bukan akun Google), file tetap
-     * tersimpan di Drive dan sinkronisasi tetap berhasil; kegagalannya dicatat di log operasi Drive.
+     * Isi file sebuah revisi untuk dibuka di aplikasi: salinan lokal bila masih ada (belum / gagal tersinkron, atau
+     * Drive nonaktif); bila sudah dipindah ke Drive, diambil dari Drive lewat server (hak akses tetap dicek aplikasi).
+     * null = revisi lama yang sudah tertimpa revisi lebih baru di Drive.
+     *
+     * @return array{local: string}|array{drive: string}|null
      */
-    private function shareWithOwner(Document $document, DocumentVersion $version, string $fileId): void
+    public function source(DocumentVersion $version): ?array
     {
-        try {
-            $this->drive->shareWith($fileId, $document->owner_email);
-            $this->log($document, $version, 'share', 'berhasil');
-        } catch (Throwable $e) {
-            $this->log($document, $version, 'share', 'gagal', $e->getMessage());
+        if ($version->local_path && Storage::disk(DocumentVersion::DISK)->exists($version->local_path)) {
+            return ['local' => $version->local_path];
         }
+        $document = $version->document;
+
+        return $document->drive_file_id && (int) $document->current_version_id === (int) $version->id ? ['drive' => $document->drive_file_id] : null;
     }
 
-    /** F35 — dokumen diunggah ke folder Google Drive Database milestone dokumennya (diatur admin di halaman periode). */
-    private function milestoneFolder(Document $document): string
+    /** Stream isi file dari Google Drive (dipakai DocumentFileController). */
+    public function driveStream(string $fileId): StreamInterface
     {
-        $milestone = $document->milestone;
-
-        return $milestone?->drive_folder_id
-            ?? throw new RuntimeException('Folder Google Drive Database untuk milestone '.($milestone?->name ?? 'ini').' belum diisi.');
-    }
-
-    /** Nama file di Drive = nama file dokumen ("Namadokumen_Namatim.ext"); revisi memperbarui file yang sama. */
-    private function driveName(Document $document, DocumentVersion $version): string
-    {
-        return $version->stored_name;
+        return $this->drive->download($fileId);
     }
 
     /** "Namadokumen_Namatim.ext" tanpa karakter yang tidak boleh ada di nama file (/ \ : * ? " < > |). */
@@ -236,17 +190,5 @@ class DocumentService
         $clean = fn (string $part) => trim(preg_replace('/\s+/u', ' ', preg_replace('#[/\\\\:*?"<>|\x00-\x1F]#u', '', $part)));
 
         return $clean($document).'_'.$clean($team).($extension !== '' ? '.'.$extension : '');
-    }
-
-    private function log(Document $document, ?DocumentVersion $version, string $action, string $status, ?string $error = null, ?User $actor = null): void
-    {
-        DriveOperation::create([
-            'document_id' => $document->id,
-            'document_version_id' => $version?->id,
-            'action' => $action,
-            'status' => $status,
-            'error' => $error ? Str::limit($error, 1000) : null,
-            'actor_id' => $actor?->id,
-        ]);
     }
 }

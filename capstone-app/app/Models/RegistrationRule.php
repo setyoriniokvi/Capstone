@@ -9,7 +9,7 @@ class RegistrationRule extends Model
 {
     protected $fillable = [
         'period_id', 'min_sks', 'min_members', 'max_members',
-        'require_distinct_region', 'require_distinct_specialization',
+        'require_distinct_region', 'require_distinct_specialization', 'classes',
     ];
 
     protected function casts(): array
@@ -17,6 +17,8 @@ class RegistrationRule extends Model
         return [
             'require_distinct_region' => 'boolean',
             'require_distinct_specialization' => 'boolean',
+            // Kelas mahasiswa pada periode ini (mis. SI-47-01), dipilih saat registrasi akun & tim
+            'classes' => 'array',
         ];
     }
 

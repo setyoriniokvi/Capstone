@@ -1,14 +1,19 @@
-@props(['title' => 'Capstone'])
+@props(['title' => 'Capstone', 'banner' => false, 'sidebar' => true])
 @php
     $user = auth()->user();
     $nav = \App\Support\Navigation::for($user);
     $activePeriod = \App\Models\Period::active();
+    // Dosen / mahasiswa di beberapa periode aktif (prodi paralel) mendapat menu ganti periode.
+    $userPeriods = $user->isAdmin() ? collect() : \App\Support\PeriodContext::periodsFor($user);
     // Admin bekerja di dalam periode yang dipilih (dropdown); di luar itu = dashboard awal Kelola Periode.
     $workspace = $user->isAdmin() ? \App\Models\Period::workspace() : null;
-    // Dashboard awal admin (Kelola Periode) tanpa sidebar: menunya hanya satu.
-    $withSidebar = ! ($user->isAdmin() && ! $workspace);
-    // Sidebar desktop disembunyikan pengguna (cookie tanpa enkripsi, ditulis app.js) — dirender di server agar tidak berkedip.
-    $sidebarCollapsed = $withSidebar && request()->cookie('sidebar') === 'collapsed';
+    // Dashboard awal admin (Kelola Periode) tanpa sidebar: menunya hanya satu. :sidebar="false" = halaman fokus tanpa
+    // sidebar (mis. form penilaian dosen; kembali lewat tombol Kembali).
+    $withSidebar = $sidebar && ! ($user->isAdmin() && ! $workspace);
+    // Status sidebar pilihan pengguna (cookie tanpa enkripsi, ditulis app.js), berlaku di semua ukuran layar — dirender di server
+    // agar tidak berkedip. "auto" (belum pernah memilih): tampil di layar ≥ 768px, tersembunyi di layar sempit.
+    $sidebarState = in_array(request()->cookie('sidebar'), ['open', 'collapsed'], true) ? request()->cookie('sidebar') : 'auto';
+    $sidebarCollapsed = $withSidebar && $sidebarState === 'collapsed';
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -16,28 +21,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ?? 'Capstone' }} · Capstone FRI</title>
+    <title>{{ $title ?? 'Capstone' }} - Capstone FRI</title>
     <x-head-assets />
 </head>
-<body x-data="shell" data-sidebar="{{ $sidebarCollapsed ? 'collapsed' : 'open' }}" :data-sidebar="sidebarState" class="min-h-screen">
+<body x-data="shell" data-sidebar="{{ $sidebarState }}" :data-sidebar="sidebarState" class="min-h-screen">
     <a href="#konten" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-surface focus:px-4 focus:py-2">Lewati ke konten</a>
 
     @if ($withSidebar)
-    {{-- Overlay navigasi untuk layar sempit --}}
-    <div x-cloak x-show="navOpen" @click="closeNav"
-         x-transition:enter="motion-fade" x-transition:enter-start="opacity-0"
-         x-transition:leave="motion-fade" x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-30 bg-scrim md:hidden" aria-hidden="true"></div>
-
+    {{-- Tampil / tersembunyi menurut body[data-sidebar] (lihat app.css), di semua ukuran layar; lebar = --sidebar-w.
+         Sidebar yang tampil mendorong konten ke kanan sehingga halaman menyesuaikan sisa lebar layar. --}}
     <aside id="sidebar"
-           :class="navClass"
-           class="fixed inset-y-0 left-0 z-40 flex w-[17rem] -translate-x-full flex-col border-r border-rule bg-surface transition-transform duration-200 ease-out md:translate-x-0">
+           class="fixed inset-y-0 left-0 z-40 flex flex-col border-r border-rule bg-surface">
         <div class="px-5 pb-4 pt-5">
             <a href="{{ route($user->homeRoute()) }}" class="block" aria-label="Beranda Capstone">
                 <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-10 w-auto" width="178" height="40">
             </a>
             @if ($workspace)
                 <x-admin-period-switcher :current="$workspace" />
+            @elseif ($userPeriods->count() > 1 && $activePeriod)
+                <x-user-period-switcher :current="$activePeriod" :periods="$userPeriods" />
             @else
                 <div class="mt-4 flex items-baseline justify-between gap-2 border-t border-rule pt-3">
                     <span class="text-sm font-semibold tracking-tight text-ink">Capstone Design &amp; Project</span>
@@ -46,7 +48,7 @@
                     @if ($user->isAdmin())
                         Kelola periode
                     @elseif ($activePeriod)
-                        <span class="code">{{ $activePeriod->academic_year }}</span> · {{ ucfirst($activePeriod->semester) }}
+                        {{ $activePeriod->prodi_name }} · <span class="code">{{ $activePeriod->academic_year }}</span> · {{ ucfirst($activePeriod->semester) }}
                     @else
                         Belum ada periode aktif
                     @endif
@@ -54,7 +56,7 @@
             @endif
         </div>
 
-        <nav class="flex-1 overflow-y-auto px-3 pb-4" aria-label="Menu utama">
+        <nav data-sidebar-scroll class="flex-1 overflow-y-auto px-3 pb-4" aria-label="Menu utama">
             @foreach ($nav as $group)
                 @if ($group['label'])
                     <p class="mb-1 mt-5 px-3 text-caption font-semibold text-muted">{{ $group['label'] }}</p>
@@ -74,14 +76,26 @@
                 </ul>
             @endforeach
         </nav>
+        {{-- Pulihkan posisi gulir menu sidebar sebelum halaman tampil (disimpan oleh app.js saat menggulir / meninggalkan halaman);
+             belum ada posisi tersimpan → menu aktif digulir agar terlihat. --}}
+        <script nonce="{{ Vite::cspNonce() }}">(function () { var nav = document.currentScript.previousElementSibling; try { var y = sessionStorage.getItem('sidebar-scroll'); if (y !== null) { nav.scrollTop = +y; return; } } catch (e) {} var active = nav.querySelector('[aria-current="page"]'); if (active) active.scrollIntoView({ block: 'nearest' }); })();</script>
     </aside>
     @endif
 
-    <div class="{{ $withSidebar ? 'shell-main md:pl-[17rem]' : '' }}">
-        <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-rule bg-paper px-4 sm:px-8">
+    <div class="{{ $withSidebar ? 'shell-main min-w-0' : '' }}">
+      <div class="relative">
+        {{-- Halaman dashboard ($banner): foto gedung kampus di belakang topbar & bagian atas kartu sambutan, memudar ke
+             warna latar di bawahnya. Topbar transparan di atas foto, berlatar kembali setelah halaman digulir (shell.scrolled). --}}
+        @if ($banner)
+            <div class="page-banner" aria-hidden="true"></div>
+        @endif
+        {{-- Isi topbar memakai lebar & jarak samping yang sama dengan <main>, sehingga ikon menu dan menu profil sejajar
+             dengan tepi kiri / kanan kartu di bawahnya (margin negatif mengimbangi ruang sentuh tombol) --}}
+        <header @if ($banner) @scroll.window="trackScroll" :class="topbarClass" class="page-banner-header sticky top-0 z-20 border-b" @else class="sticky top-0 z-20 border-b border-rule bg-paper" @endif>
+          <div class="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-3 px-4 sm:px-6">
             @if ($withSidebar)
-                {{-- Layar sempit: buka/tutup laci menu. Desktop: sembunyikan/tampilkan sidebar. --}}
-                <button type="button" @click="toggleSidebar" class="menu-toggle -ml-2 grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken"
+                {{-- Tampilkan / sembunyikan sidebar; pilihan diingat (cookie) dan berlaku di semua ukuran layar --}}
+                <button type="button" @click="toggleSidebar" class="menu-toggle -ml-3 grid h-11 w-11 place-items-center rounded text-ink hover:bg-sunken"
                         aria-controls="sidebar" :aria-expanded="sidebarExpanded" :aria-label="sidebarLabel" :title="sidebarLabel"
                         aria-label="{{ $sidebarCollapsed ? 'Tampilkan menu' : 'Sembunyikan menu' }}">
                     {{-- Ikon garis bertingkat; saat kursor di atas tombol semua garis memanjang penuh --}}
@@ -91,7 +105,7 @@
                 </button>
                 <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="shell-mark h-8 w-auto md:hidden" width="143" height="32">
             @else
-                <a href="{{ route($user->homeRoute()) }}" class="shrink-0" aria-label="Kelola Periode">
+                <a href="{{ route($user->homeRoute()) }}" class="shrink-0" aria-label="{{ $user->isAdmin() && ! $workspace ? 'Kelola Periode' : 'Beranda Capstone' }}">
                     <img src="{{ Vite::asset('resources/images/fri-horizontal.png') }}" alt="Fakultas Rekayasa Industri Telkom University" class="h-8 w-auto" width="143" height="32">
                 </a>
             @endif
@@ -100,14 +114,17 @@
             <div class="flex items-center gap-1 sm:gap-3">
                 <x-notification-menu :user="$user" />
                 <span class="h-7 w-px bg-rule" aria-hidden="true"></span>
-                <x-profile-menu :user="$user" />
+                <div class="-mr-1 sm:-mr-3"><x-profile-menu :user="$user" /></div>
             </div>
+          </div>
         </header>
 
-        <main id="konten" class="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-6 sm:px-8">
+        {{-- Jarak konten ke sidebar & topbar dibuat rapat (±24px) dan kartu boleh melebar sampai 1440px --}}
+        <main id="konten" class="relative mx-auto w-full max-w-[1440px] px-4 pb-12 sm:px-6 {{ $banner ? 'pt-16 sm:pt-24' : 'pt-5' }}">
             <x-flash />
             {{ $slot }}
         </main>
+      </div>
     </div>
 
     <x-confirm-dialog />

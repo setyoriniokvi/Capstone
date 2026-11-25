@@ -8,7 +8,7 @@
     $roleChip = 'rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted';
 @endphp
 <x-layouts.app title="File Pendukung">
-    <x-page-head title="File pendukung" lede="Panduan Capstone, slide sosialisasi, dan materi lain. Atur role yang dapat melihat setiap file.">
+    <x-page-head title="File pendukung">
         <x-slot:actions>
             <div x-data="registrationForm" data-open="{{ $adding ? 'true' : 'false' }}">
                 <button type="button" class="btn btn-primary" @click="open" :aria-expanded="expanded"><x-heroicon-o-plus class="h-5 w-5" /> Tambah File</button>
@@ -47,21 +47,24 @@
         </x-slot:actions>
     </x-page-head>
 
-    <section class="panel overflow-hidden" aria-labelledby="file-judul">
-        <div class="flex items-center justify-between gap-3 border-b border-rule px-5 py-4 sm:px-6">
+    <section data-sort-scope class="panel overflow-hidden" aria-labelledby="file-judul">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-5 py-4 sm:px-6">
             <h2 id="file-judul" class="text-lg font-semibold text-ink">File yang sudah diunggah</h2>
-            <span class="text-sm text-muted"><span class="tabular font-medium text-ink">{{ $files->count() }}</span> file</span>
+            <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                @if ($files->isNotEmpty())<x-sort-by id="urut-file" default="judul" :options="['judul' => 'Judul', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori']" />@endif
+                <span class="text-sm text-muted"><span class="tabular font-medium text-ink">{{ $files->count() }}</span> file</span>
+            </div>
         </div>
         @if ($files->isEmpty())
             <x-empty title="Belum ada file pendukung" icon="folder">Unggah lewat tombol Tambah File.</x-empty>
         @else
-            <ul class="divide-y divide-rule">
+            <ul data-sort-list class="divide-y divide-rule">
                 @foreach ($files as $file)
                     @php
                         $editing = $errors->any() && (string) $editingId === (string) $file->id;
                         $fileRoles = $editing ? old('visible_to', []) : ($file->visible_to ?? []);
                     @endphp
-                    <li x-data="registrationForm" data-open="{{ $editing ? 'true' : 'false' }}" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
+                    <li x-data="registrationForm" data-open="{{ $editing ? 'true' : 'false' }}" data-sort-item data-sort-judul="{{ $file->title }}" data-sort-terbaru="{{ $file->created_at?->timestamp }}" data-sort-kategori="{{ $file->category }}" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:px-6">
                         <div class="flex min-w-0 flex-1 gap-3">
                             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sunken text-muted" aria-hidden="true"><x-heroicon-o-document class="h-5 w-5" /></span>
                             <div class="min-w-0">
@@ -79,7 +82,7 @@
                             @if ($file->isPreviewable())
                                 <a href="{{ route('files.show', $file) }}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><x-heroicon-o-eye class="h-4 w-4" />Lihat<span class="sr-only"> {{ $file->title }}</span></a>
                             @else
-                                <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" disabled title="Pratinjau hanya untuk PDF & gambar — silakan unduh"><x-heroicon-o-eye class="h-4 w-4" />Lihat</button>
+                                <button type="button" class="btn btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-50" disabled title="Pratinjau hanya untuk PDF & gambar - silakan unduh"><x-heroicon-o-eye class="h-4 w-4" />Lihat</button>
                             @endif
                             <form method="POST" action="{{ route('admin.files.destroy', $file) }}" data-confirm="Hapus file pendukung “{{ $file->title }}”?" data-confirm-label="Hapus">
                                 @csrf @method('DELETE')<button class="btn btn-secondary btn-sm text-bad-ink"><x-heroicon-o-trash class="h-4 w-4" />Hapus</button>

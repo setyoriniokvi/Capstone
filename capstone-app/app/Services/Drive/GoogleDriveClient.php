@@ -5,6 +5,7 @@ namespace App\Services\Drive;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
 /**
@@ -73,6 +74,13 @@ class GoogleDriveClient implements DriveGateway
             'role' => 'reader',
             'emailAddress' => $email,
         ])->throw();
+    }
+
+    public function download(string $fileId): StreamInterface
+    {
+        return Http::withToken($this->token())->timeout(300)->withOptions(['stream' => true])
+            ->get(self::API."/files/{$fileId}?alt=media&supportsAllDrives=true")
+            ->throw()->toPsrResponse()->getBody();
     }
 
     private function sendContent(?string $location, string $mime, string $localPath): array

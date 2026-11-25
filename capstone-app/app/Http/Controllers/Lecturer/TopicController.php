@@ -49,7 +49,7 @@ class TopicController extends Controller
             'formTopic' => $formTopic,
             'instruction' => TopicInstruction::for('dosen'),
             'formOpen' => $request->filled('edit') || $request->boolean('tambah'),
-            'topics' => Topic::filterBank($all, (string) $request->query('q'), (string) $request->query('peminatan')),
+            'topics' => Topic::filterBank($all, '', '') /* cari & peminatan disaring di browser (listFilter) */,
             'specializations' => $all->pluck('specializations')->flatten()->filter()->unique()->sort()->values(),
             // Ringkasan topik yang diusulkan dosen: jumlah topik, yang menunggu approval admin, dan tim pelamar yang menunggu keputusan.
             'summary' => [
@@ -114,7 +114,7 @@ class TopicController extends Controller
         return [
             'programs' => StudyProgram::query()->orderBy('name')->get(),
             'prodiSpecializations' => $specializations,
-            'lecturers' => User::query()->where('role', 'dosen')->where('is_active', true)->whereKeyNot($request->user()->id)
+            'lecturers' => User::query()->lecturers()->inPeriod(active: true)->whereKeyNot($request->user()->id)
                 ->with('lecturerProfile')->orderBy('name')->get(),
         ];
     }

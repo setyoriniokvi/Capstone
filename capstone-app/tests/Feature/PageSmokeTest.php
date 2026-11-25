@@ -82,7 +82,7 @@ class PageSmokeTest extends TestCase
         foreach ([
             route('dosen.dashboard'), route('dosen.topics.index'), route('dosen.topics.index', ['tambah' => 1]), route('dosen.applications.index'),
             route('dosen.teams.index'), route('dosen.teams.supervised'), route('dosen.teams.examined'), route('dosen.teams.supervised', ['tim' => $team->id]), route('dosen.logbooks.index'), route('dosen.assessments.index'),
-            route('dosen.assessments.edit', [$team, 'proposal']), route('dosen.recap.index'),
+            route('dosen.assessments.edit', [$team, 'proposal']), route('dosen.adjustments.index'),
         ] as $url) {
             $this->actingAs($lecturer)->get($url)->assertOk();
         }
@@ -99,7 +99,8 @@ class PageSmokeTest extends TestCase
         $this->actingAs($admin)->get(route('admin.periods.index'))->assertOk()->assertSee('Kelola Periode')->assertSee('Mahasiswa terdaftar')->assertDontSee('Keluar dari Dashboard Periode ini')->assertDontSee('id="sidebar"', false);
 
         // Aturan registrasi (satu per periode) ikut tersimpan bersama periode
-        $this->actingAs($admin)->get(route('admin.periods.edit', $period))->assertOk()->assertSee('Aturan registrasi tim');
+        $this->actingAs($admin)->get(route('admin.periods.edit', $period))->assertOk()->assertSee('Aturan registrasi tim')
+            ->assertSee('name="rule[classes]"', false)->assertSee('SI-47-INT');
 
         // Identitas periode wajib nama prodi; milestone berjenis Dokumen / Lainnya
         $identity = ['name' => $period->name, 'academic_year' => $period->academic_year, 'semester' => $period->semester,
@@ -108,7 +109,10 @@ class PageSmokeTest extends TestCase
             'rule' => ['min_sks' => 100, 'min_members' => 2, 'max_members' => 3, 'require_distinct_region' => '1', 'require_distinct_specialization' => '0',
                 'courses' => "KP - Kerja Praktek
 MC1 - Micro-course Data", 'specializations' => "Enterprise Intelligence System Development
-Enterprise Resource Planning"]];
+Enterprise Resource Planning", 'classes' => "si-47-01
+SI-47-02
+
+SI-47-01"]];
         $this->actingAs($admin)->put(route('admin.periods.update', $period), $identity)->assertSessionHasErrors('prodi_name');
         $this->actingAs($admin)->put(route('admin.periods.update', $period), $identity + ['prodi_name' => 'S1 Teknik Industri'])->assertSessionHasNoErrors();
         $this->assertSame('S1 Teknik Industri', $period->fresh()->prodi_name);
@@ -120,6 +124,8 @@ Enterprise Resource Planning"]];
         $this->assertFalse($rule->require_distinct_specialization);
         $this->assertSame(['KP', 'MC1'], $rule->courses()->orderBy('code')->pluck('code')->all());
         $this->assertSame(['Enterprise Intelligence System Development', 'Enterprise Resource Planning'], $rule->specializations()->pluck('name')->all());
+        // Kelas: satu per baris, huruf besar, tanpa baris kosong & duplikat
+        $this->assertSame(['SI-47-01', 'SI-47-02'], $rule->classes);
         $times = ['starts_at' => now()->toDateTimeString(), 'due_at' => now()->addWeek()->toDateTimeString()];
         $this->actingAs($admin)->post(route('admin.milestones.store', $period), ['category' => 'lainnya', 'kind' => 'registrasi_tim', 'name' => 'Registrasi gelombang 2'] + $times)->assertSessionHasNoErrors();
         $this->actingAs($admin)->post(route('admin.milestones.store', $period), ['category' => 'dokumen', 'document_type' => 'poster', 'allowed_types' => ['pdf'], 'name' => 'Poster tambahan'] + $times)->assertSessionHasNoErrors();

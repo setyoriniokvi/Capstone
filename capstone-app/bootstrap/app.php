@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureAdminPeriod;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\SyncPeriodContext;
 use App\Http\Middleware\VerifyAutomationToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.period' => EnsureAdminPeriod::class,
             'automation' => VerifyAutomationToken::class,
         ]);
-        $middleware->web(append: [SecurityHeaders::class]);
+        $middleware->web(append: [SyncPeriodContext::class, SecurityHeaders::class]);
         // Status sidebar ditulis langsung oleh JavaScript, jadi tidak dienkripsi.
         $middleware->encryptCookies(except: ['sidebar']);
         $middleware->redirectGuestsTo(fn () => route('login'));

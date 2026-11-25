@@ -10,13 +10,12 @@ class Document extends Model
 {
     protected $fillable = [
         'team_id', 'milestone_id', 'owner_id', 'owner_email', 'document_type', 'current_revision', 'current_version_id',
-        'drive_file_id', 'drive_folder_id', 'review_status', 'feedback', 'feedback_by', 'feedback_at', 'is_late', 'state',
+        'drive_file_id', 'drive_folder_id', 'review_status', 'feedback', 'feedback_by', 'feedback_at', 'state',
     ];
 
     protected function casts(): array
     {
         return [
-            'is_late' => 'boolean',
             'feedback_at' => 'datetime',
         ];
     }

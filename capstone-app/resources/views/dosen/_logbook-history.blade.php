@@ -14,21 +14,24 @@
     <p class="tabular text-[2rem] font-bold leading-none tracking-tight text-brand">{{ $teams->count() }}</p>
 </section>
 
-<section x-data="logSearch" class="panel overflow-hidden" aria-labelledby="log-semua-judul">
-    <div class="px-5 py-4 sm:px-6">
+<section x-data="logSearch" data-sort-scope class="panel overflow-hidden" aria-labelledby="log-semua-judul">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <h2 id="log-semua-judul" class="text-lg font-semibold text-ink">History Bimbingan</h2>
     </div>
     <div class="border-t border-rule px-5 py-4 sm:px-6">
-        <div class="relative">
-            <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-            <label for="cari-log" class="sr-only">Cari log bimbingan</label>
-            <input id="cari-log" type="search" class="input pl-9" placeholder="Cari nama tim, tanggal, atau catatan" autocomplete="off" @input="search">
+        <div class="flex gap-2">
+            <div class="relative min-w-0 flex-1">
+                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                <label for="cari-log" class="sr-only">Cari log bimbingan</label>
+                <input id="cari-log" type="search" class="input pl-9" placeholder="Cari nama tim, tanggal, atau catatan" autocomplete="off" @input="search">
+            </div>
+            <x-sort-by id="urut-history-log" default="tim" :options="['tim' => 'Tim', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Jumlah disetujui)']" />
         </div>
     </div>
 
     {{-- Tabel dapat digeser ke samping di layar sempit (tombol < / > muncul bila ada sisi yang tersembunyi) --}}
     <x-scroll-pager class="border-t border-rule">
-        <table class="data-table w-full min-w-[56rem] table-fixed [&_td]:px-4 [&_th]:px-4 [&_tbody]:border-b [&_tbody]:border-rule [&_tbody_tr:hover_td]:bg-transparent">
+        <table data-sort-list class="data-table w-full min-w-[56rem] table-fixed [&_td]:px-4 [&_th]:px-4 [&_tbody]:border-b [&_tbody]:border-rule [&_tbody_tr:hover_td]:bg-transparent">
             <colgroup><col class="w-[22%]"><col class="w-[12%]"><col class="w-[16%]"><col class="w-[50%]"></colgroup>
             <thead class="bg-brand-tint [&>tr>th]:border-0 [&>tr>th]:py-3.5 [&>tr>th]:text-sm [&>tr>th]:font-semibold [&>tr>th]:text-brand-deep">
                 <tr class="[&>th]:!text-center"><th>Tim</th><th>Jumlah Bimbingan</th><th>Tanggal bimbingan</th><th>Catatan Bimbingan</th></tr>
@@ -39,7 +42,8 @@
                     $span = max(1, $teamLogs->count());
                     $search = \Illuminate\Support\Str::lower($team->name.' '.$teamLogs->map(fn ($log) => $log->session_date->translatedFormat('j F Y').' '.$log->session_date->translatedFormat('j M Y').' '.$log->session_date->format('d/m/Y').' '.$log->activity.' '.$log->feedback)->implode(' '));
                 @endphp
-                <tbody id="tim-{{ $team->id }}" data-search="{{ $search }}" class="scroll-mt-24">
+                <tbody id="tim-{{ $team->id }}" data-search="{{ $search }}" data-sort-item data-sort-tim="{{ $team->name }}"
+                       data-sort-terbaru="{{ $teamLogs->max(fn ($log) => $log->session_date->timestamp) }}" data-sort-kategori="{{ $team->approved_count }}" class="scroll-mt-24">
                     @forelse ($teamLogs as $log)
                         <tr class="[&>td]:py-3 [&>td]:align-top">
                             @if ($loop->first)

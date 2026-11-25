@@ -1,5 +1,5 @@
 <x-layouts.app title="Sinkronisasi Dokumen">
-    <x-page-head title="Sinkronisasi Google Drive" lede="Setiap unggahan mahasiswa disalin otomatis ke folder Drive miliknya. Status hanya berhasil setelah Drive mengonfirmasi." />
+    <x-page-head title="Sinkronisasi Google Drive" />
 
     @unless ($driveEnabled)
         <p class="mb-6 rounded-lg border border-warn-line bg-warn-tint px-4 py-3 text-sm text-warn-ink">
@@ -18,11 +18,15 @@
                     @if (! $oauth->configured())
                         <p class="mt-0.5 text-sm text-bad-ink">Mode OAuth aktif, tetapi <span class="code">GOOGLE_DRIVE_CLIENT_ID</span> / <span class="code">GOOGLE_DRIVE_CLIENT_SECRET</span> belum diisi di .env.</p>
                     @elseif ($connection)
-                        <p class="mt-0.5 text-sm text-muted">Mode OAuth · terhubung dengan <span class="font-medium text-ink">{{ $connection['email'] ?? 'akun Google' }}</span>@if ($connection['connected_at']) sejak {{ $connection['connected_at']->translatedFormat('j M Y, H:i') }}@endif. Dokumen tersimpan di Drive akun ini.</p>
+                        {{-- Mode · akun · terakhir dihubungkan · redirect URL, satu per baris --}}
+                        <p class="mt-1 text-sm text-muted">Mode OAuth</p>
+                        <p class="text-sm font-medium text-ink">{{ $connection['email'] ?? 'akun Google' }}</p>
+                        @if ($connection['connected_at'])<p class="text-sm text-muted">terakhir dihubungkan {{ $connection['connected_at']->translatedFormat('j F Y') }}</p>@endif
                     @else
-                        <p class="mt-0.5 text-sm text-warn-ink">Mode OAuth · belum ada akun Google yang terhubung.</p>
+                        <p class="mt-1 text-sm text-muted">Mode OAuth</p>
+                        <p class="text-sm text-warn-ink">Belum ada akun Google yang terhubung.</p>
                     @endif
-                    <p class="mt-0.5 text-caption text-muted">Redirect URI: <span class="code">{{ $oauth->redirectUri() }}</span></p>
+                    <p class="mt-1 text-caption text-muted">Redirect URL: <span class="code">{{ $oauth->redirectUri() }}</span></p>
                 @else
                     <p class="mt-0.5 text-sm text-muted">Mode service account · kredensial dari file JSON di server (<span class="code">GOOGLE_DRIVE_CREDENTIALS</span>).</p>
                 @endif
@@ -45,27 +49,45 @@
         </div>
     </section>
 
-    <nav class="mb-4 flex flex-wrap gap-2">
-        @foreach (['' => 'Semua', 'menunggu' => 'Menunggu', 'proses' => 'Proses', 'berhasil' => 'Berhasil', 'gagal' => 'Gagal', 'dilewati' => 'Dilewati'] as $k => $l)
-            <a href="{{ route('admin.documents.index', array_filter(['status' => $k])) }}" class="btn btn-sm {{ (string) request('status') === $k ? 'btn-primary' : 'btn-secondary' }}">{{ $l }}@if ($k !== '') <span class="tabular">{{ $counts[$k] ?? 0 }}</span>@endif</a>
-        @endforeach
-    </nav>
-
+    {{-- Cari · Sort · Status (dropdown, beserta jumlahnya) di atas tabel; "Tampilkan [10] data" + ‹ 1 2 3 › di bawah --}}
     <div class="panel">
+        <div class="px-5 py-4 sm:px-6">
+            <x-filter-bar :action="route('admin.documents.index')">
+                <div class="min-w-[12rem] flex-1">
+                    <label class="field-label" for="q">Cari</label>
+                    <div class="flex gap-2">
+                        <input id="q" name="q" value="{{ request('q') }}" class="input min-w-0 flex-1" placeholder="Nama file, pemilik, tim">
+                        <x-sort-by mode="server" id="urut-dokumen" default="diunggah" dir="desc" :options="['diunggah' => 'Diunggah', 'nama' => 'Pemilik', 'tim' => 'Tim', 'kategori' => 'Kategori (Status)']" />
+                    </div>
+                </div>
+                <div>
+                    <label class="field-label" for="status">Status</label>
+                    <select id="status" name="status" class="input">
+                        @foreach (['' => 'Semua', 'menunggu' => 'Menunggu', 'proses' => 'Proses', 'berhasil' => 'Berhasil', 'gagal' => 'Gagal', 'dilewati' => 'Dilewati'] as $k => $l)
+                            <option value="{{ $k }}" @selected((string) request('status') === $k)>{{ $l }}{{ $k !== '' ? ' ('.($counts[$k] ?? 0).')' : ' ('.$counts->sum().')' }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </x-filter-bar>
+        </div>
         @if ($versions->isEmpty())
-            <x-empty title="Belum ada dokumen" icon="cloud-arrow-up" />
+            <x-empty :title="request()->hasAny(['q', 'status']) ? 'Tidak ada dokumen yang cocok' : 'Belum ada dokumen'" icon="cloud-arrow-up" />
         @else
             <x-scroll-pager>
                 <table class="data-table">
                     <thead><tr><th>Diunggah</th><th>Pemilik</th><th>Tim</th><th>Dokumen</th><th>Revisi</th><th>Aksi Drive</th><th>Status</th><th></th></tr></thead>
                     <tbody>
                         @foreach ($versions as $v)
-                            @php $doc = $v->document; @endphp
+                            @php
+                                $doc = $v->document;
+                                // Revisi lama yang sudah tertimpa revisi lebih baru di Drive tidak disimpan lagi (server hanya transit).
+                                $available = $documentService->source($v) !== null;
+                            @endphp
                             <tr>
                                 <td class="whitespace-nowrap text-sm">{{ $v->created_at->translatedFormat('j M H:i') }}</td>
                                 <td><p class="font-medium">{{ $doc->owner->name }}</p><p class="text-caption text-muted">{{ $doc->owner_email }}</p></td>
                                 <td>{{ $doc->team->name }}</td>
-                                <td class="text-sm"><a download class="link" href="{{ route('documents.download', $v) }}">{{ $doc->typeLabel() }}</a><p class="text-caption text-muted">{{ $v->stored_name }}</p></td>
+                                <td class="text-sm">@if ($available)<a download class="link" href="{{ route('documents.download', $v) }}">{{ $doc->typeLabel() }}</a>@else<span class="text-muted" title="Sudah ditimpa revisi yang lebih baru">{{ $doc->typeLabel() }} · tertimpa</span>@endif<p class="text-caption text-muted">{{ $v->stored_name }}</p></td>
                                 <td class="tabular">r{{ $v->revision_no }}</td>
                                 <td class="text-sm">{{ $v->sync_action === 'update' ? 'Perbarui file' : 'Buat file' }}@if ($doc->drive_file_id)<p class="code text-caption text-muted">{{ \Illuminate\Support\Str::limit($doc->drive_file_id, 14) }}</p>@endif</td>
                                 <td><x-badge :status="$v->sync_status" />@if ($v->sync_error)<p class="mt-1 max-w-[16rem] text-caption text-muted">{{ $v->sync_error }}</p>@endif<p class="text-caption text-muted">{{ $v->sync_attempts }} percobaan</p></td>
@@ -82,7 +104,7 @@
                     </tbody>
                 </table>
             </x-scroll-pager>
-            {{ $versions->links() }}
         @endif
+        <x-server-pager :paginator="$versions" id="per-halaman-dokumen" label="Halaman sinkronisasi dokumen" />
     </div>
 </x-layouts.app>

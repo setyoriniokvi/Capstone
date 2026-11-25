@@ -13,10 +13,11 @@ use App\Models\Team;
 use App\Services\ReminderService;
 use App\Services\ScoreCalculator;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use App\Support\PeriodContext;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -24,34 +25,52 @@ use Illuminate\View\View;
 /**
  * F47 / F58 / F59 / F60 — penilaian berbasis rubrik oleh pembimbing & penguji. Formulir berupa tabel rubrik (master data
  * penilaian admin, seperti Rubrik Dokumen): dosen mencentang indikator — satu per satu, beberapa, atau satu CLO sekaligus —
- * lalu memilih skor (dan pemahaman lisan) dan "Simpan penilaian" (scores), atau "Hapus pilihan" (destroyScores) untuk
- * mengosongkan skornya. Skor langsung tersimpan (real time) dan status ikut dihitung ulang: lengkap ("final") bila
- * semua indikator sudah dinilai — masuk rekap & terlihat mahasiswa — selain itu sebagian ("draft"). Feedback lewat update().
+ * lalu memilih skor (dan pemahaman lisan) dan "Simpan Draft" atau "Simpan Final" (scores), atau "Hapus pilihan"
+ * (destroyScores) untuk mengosongkan skornya. Draft = belum dinilai (belum masuk rekap, tidak terlihat mahasiswa, tetap
+ * kena reminder). Simpan Final hanya bila semua indikator sudah dinilai → status "final": sudah dinilai, masuk rekap &
+ * terlihat mahasiswa. Mengubah / menghapus skor lewat Simpan Draft atau Hapus pilihan mengembalikannya ke draft.
+ * Feedback lewat update().
  */
 class AssessmentController extends Controller
 {
-    public function index(Request $request, ReminderService $reminders): View
+    public function index(Request $request, ReminderService $reminders, ScoreCalculator $calculator): View
     {
         $period = Period::active();
         $rows = $period ? $reminders->incompleteAssessments($period, $request->user()->id) : collect();
         // Info tim di tiap baris: anggota & jenis topik final
         EloquentCollection::make($rows->pluck('team')->unique('id')->values())->load(['members.user', 'finalTopic']);
-        // "Sebagian dinilai" hanya bila sudah ada skor tersimpan; draf tanpa skor (mis. hanya feedback) = belum dinilai.
-        $drafts = Assessment::query()->where('assessor_id', $request->user()->id)->where('status', 'draft')->has('scores')->get()
-            ->mapWithKeys(fn ($a) => ["{$a->team_id}:{$a->component}" => true]);
 
         // Tab = bentuk penilaian yang menjadi wewenang dosen (urutan bentuk penilaian); ?komponen= memilih tab, bawaan tab pertama.
-        $components = collect(array_keys(config('capstone.components')))->intersect($rows->pluck('component'))->values();
+        // Hanya bentuk penilaian yang dinilai peran dosen ini (pembimbing saja → tanpa penilaian penguji, dan sebaliknya).
+        $roles = $request->user()->lecturerRoles();
+        $components = collect(array_keys(config('capstone.components')))->intersect($rows->pluck('component'))
+            ->filter(fn ($c) => array_intersect(AssessmentComponent::rolesOf($c), $roles) !== [])->values();
         $active = $components->contains($request->query('komponen')) ? $request->query('komponen') : $components->first();
 
+        // Kolom Nilai: total nilai penilaian final dosen ini untuk tim pada tab aktif (poin dari bobot maksimal bentuk penilaian)
+        $activeRows = $rows->where('component', $active);
+        $indicators = $active ? $calculator->indicatorsFor($active) : collect();
+        $scores = $active ? Assessment::query()->with('scores')->where('component', $active)->where('assessor_id', $request->user()->id)
+            ->where('status', 'final')->whereIn('team_id', $activeRows->pluck('team.id'))->get()
+            ->mapWithKeys(fn (Assessment $a) => [$a->team_id => round($a->scores->sum(function ($score) use ($indicators, $calculator, $active) {
+                $indicator = $indicators->firstWhere('id', $score->indicator_id);
+
+                return $indicator ? $calculator->indicatorValue($indicator, $active, $score->score, (float) $score->factor) : 0;
+            }), 2)]) : collect();
+
+        // Nilai tim pada skala 0–100 (Σ nilai indikator ÷ total bobot bentuk penilaian × 100), sama dengan tampilan
+        // mahasiswa dan kolom Rekap Penilaian / iGadis.
+        $maxPoints = round($indicators->sum(fn ($i) => $i->weightFor($active)), 2);
+        $scores = $scores->map(fn ($points) => $maxPoints > 0 ? round($points / $maxPoints * 100, 2) : 0.0);
+
         return view('dosen.assessments.index', [
+            'scores' => $scores,
             'components' => $components,
             'active' => $active,
             // Sisa tim yang belum lengkap dinilai per bentuk penilaian (angka di tab)
             'pendingCounts' => $rows->where('done', false)->countBy('component'),
             // Tim pada tab aktif: belum lengkap dulu, lalu urut nama
             'rows' => $rows->where('component', $active)->sortBy(fn ($r) => [$r['done'], mb_strtolower($r['team']->name)])->values(),
-            'drafts' => $drafts,
             'window' => $period && $active ? $period->assessmentWindows()->where('component', $active)->first() : null,
         ]);
     }
@@ -74,53 +93,118 @@ class AssessmentController extends Controller
             'window' => AssessmentWindow::query()->where('period_id', $team->period_id)->where('component', $component)->first(),
             'viaQr' => $request->input('via') === 'qr',
             'calculator' => $calculator,
-            'scoreLevels' => config('capstone.score_levels'),
         ]);
     }
 
-    /** Simpan penilaian: satu skor (dan level pemahaman lisan) untuk semua indikator yang dicentang. */
-    public function scores(Request $request, Team $team, string $component, ScoreCalculator $calculator): RedirectResponse
+    /**
+     * Simpan Draft / Simpan Final dari tabel penilaian: interval (0 … interval maksimum indikator = banyaknya poin
+     * rubrik) dan, untuk indikator berskema lisan, level pemahaman lisan per baris — scores[indicator_id][score|oral_level].
+     * Interval kosong = skor indikator itu dikosongkan. Simpan Final ditolak bila masih ada indikator yang belum dinilai.
+     */
+    public function scores(Request $request, Team $team, string $component, ScoreCalculator $calculator): RedirectResponse|JsonResponse
     {
         $role = $this->authorizeComponent($request, $team, $component);
-        $indicators = $calculator->indicatorsFor($component);
-        $data = $request->validate([
-            'indicator_ids' => ['required', 'array', 'min:1'],
-            'indicator_ids.*' => ['integer', 'distinct', Rule::in($indicators->pluck('id')->all())],
-            'score' => ['required', 'integer', 'between:0,5'],
-            'oral_level' => ['nullable', 'integer', 'exists:oral_rubric_levels,level'],
-        ], [
-            'indicator_ids.required' => 'Centang indikator yang akan dinilai.',
-            'score.required' => 'Pilih skor.',
-        ]);
+        $indicators = $calculator->indicatorsFor($component)->keyBy('id');
+        // Simpan otomatis (dari browser setiap kali interval / lisan diubah): selalu draft, baris yang belum lengkap
+        // (mis. interval sudah dipilih tetapi pemahaman lisan belum) dilewati tanpa galat, jawaban berupa JSON.
+        $autosave = $request->boolean('autosave');
+        $final = ! $autosave && $request->input('mode') === 'final';
+        $input = (array) $request->input('scores', []);
+        $factors = OralRubricLevel::query()->pluck('factor', 'level');
 
-        $selected = $indicators->whereIn('id', $data['indicator_ids']);
-        if (empty($data['oral_level']) && $selected->contains(fn ($i) => $i->usesOralFactor())) {
-            throw ValidationException::withMessages(['oral_level' => 'Pilih pemahaman lisan — ada indikator berskema lisan yang dicentang.']);
+        $rows = [];
+        $errors = [];
+        foreach ($input as $id => $row) {
+            $indicator = $indicators->get((int) $id);
+            if (! $indicator || ! is_array($row)) {
+                continue;
+            }
+            $score = $row['score'] ?? null;
+            if ($score === null || $score === '') {
+                $rows[$indicator->id] = null; // dikosongkan
+
+                continue;
+            }
+            $max = $indicator->maxInterval();
+            if (! ctype_digit((string) $score) || (int) $score > $max) {
+                if (! $autosave) {
+                    $errors["scores.{$indicator->id}.score"] = "Interval {$indicator->code} harus 0–{$max}.";
+                }
+
+                continue;
+            }
+            $oral = $row['oral_level'] ?? null;
+            // Pemahaman lisan wajib untuk indikator lisan yang dinilai (interval 0 = tidak mengumpulkan, tanpa lisan).
+            if ($indicator->usesOralFactor($component) && (int) $score > 0 && ! $factors->has((int) $oral)) {
+                if (! $autosave) {
+                    $errors["scores.{$indicator->id}.oral_level"] = "Pilih pemahaman lisan untuk {$indicator->code}.";
+                }
+
+                continue;
+            }
+            $useOral = $indicator->usesOralFactor($component) && (int) $score > 0;
+            $rows[$indicator->id] = [
+                'score' => (int) $score,
+                'oral_level' => $useOral ? (int) $oral : null,
+                'factor' => $useOral ? (float) $factors[(int) $oral] : 1,
+            ];
         }
-        $factor = empty($data['oral_level']) ? 1.0 : (float) OralRubricLevel::query()->where('level', $data['oral_level'])->value('factor');
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+        if (! $final && ! $autosave && $rows === []) {
+            throw ValidationException::withMessages(['scores' => 'Isi interval minimal satu indikator.']);
+        }
+        $existing = Assessment::query()->where('team_id', $team->id)->where('component', $component)->where('assessor_id', $request->user()->id)->first();
+        if ($autosave && ! $existing && array_filter($rows) === []) {
+            // Belum ada penilaian dan belum ada interval terisi: tidak perlu membuat draft kosong
+            return response()->json(['status' => 'none', 'scored' => [], 'total' => $indicators->count(), 'saved_at' => null]);
+        }
 
-        DB::transaction(function () use ($team, $component, $role, $request, $selected, $data, $factor, $indicators) {
+        DB::transaction(function () use ($team, $component, $role, $request, $rows, $indicators, $final) {
             $assessment = Assessment::query()->firstOrCreate(
                 ['team_id' => $team->id, 'component' => $component, 'assessor_id' => $request->user()->id],
                 ['assessor_role' => $role, 'status' => 'draft', 'channel' => $request->input('via') === 'qr' ? 'qr' : 'web']
             );
-            foreach ($selected as $indicator) {
-                $oral = $indicator->usesOralFactor() ? (int) $data['oral_level'] : null;
-                $assessment->scores()->updateOrCreate(['indicator_id' => $indicator->id], [
-                    'score' => (int) $data['score'],
-                    'oral_level' => $oral,
-                    'factor' => $oral ? $factor : 1,
-                ]);
+            foreach ($rows as $indicatorId => $values) {
+                $values === null
+                    ? $assessment->scores()->where('indicator_id', $indicatorId)->delete()
+                    : $assessment->scores()->updateOrCreate(['indicator_id' => $indicatorId], $values);
             }
-            $this->syncStatus($assessment, $indicators);
+
+            // Simpan Final hanya bila semua indikator sudah dinilai (dibatalkan seluruhnya bila belum)
+            $scored = $assessment->scores()->pluck('indicator_id');
+            $missing = $indicators->reject(fn ($i) => $scored->contains($i->id));
+            if ($final && $missing->isNotEmpty()) {
+                throw ValidationException::withMessages(['scores' => 'Submit Final hanya bisa dilakukan setelah semua indikator dinilai. Masih ada '.$missing->count().' indikator yang belum dinilai.']);
+            }
+            $assessment->update($final
+                ? ['status' => 'final', 'submitted_at' => now()]
+                : ['status' => 'draft', 'submitted_at' => null]);
         });
 
-        ActivityLog::record('score_indicators', $team, ['component' => $component, 'indicators' => $selected->pluck('code')->all(), 'score' => (int) $data['score']]);
+        if ($autosave) {
+            $assessment = Assessment::query()->with('scores')->where('team_id', $team->id)->where('component', $component)->where('assessor_id', $request->user()->id)->first();
 
-        return back()->with('status', $selected->count().' indikator dinilai skor '.$data['score'].'.');
+            return response()->json([
+                'status' => $assessment?->status ?? 'none',
+                'was_final' => $existing?->status === 'final',
+                'scored' => $assessment?->scores->pluck('indicator_id')->values() ?? [],
+                'total' => $indicators->count(),
+                'saved_at' => now()->format('H:i'),
+            ]);
+        }
+
+        $filled = array_filter($rows);
+        ActivityLog::record($final ? 'finalize_assessment' : 'score_indicators', $team, ['component' => $component,
+            'scores' => collect($filled)->mapWithKeys(fn ($v, $id) => [$indicators[$id]->code => $v['score']])->all()]);
+
+        return back()->with('status', ($filled ? count($filled).' indikator tersimpan. ' : '').($final
+            ? 'Penilaian disimpan final: sudah dinilai dan terlihat oleh mahasiswa.'
+            : 'Disimpan sebagai draft: belum dinilai sampai Submit Final.'));
     }
 
-    /** Hapus pilihan: kosongkan skor indikator yang dicentang; status dihitung ulang (tidak lengkap lagi → sebagian). */
+    /** Hapus pilihan: kosongkan skor indikator yang dicentang; penilaian kembali menjadi draft (belum dinilai). */
     public function destroyScores(Request $request, Team $team, string $component, ScoreCalculator $calculator): RedirectResponse
     {
         $this->authorizeComponent($request, $team, $component);
@@ -133,9 +217,11 @@ class AssessmentController extends Controller
         $assessment = Assessment::query()->where('team_id', $team->id)->where('component', $component)->where('assessor_id', $request->user()->id)->first();
         $deleted = 0;
         if ($assessment) {
-            DB::transaction(function () use ($assessment, $data, $indicators, &$deleted) {
+            DB::transaction(function () use ($assessment, $data, &$deleted) {
                 $deleted = $assessment->scores()->whereIn('indicator_id', $data['indicator_ids'])->delete();
-                $this->syncStatus($assessment, $indicators);
+                if ($deleted) {
+                    $assessment->update(['status' => 'draft', 'submitted_at' => null]);
+                }
             });
         }
         ActivityLog::record('unscore_indicators', $team, ['component' => $component, 'indicators' => $indicators->whereIn('id', $data['indicator_ids'])->pluck('code')->all()]);
@@ -159,20 +245,6 @@ class AssessmentController extends Controller
         return back()->with('status', 'Feedback disimpan.');
     }
 
-    /**
-     * Status mengikuti skor secara real time: lengkap (status "final", masuk rekap & terlihat mahasiswa) bila semua
-     * indikator bentuk penilaian ini sudah dinilai, selain itu "draft" (sebagian dinilai).
-     */
-    private function syncStatus(Assessment $assessment, Collection $indicators): void
-    {
-        $scored = $assessment->scores()->pluck('indicator_id');
-        $complete = $indicators->every(fn ($i) => $scored->contains($i->id));
-        $assessment->update([
-            'status' => $complete ? 'final' : 'draft',
-            'submitted_at' => $complete ? ($assessment->submitted_at ?? now()) : null,
-        ]);
-    }
-
     /** F59 — dosen hanya menilai tim & tahap yang menjadi kewenangannya. */
     private function authorizeComponent(Request $request, Team $team, string $component): string
     {
@@ -181,15 +253,13 @@ class AssessmentController extends Controller
         abort_unless($role && in_array($role, AssessmentComponent::rolesOf($component), true), 403, 'Komponen ini bukan kewenangan Anda untuk tim tersebut.');
 
         $window = AssessmentWindow::query()->where('period_id', $team->period_id)->where('component', $component)->first();
+        // Jadwal penilaian hanya pengingat: setelah tenggat tetap dapat dinilai; sebelum dibuka belum dapat diisi.
         if ($window && ! $window->isOpen() && ! $request->isMethod('get')) {
-            throw ValidationException::withMessages(['window' => 'Jendela penilaian '.$window->label().' '.(now()->lt($window->opens_at) ? 'belum dibuka.' : 'sudah ditutup.')]);
+            throw ValidationException::withMessages(['window' => 'Jendela penilaian '.$window->label().' belum dibuka.']);
         }
 
-        // PRD 8.2 — sidang (presentasi akhir) terbuka setelah minimal log disetujui (aturan tambahan periode).
-        $minLogbooks = Period::minLogbooks($team->period);
-        if (str_starts_with($component, 'sidang') && ! $request->isMethod('get') && $team->approvedLogbookCount() < $minLogbooks) {
-            throw ValidationException::withMessages(['gate' => 'Minimal '.$minLogbooks.' logbook harus disetujui sebelum presentasi akhir.']);
-        }
+        // Minimal log bimbingan tidak mengunci penilaian sidang; syarat itu hanya untuk pengumpulan Laporan Akhir &
+        // Materi Presentasi (Milestone::LOGBOOK_GATED_TYPES).
 
         return $role;
     }

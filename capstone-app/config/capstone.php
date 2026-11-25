@@ -12,22 +12,23 @@ return [
     // daftar ini hanya mengisi awal tabel assessment_components; daftar aktif dibaca dari config('capstone.components')
     // yang dimuat AssessmentComponent::syncConfig() (berisi juga "roles" — penilai, boleh pembimbing & penguji).
     'default_components' => [
-        'proposal' => ['label' => 'Proposal', 'role' => 'pembimbing'],
-        'laporan_progress' => ['label' => 'Laporan Progress', 'role' => 'pembimbing'],
-        'sidang_pembimbing' => ['label' => 'Sidang Capstone (Pembimbing)', 'role' => 'pembimbing'],
-        'sidang_penguji' => ['label' => 'Sidang Capstone (Penguji)', 'role' => 'penguji'],
-        // F47: "sebagai penguji, dosen menilai laporan akhir, presentasi akhir, dan pameran"
-        'pameran' => ['label' => 'Pameran', 'role' => 'penguji'],
+        // document_types: jenis dokumen milestone yang dinilai (tombol Nilai di Deliverable); diatur admin per periode
+        'proposal' => ['label' => 'Proposal', 'role' => 'pembimbing', 'document_types' => ['proposal']],
+        'laporan_progress' => ['label' => 'Laporan Progress', 'role' => 'pembimbing', 'document_types' => ['laporan_progress']],
+        'sidang_pembimbing' => ['label' => 'Sidang Capstone (Pembimbing)', 'role' => 'pembimbing', 'document_types' => ['laporan_akhir', 'materi_presentasi']],
+        'sidang_penguji' => ['label' => 'Sidang Capstone (Penguji)', 'role' => 'penguji', 'document_types' => ['laporan_akhir', 'materi_presentasi']],
+        // Urutan mengikuti template iGadis: … · Peer Review · Pameran
         'peer_review' => ['label' => 'Peer Review', 'role' => 'mahasiswa'],
+        // F47: "sebagai penguji, dosen menilai laporan akhir, presentasi akhir, dan pameran"
+        'pameran' => ['label' => 'Pameran', 'role' => 'penguji', 'document_types' => ['poster']],
     ],
 
-    // F14 — skema penilaian indikator. "oral" = memakai faktor pemahaman (F16).
+    // F14 — skema penilaian indikator. "oral" = memakai Faktor Lisan (F16). Tanpa observasi (tidak dipakai di Capstone).
     'schemes' => [
         'dokumen' => ['label' => 'Dokumen', 'oral' => false],
         'lisan' => ['label' => 'Lisan', 'oral' => true],
         'dokumen_lisan' => ['label' => 'Dokumen + Lisan', 'oral' => true],
-        'observasi' => ['label' => 'Observasi', 'oral' => false],
-        'peer_observasi' => ['label' => 'Peer + Observasi', 'oral' => false],
+        'peer' => ['label' => 'Peer Review', 'oral' => false],
     ],
 
     // F15 — tingkat skor rubrik dokumen
@@ -40,14 +41,14 @@ return [
         0 => ['label' => 'Tidak Mengumpulkan', 'value' => 0],
     ],
 
-    // F28 / Alur §3.9 — 6 aspek kerja tim, skor 1–5
+    // F28 / Alur §3.9 — 6 aspek kerja tim, tiap aspek dinilai 0 / 50 / 65 / 75 / 90
     'peer_aspects' => [
-        'komunikasi' => 'Kemampuan komunikasi dan memfasilitasi tim',
-        'koordinasi' => 'Merencanakan, mengorganisasikan, dan berkoordinasi',
-        'keputusan' => 'Pengambilan keputusan dan penyelesaian konflik',
-        'interpersonal' => 'Interpersonal dan kolaboratif',
-        'kepemimpinan' => 'Kepemimpinan dan pemantauan kinerja',
-        'kontribusi' => 'Kontribusi kinerja',
+        'komunikasi' => 'Kemampuan Komunikasi dan Memfasilitasi Tim',
+        'koordinasi' => 'Kemampuan Merencanakan, Mengorganisasikan dan Melakukan Koordinasi',
+        'keputusan' => 'Kemampuan Pengambilan Keputusan dan Penyelesaian Konflik',
+        'interpersonal' => 'Kemampuan Interpersonal dan Kolaboratif',
+        'kepemimpinan' => 'Kemampuan Kepemimpinan dan Pemantauan Kinerja',
+        'kontribusi' => 'Kontribusi Kinerja',
     ],
 
     // PRD §4.2 documents.doc_type
@@ -138,10 +139,19 @@ return [
     ],
 
     'automation' => [
+        // Pengirim pengingat dosen: "app" = aplikasi sendiri (WhatsApp lewat Fonnte, email lewat SMTP, dijadwalkan scheduler)
+        // atau "n8n" = workflow n8n mengambil antrean lewat API. Pilih salah satu agar pesan tidak terkirim dua kali.
+        'sender' => env('REMINDER_SENDER', 'app'),
         // Token yang wajib dikirim n8n pada header X-Automation-Token (F56)
         'token' => env('AUTOMATION_TOKEN'),
         'webhook_url' => env('N8N_REMINDER_WEBHOOK_URL'),
         'max_attempts' => (int) env('REMINDER_MAX_ATTEMPTS', 3),
+    ],
+
+    // F51 — WhatsApp lewat Fonnte: token perangkat dari dashboard Fonnte (menu Device)
+    'fonnte' => [
+        'token' => env('FONNTE_TOKEN'),
+        'country_code' => env('FONNTE_COUNTRY_CODE', '62'),
     ],
 
     'drive' => [
@@ -162,10 +172,14 @@ return [
     // DATA DEMO — tampilkan daftar akun dummy di halaman login. Matikan (DEV_LOGIN=false) saat implementasi riil.
     'dev_login' => (bool) env('DEV_LOGIN', false),
 
+    // Password awal akun dosen hasil impor; dosen menggantinya sendiri lewat menu profil → Ganti Password.
+    'lecturer_default_password' => env('LECTURER_DEFAULT_PASSWORD', '12345678'),
+
     // DATA DEMO — akun dummy dari DemoSeeder, semuanya ber-password demo_password. Hapus saat implementasi riil.
     'demo_password' => 'password',
     'demo_accounts' => [
-        'Admin' => ['admin@gmail.com'],
+        'Admin Fakultas' => ['admin@gmail.com'],
+        'Admin Prodi' => ['adminprodi@gmail.com'],
         'Mahasiswa' => ['mahasiswa@gmail.com'],
         'Dosen' => ['dosen@gmail.com'],
     ],

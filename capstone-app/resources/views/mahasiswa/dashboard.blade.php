@@ -3,7 +3,7 @@
      Setiap blok ada di partial mahasiswa/_*.blade.php agar dapat diubah tanpa menyentuh blok lain.
      Hallmark · pre-emit critique: P4 H5 E4 S4 R5 V4 — tanpa eyebrow, ubin ikon, badge pojok, ornamen, atau kartu-dalam-kartu. --}}
 @php $firstName = \Illuminate\Support\Str::of(auth()->user()->name)->explode(' ')->first(); @endphp
-<x-layouts.app title="Dashboard Tim">
+<x-layouts.app title="Dashboard Tim" banner>
     @if (! $period)
         <x-page-head title="Halo, {{ $firstName }}" />
         <div class="panel"><x-empty title="Belum ada periode Capstone yang aktif" icon="calendar-days">Informasi timeline akan muncul setelah admin membuka periode.</x-empty></div>

@@ -27,7 +27,7 @@ class QrController extends StudentController
         $qr->regenerate($team);
         ActivityLog::record('regenerate_qr', $team);
 
-        return redirect()->route('mahasiswa.qr.show')->with('status', 'QR Code baru dibuat. QR lama tidak berlaku lagi — unduh ulang bila sudah dicetak.');
+        return redirect()->route('mahasiswa.qr.show')->with('status', 'QR Code baru dibuat. QR lama tidak berlaku lagi - unduh ulang bila sudah dicetak.');
     }
 
     public function download(QrService $qr): Response

@@ -83,20 +83,43 @@
     width: 100%;
 }
 
-/* Sidebar desktop yang disembunyikan (body[data-sidebar], tombol menu di topbar) */
+/* Sidebar (tombol menu di topbar). body[data-sidebar]: "open" = tampil di semua ukuran layar, "collapsed" = tersembunyi
+   di semua ukuran layar, "auto" = belum dipilih (tampil hanya di layar >= 768px). Sidebar yang tampil mendorong konten
+   (padding kiri selebar sidebar), jadi halaman menyesuaikan sisa lebar layar; di layar sempit sidebar dipersempit. */
+:root {
+    --sidebar-w: min(13.5rem, 55vw);
+}
 @media (min-width: 768px) {
-    #sidebar {
-        transition: transform 200ms var(--ease-out), visibility 200ms;
+    :root {
+        --sidebar-w: 17rem;
     }
-    .shell-main {
-        transition: padding-left 200ms var(--ease-out);
+}
+#sidebar {
+    width: var(--sidebar-w);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 200ms var(--ease-out), visibility 200ms;
+}
+.shell-main {
+    transition: padding-left 200ms var(--ease-out);
+}
+body[data-sidebar='open'] #sidebar {
+    transform: none;
+    visibility: visible;
+}
+body[data-sidebar='open'] .shell-main {
+    padding-left: var(--sidebar-w);
+}
+body[data-sidebar='open'] .shell-mark {
+    display: none;
+}
+@media (min-width: 768px) {
+    body[data-sidebar='auto'] #sidebar {
+        transform: none;
+        visibility: visible;
     }
-    body[data-sidebar='collapsed'] #sidebar {
-        transform: translateX(-100%);
-        visibility: hidden;
-    }
-    body[data-sidebar='collapsed'] .shell-main {
-        padding-left: 0;
+    body[data-sidebar='auto'] .shell-main {
+        padding-left: var(--sidebar-w);
     }
     body[data-sidebar='collapsed'] .shell-mark {
         display: block;
@@ -202,6 +225,41 @@
         @apply bg-sunken;
     }
 
+    /* Tabel penilaian dosen: pas selebar kartu (tanpa gulir samping, teks membungkus). Layar sempit (< 768px): tiap
+       baris menjadi kartu bertumpuk dengan label kolom (data-label) di atas isinya. */
+    .score-sheet {
+        @apply min-w-0 table-fixed;
+    }
+    .score-sheet td {
+        @apply break-words;
+    }
+    /* Dropdown baris tercentang selain yang paling atas: mati (mengikuti nilai baris teratas), tetap ikut terkirim. */
+    .score-sheet .score-mirror {
+        @apply pointer-events-none bg-sunken opacity-50;
+    }
+    @media (max-width: 767.98px) {
+        .score-sheet,
+        .score-sheet tbody,
+        .score-sheet tr,
+        .score-sheet td {
+            @apply block w-full;
+        }
+        .score-sheet colgroup,
+        .score-sheet thead {
+            @apply hidden;
+        }
+        .score-sheet tr {
+            @apply border-b border-rule px-4 py-3;
+        }
+        .score-sheet td {
+            @apply border-0 !px-0 py-1.5 !text-left;
+        }
+        .score-sheet td[data-label]::before {
+            content: attr(data-label);
+            @apply mb-0.5 block text-caption font-semibold text-muted;
+        }
+    }
+
     /* Kode (NIM, kode dosen) — tetap Inter, tidak terpotong ke baris baru.
        Angka proporsional agar tanda hubung pada "KP-SI-01" tidak renggang. */
     .code {
@@ -227,13 +285,23 @@
     }
 
     /* Latar foto halaman login + overlay gelap (satu elemen, tanpa blur/filter).
-       Gambar hanya diunduh saat elemen ini tampil (layar ≥ md). */
+    /* Foto kampus & bayangan gelap sebagai lapisan sendiri; bulatan hijau (.login-hero__orbs) di atas bayangan, di bawah ilustrasi & teks */
+    /* Foto kampus & bayangan gelap sebagai lapisan sendiri; bulatan hijau (.login-hero__orbs) berada di antara keduanya dan teks */
     .login-hero {
+        overflow: hidden;
         background-color: #0b1f14;
-        background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.72) 35%, rgba(0, 0, 0, 0.45) 70%, rgba(0, 0, 0, 0.4) 100%),
-            url('../images/login-hero.jpg');
+    }
+    .login-hero__bg {
+        position: absolute;
+        inset: 0;
+        background-image: url('../images/login-hero.jpg');
         background-size: cover;
         background-position: center top;
+    }
+    .login-hero__shade {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.72) 35%, rgba(0, 0, 0, 0.45) 70%, rgba(0, 0, 0, 0.4) 100%);
     }
 
     /*
@@ -494,5 +562,150 @@
         transform: scaleX(0.5);
         opacity: 0.35;
         animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+    }
+}
+
+/*
+ * Halaman login: bulatan hijau melayang di atas foto, di bawah ilustrasi & teks (.login-hero__orbs).
+ * Bentuk: samar, inti sedikit lebih pekat dengan tepi yang memudar panjang (radial-gradient, tanpa filter blur), sebagian lebih samar agar berlapis.
+ * Ringan: hanya transform & opacity yang dianimasikan (dikerjakan GPU), tanpa JavaScript; diam bila pengguna memilih
+ * "kurangi gerakan". Kolom foto hanya tampil di layar ≥ md.
+ */
+.login-hero__orbs {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.login-hero__orbs span {
+    --orb: 0 168 80; /* hijau brand versi terang (#00A850) agar menyala di atas foto gelap */
+    position: absolute;
+    width: var(--s, 15rem);
+    height: var(--s, 15rem);
+    border-radius: 9999px;
+    background: radial-gradient(circle closest-side, rgb(var(--orb) / 0.88) 0%, rgb(var(--orb) / 0.72) 32%, rgb(var(--orb) / 0.32) 64%, rgb(var(--orb) / 0.08) 85%, rgb(var(--orb) / 0) 100%);
+    opacity: var(--o, 0.7);
+    will-change: transform, opacity;
+    animation: login-orb-a var(--d, 8s) ease-in-out var(--delay, 0s) infinite alternate;
+}
+.login-hero__orbs span:nth-child(even) { animation-name: login-orb-b; }
+.login-hero__orbs span:nth-child(3n) { --orb: 38 204 150; } /* hijau muda ilustrasi */
+.login-hero__orbs span:nth-child(1)  { --s: 16rem; left: -3rem;  top: 4%;   --d: 7s;   --delay: -1s; }
+.login-hero__orbs span:nth-child(2)  { --s: 14rem; left: 38%;    top: -3rem; --d: 6s;  --delay: -3s; --o: 0.72; }
+.login-hero__orbs span:nth-child(3)  { --s: 15rem; left: 42%;    top: 40%;  --d: 8s;   --delay: -2s; }
+.login-hero__orbs span:nth-child(4)  { --s: 17rem; right: -4rem; top: 30%;  --d: 9s;   --delay: -5s; --o: 0.48; }
+.login-hero__orbs span:nth-child(5)  { --s: 14rem; left: 60%;    top: 58%;  --d: 6.5s; --delay: -4s; }
+.login-hero__orbs span:nth-child(6)  { --s: 16rem; left: 4%;     bottom: -3rem; --d: 7.5s; --delay: -6s; --o: 0.56; }
+.login-hero__orbs span:nth-child(7)  { --s: 12.5rem;  left: 28%;    top: 18%;  --d: 5.5s; --delay: -2.5s; --o: 0.44; }
+.login-hero__orbs span:nth-child(8)  { --s: 15rem; left: 52%;    bottom: -4rem; --d: 8.5s; --delay: -7s; }
+.login-hero__orbs span:nth-child(9)  { --s: 12.5rem;  right: 8%;    top: 6%;   --d: 6s;   --delay: -1.5s; --o: 0.52; }
+.login-hero__orbs span:nth-child(10) { --s: 14rem; left: 18%;    top: 52%;  --d: 7s;   --delay: -3.5s; --o: 0.40; }
+@keyframes login-orb-a {
+    0%   { transform: translate3d(0, 0, 0) scale(1);         opacity: var(--o, 0.7); }
+    50%  { transform: translate3d(9rem, -6rem, 0) scale(1.1); opacity: calc(var(--o, 0.7) * 0.55); }
+    100% { transform: translate3d(-5rem, 7rem, 0) scale(0.9); opacity: var(--o, 0.7); }
+}
+@keyframes login-orb-b {
+    0%   { transform: translate3d(0, 0, 0) scale(1);           opacity: calc(var(--o, 0.7) * 0.6); }
+    50%  { transform: translate3d(-8rem, 6rem, 0) scale(0.92); opacity: var(--o, 0.7); }
+    100% { transform: translate3d(6rem, -5rem, 0) scale(1.08); opacity: calc(var(--o, 0.7) * 0.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .login-hero__orbs span { animation: none; }
+}
+
+/*
+ * Banner foto gedung kampus di dashboard (<x-layouts.app banner>): di belakang topbar dan bagian atas kartu sambutan.
+ * Foto dipusatkan ke deretan gedung, lalu memudar ke warna latar aplikasi di bawah. Topbar transparan di atasnya dan
+ * mendapat latar + garis bawah kembali setelah halaman digulir (.is-scrolled, Alpine "shell").
+ */
+.page-banner {
+    position: absolute;
+    inset: 0 0 auto 0;
+    /* Batas bawah foto ≈ setengah tinggi kartu sambutan: topbar 3,5rem + jarak atas main + ½ kartu */
+    height: 14.5rem;
+    overflow: hidden;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to bottom, rgb(245 245 247 / 0) 75%, var(--color-paper) 100%),
+        url('../images/campus-banner.jpg');
+    background-size: cover, cover;
+    background-position: center, center bottom;
+    background-repeat: no-repeat;
+}
+@media (min-width: 640px) {
+    /* Layar ≥ sm: foto selebar area konten, digeser sehingga puncak gedung tertinggi (logo Rektorat, 28,06% dari atas
+       foto) tepat sejajar dengan batas atas ikon topbar (1rem dari atas: topbar 3,5rem, ikon 1,5rem di tengah). */
+    .page-banner {
+        height: 14.25rem;
+        background-image: none;
+    }
+    .page-banner::before,
+    .page-banner::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+    }
+    .page-banner::before {
+        top: 1rem;
+        aspect-ratio: 2048 / 670;
+        background: url('../images/campus-banner.jpg') center / 100% 100% no-repeat;
+        transform: translateY(-28.06%);
+    }
+    .page-banner::after {
+        inset: 0;
+        background: linear-gradient(to bottom, rgb(245 245 247 / 0) 75%, var(--color-paper) 100%);
+    }
+}
+.page-banner-header {
+    border-color: transparent;
+    background-color: transparent;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+.page-banner-header.is-scrolled {
+    border-color: var(--color-rule);
+    background-color: var(--color-paper);
+}
+
+/*
+ * Halaman Registrasi akun & tim: foto gedung kampus dari puncak halaman (di belakang topbar ber-logo putih) sampai tepat
+ * setengah kartu Alur Registrasi Tim. Grid: kolom tengah selebar konten (max-w-3xl dikurangi padding); baris =
+ * topbar | judul | ½ kartu | ½ kartu (dua terakhir 1fr). Foto menempati baris 1–3 selebar layar; kartu baris 3–4.
+ * Foto digelapkan (seperti halaman login) agar logo putih, judul, dan teks topbar terbaca, lalu memudar ke latar di bawah.
+ */
+.register-hero {
+    display: grid;
+    grid-template-columns: minmax(1rem, 1fr) min(calc(100% - 2rem), 45rem) minmax(1rem, 1fr);
+    grid-template-rows: auto auto 1fr 1fr;
+}
+.register-hero__photo {
+    grid-column: 1 / -1;
+    grid-row: 1 / 4;
+    background-color: #0b1f14;
+    background-image:
+        linear-gradient(to bottom, rgb(4 18 11 / 0.72) 0%, rgb(4 18 11 / 0.5) 55%, rgb(4 18 11 / 0.35) 85%, rgb(4 18 11 / 0.2) 100%),
+        url('../images/campus-banner.jpg');
+    background-size: cover, cover;
+    background-position: center, center 70%;
+    background-repeat: no-repeat;
+}
+.register-hero__bar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    border-bottom: 1px solid rgb(255 255 255 / 0.14);
+}
+.register-hero__title {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 2rem 0 1.25rem;
+}
+.register-hero__card {
+    grid-column: 2;
+    grid-row: 3 / 5;
+}
+@media (min-width: 640px) {
+    .register-hero__title {
+        padding-top: 2.5rem;
     }
 }

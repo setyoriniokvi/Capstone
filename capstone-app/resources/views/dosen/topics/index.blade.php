@@ -28,16 +28,20 @@
         ['value' => $summary['applicants'], 'label' => 'Tim yang mengajukan', 'href' => route('dosen.applications.index'), 'linkLabel' => 'Buka Approval Pengajuan Topik'],
     ]" />
 
-    {{-- Cari + filter peminatan + tambah topik --}}
+    {{-- Cari + filter peminatan + tambah topik — langsung di browser (Alpine "listFilter") --}}
+    <div x-data="listFilter">
     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <form method="GET" action="{{ route('dosen.topics.index') }}" x-data="autoSubmit" class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center" role="search">
-            <div class="relative w-full min-w-0 sm:flex-1">
-                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-                <label for="cari-topik" class="sr-only">Cari topik</label>
-                <input id="cari-topik" type="search" name="q" value="{{ $q }}" class="input min-h-[48px] rounded-xl pl-12" placeholder="Cari judul, dosen, atau objek">
+        <form method="GET" action="{{ route('dosen.topics.index') }}" @submit.prevent="apply" class="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center" role="search">
+            <div class="flex gap-2 w-full sm:flex-1">
+                <div class="relative min-w-0 flex-1">
+                    <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+                    <label for="cari-topik" class="sr-only">Cari topik</label>
+                    <input id="cari-topik" type="search" name="q" value="{{ $q }}" class="input min-h-[48px] rounded-xl pl-12" placeholder="Cari judul, dosen, atau objek" autocomplete="off" data-filter-search @input="search">
+                </div>
+                <x-sort-by tall target="#daftar-topik-dosen" id="urut-topik-dosen" default="topik" :options="['topik' => 'Topik', 'nama' => 'Dosen pengusul', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Peminatan)']" />
             </div>
             <label for="peminatan" class="sr-only">Filter peminatan</label>
-            <select id="peminatan" name="peminatan" class="input min-h-[48px] w-full rounded-xl sm:w-64 sm:shrink-0" @change="submit">
+            <select id="peminatan" name="peminatan" data-filter="peminatan" class="input min-h-[48px] w-full rounded-xl sm:w-64 sm:shrink-0" @change="filter">
                 <option value="">Semua peminatan</option>
                 @foreach ($specializations as $spec)<option value="{{ $spec }}" @selected($peminatan === $spec)>{{ $spec }}</option>@endforeach
             </select>
@@ -53,9 +57,9 @@
     </ul>
 
 
-    <section class="panel overflow-hidden" aria-label="Daftar topik dosen">
+    <section id="daftar-topik-dosen" data-sort-scope class="panel overflow-hidden" aria-label="Daftar topik dosen">
         @if ($topics->isEmpty())
-            <x-empty title="Tidak ada topik yang cocok" icon="book-open" />
+            <x-empty title="Belum ada topik dosen" icon="book-open" />
         @else
             {{-- Kolom berlebar lega; bila melebihi layar tabel digeser ke samping. --}}
             <x-scroll-pager>
@@ -79,15 +83,16 @@
                             <th>Aksi</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($topics as $topic)
                             @php
                                 $own = $topic->isProposer(auth()->user());
                                 $primary = $topic->lecturer_id === auth()->id();
                                 $hasApplicants = $topic->accepted_count > 0 || $topic->pending_count > 0;
                             @endphp
-                            <tr class="align-top [&>td]:align-top {{ $own ? 'bg-brand-tint' : '' }}">
-                                <td class="tabular text-muted">{{ $loop->iteration }}.</td>
+                            <tr data-filter-item data-search="{{ $topic->bankSearchText() }}" data-filter-peminatan="{{ implode('|', $topic->specializations ?? []) }}" data-sort-item data-sort-topik="{{ $topic->title }}" data-sort-nama="{{ ($topic->proposers->isEmpty() ? collect([$topic->lecturer]) : $topic->proposers)->filter()->pluck('name')->implode(', ') }}"
+                                data-sort-terbaru="{{ $topic->created_at?->timestamp }}" data-sort-kategori="{{ implode(', ', $topic->specializations ?? []) }}" class="align-top [&>td]:align-top {{ $own ? 'bg-brand-tint' : '' }}">
+                                <td class="tabular text-muted"><span data-sort-no>{{ $loop->iteration }}</span>.</td>
                                 <td>
                                     <p class="font-semibold leading-snug text-ink">{{ $topic->title }}</p>
                                     @if ($own && ! $primary)<p class="mt-2 text-caption text-muted">Anda pengusul bersama</p>@endif
@@ -102,7 +107,7 @@
                                     @forelse ($topic->specializations ?? [] as $spec)<span class="{{ $chip }} mb-1.5 mr-1 inline-block">{{ $spec }}</span>@empty<span class="text-muted">—</span>@endforelse
                                 </td>
                                 <td class="text-ink">{{ $topic->object ?? '—' }}</td>
-                                <td class="text-ink">@forelse ($topic->programNames() as $name)<p>{{ $name }}</p>@empty — @endforelse</td>
+                                <td class="text-ink">@forelse ($topic->programNames() as $name)<p>{{ $name }}</p>@empty - @endforelse</td>
                                 <td class="text-center tabular text-ink">{{ $topic->quota }}</td>
                                 <td>
                                     {{-- Pengusul utama tercatat pertama --}}
@@ -110,7 +115,7 @@
                                         @foreach ($topic->proposers->isEmpty() ? collect([$topic->lecturer]) : $topic->proposers as $proposer)
                                             <li>
                                                 <p class="font-medium text-ink">{{ $proposer->name }}</p>
-                                                @if ($proposer->phone)<p class="text-caption text-muted tabular">WA {{ $phone($proposer->phone) }}</p>@endif
+                                                @if ($proposer->waNumber())<p class="text-caption text-muted tabular">WA {{ $phone($proposer->waNumber()) }}</p>@endif
                                             </li>
                                         @endforeach
                                     </ul>
@@ -141,7 +146,9 @@
                     </tbody>
                 </table>
             </x-scroll-pager>
+            <p x-show="empty" x-cloak class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada topik yang cocok dengan pencarian atau filter.</p>
         @endif
     </section>
+    </div>
     </div>
 </x-layouts.app>

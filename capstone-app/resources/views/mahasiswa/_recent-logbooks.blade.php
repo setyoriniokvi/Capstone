@@ -1,6 +1,6 @@
-{{-- Tiga log bimbingan terbaru, hanya daftar (baris tidak dapat diklik); "Lihat semua" membuka menu Log Bimbingan. Butuh $team, $recentLogbooks dan $supervisor (StudentDashboard).
+{{-- Log bimbingan tim (terbaru di atas), dibagi per halaman di browser: "Tampilkan [5] data" + ‹ 1 2 › (Alpine "bulkApproval"). Hanya daftar (baris tidak dapat diklik); "Lihat semua" membuka menu Log Bimbingan. Butuh $team, $recentLogbooks dan $supervisor (StudentDashboard).
      Alasan log belum bisa diisi sudah tampil di kartu ringkasan, jadi tidak diulang di sini. --}}
-<section class="panel mb-6" aria-labelledby="log-judul">
+<section x-data="bulkApproval" data-page-size="5" class="panel mb-6 overflow-hidden" aria-labelledby="log-judul">
     <div class="flex flex-wrap items-center justify-between gap-x-3 px-5 pt-5 sm:px-6 sm:pt-6">
         <h2 id="log-judul" class="min-w-0 text-lg font-semibold">Log Bimbingan</h2>
         <a href="{{ route('mahasiswa.logbooks.index') }}" class="link -my-2 inline-flex min-h-[44px] items-center gap-1.5 text-sm">{{ $recentLogbooks->isEmpty() && $supervisor ? 'Isi log pertama' : 'Lihat semua' }} <x-heroicon-o-arrow-right class="h-4 w-4" /></a>
@@ -11,10 +11,11 @@
     @elseif ($recentLogbooks->isEmpty())
         <p class="px-5 pb-5 pt-3 text-sm text-muted sm:px-6">Belum ada log bimbingan.</p>
     @else
-        <ul class="mx-5 mt-3 divide-y divide-rule border-t border-rule pb-2 sm:mx-6">
+        <ul class="mx-5 mt-3 border-t border-rule pb-2 sm:mx-6 [&>li:not([hidden])~li:not([hidden])]:border-t [&>li]:border-rule">
             @foreach ($recentLogbooks as $log)
                 @php $statusLabel = ['menunggu' => 'Menunggu', 'disetujui' => 'Disetujui', 'revisi' => 'Ditolak'][$log->status] ?? null; @endphp
-                <li class="flex items-center gap-4 py-3">
+                {{-- data-team = baris yang dibagi per halaman; tata letak flex di elemen dalam agar atribut hidden tetap berlaku --}}
+                <li data-team="{{ $log->id }}"><div class="flex items-center gap-4 py-3">
                     {{-- Kolom tanggal tipografis (bukan ubin "S9") --}}
                     <time datetime="{{ $log->session_date->toDateString() }}" class="w-12 shrink-0 text-center leading-tight">
                         <span class="block tabular text-lg font-semibold text-ink">{{ $log->session_date->format('j') }}</span>
@@ -27,8 +28,9 @@
                         <x-badge :status="$log->status" :label="$statusLabel" class="mt-1.5 xs:hidden" />
                     </span>
                     <x-badge :status="$log->status" :label="$statusLabel" class="hidden shrink-0 xs:inline-flex" />
-                </li>
+                </div></li>
             @endforeach
         </ul>
+        <x-client-pager id="per-halaman-log-dashboard" label="Halaman log bimbingan" :options="[5, 10, 25, 50]" :default="5" />
     @endif
 </section>

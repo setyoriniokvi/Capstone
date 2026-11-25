@@ -12,7 +12,7 @@
     $holder = fn ($team, string $role) => $role === 'pembimbing' ? $team->supervisor : $team->examiner;
     $teamSpecs = $teams->mapWithKeys(fn ($t) => [$t->id => \App\Http\Controllers\Admin\PlottingController::teamSpecializations($t)]);
 @endphp
-<section x-data="tableFilter" data-table-filter class="panel overflow-hidden" aria-labelledby="plot-tim-judul">
+<section x-data="tableFilter" data-table-filter data-sort-scope class="panel overflow-hidden" aria-labelledby="plot-tim-judul">
     <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
         <h2 id="plot-tim-judul" class="text-lg font-semibold text-ink">Tim mahasiswa</h2>
         <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">{{ $teams->count() }}</span> dari {{ $teams->count() }} tim bertopik final</span>
@@ -25,9 +25,12 @@
         <div class="flex flex-wrap items-end gap-3 border-t border-rule px-5 py-4 sm:px-6">
             <div class="min-w-[14rem] flex-1">
                 <label class="field-label" for="plot-cari">Cari</label>
-                <div class="relative">
-                    <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-                    <input id="plot-cari" type="search" class="input pl-9" placeholder="Nama tim, anggota, NIM, topik, atau dosen" autocomplete="off" @input="search">
+                <div class="flex gap-2">
+                    <div class="relative min-w-0 flex-1">
+                        <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                        <input id="plot-cari" type="search" class="input pl-9" placeholder="Nama tim, anggota, NIM, topik, atau dosen" autocomplete="off" @input="search">
+                    </div>
+                    <x-sort-by id="urut-plot-tim" default="nama" :options="['nama' => 'Nama tim', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Status topik)']" />
                 </div>
             </div>
             @include('admin.plotting._filter-menu', ['panelId' => 'plot-tim-filter', 'groups' => [
@@ -40,7 +43,7 @@
             <table class="data-table w-full min-w-[70rem] table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                 <colgroup><col class="w-[11%]"><col class="w-[14%]"><col class="w-[14%]"><col class="w-[14%]"><col class="w-[13%]"><col class="w-[17%]"><col class="w-[17%]"></colgroup>
                 <thead class="{{ $greenHead }}"><tr><th>Nama tim</th><th>Anggota</th><th>Peminatan</th><th>Topik Final</th><th>Status topik</th><th>Dosen Pembimbing</th><th>Dosen Penguji</th></tr></thead>
-                <tbody>
+                <tbody data-sort-list>
                     @foreach ($teams as $team)
                         @php
                             $specializations = $teamSpecs[$team->id];
@@ -48,7 +51,8 @@
                                 ->merge($team->members->pluck('user.name'))->merge($team->members->pluck('user.nim'))->filter()->implode(' '));
                             $missing = collect(['pembimbing' => ! $team->supervisor, 'penguji' => ! $team->examiner])->filter()->keys()->implode('|');
                         @endphp
-                        <tr data-row data-search="{{ $searchText }}" data-specializations="{{ implode('|', $specializations) }}"
+                        <tr data-row data-sort-item data-sort-nama="{{ $team->name }}" data-sort-terbaru="{{ $team->created_at?->timestamp }}" data-sort-kategori="{{ $team->finalTopic->source === 'dosen' ? 'Topik Dosen' : 'Topik Mandiri' }}"
+                            data-search="{{ $searchText }}" data-specializations="{{ implode('|', $specializations) }}"
                             data-source="{{ $team->finalTopic->source }}" data-missing="{{ $missing }}" class="[&>td]:py-4 [&>td]:align-top">
                             <td class="font-semibold text-ink">{{ $team->name }}</td>
                             <td class="text-sm">
@@ -80,7 +84,7 @@
                                         <p class="text-sm font-medium text-ink">{{ $assignment->lecturer->name }}</p>
                                         @if ($assignment->source === 'sistem')<p class="text-caption text-muted">Otomatis dari topik dosen</p>@endif
                                         <div class="mt-2 flex flex-wrap gap-1">
-                                            <button type="button" class="btn btn-ghost btn-sm" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
                                             <form method="POST" action="{{ route('admin.plotting.destroy', $assignment) }}" data-confirm="Hapus {{ $role }} {{ $assignment->lecturer->name }} dari {{ $team->name }}?" data-confirm-label="Hapus">
                                                 @csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink"><x-heroicon-o-trash class="h-4 w-4" /> Hapus</button>
                                             </form>

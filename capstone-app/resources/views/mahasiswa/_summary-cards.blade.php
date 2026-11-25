@@ -25,7 +25,7 @@
             <p class="mt-3 text-sm text-muted">Anda belum memiliki tim. Dokumen milestone dikumpulkan per tim.</p>
         @endif
         <div class="mt-auto pt-5">
-            <x-progress-bar :value="$docs['done']" :max="$docs['total']" label="Dokumen milestone terkumpul" tone="accent" />
+            <x-progress-bar :value="$docs['done']" :max="$docs['total']" label="Dokumen milestone terkumpul" />
         </div>
     </x-summary-card>
 

@@ -8,7 +8,7 @@
     $roleTitles = ['pembimbing' => 'Tim bimbingan', 'penguji' => 'Tim uji'];
     $roleShort = ['pembimbing' => 'bimbingan', 'penguji' => 'uji'];
     $holder = fn ($team, string $role) => $role === 'pembimbing' ? $team->supervisor : $team->examiner;
-    $sources = ['global' => 'Global', 'dosen' => 'Dosen tertentu', 'belum diatur' => 'Belum diatur'];
+    $sources = ['global' => 'Global', 'dosen_kelas' => 'Dosen kelas', 'dosen' => 'Dosen tertentu', 'belum diatur' => 'Belum diatur'];
     $flags = ['OK' => 'OK', 'UNDER' => 'UNDER', 'OVER' => 'OVER'];
     $chip = 'rounded-md border border-rule bg-sunken px-2 py-0.5 text-caption font-medium text-muted';
     $teamSpecs = $teams->mapWithKeys(fn ($t) => [$t->id => \App\Http\Controllers\Admin\PlottingController::teamSpecializations($t)]);
@@ -22,7 +22,7 @@
     ['value' => $rows->filter(fn ($r) => $r['flags']['pembimbing'] === 'OK' && $r['flags']['penguji'] === 'OK')->count(), 'label' => 'Dosen status bimbing dan uji OK'],
 ]" />
 
-<section x-data="tableFilter" data-table-filter class="panel">
+<section x-data="tableFilter" data-table-filter data-sort-scope class="panel">
     <div class="panel-head">
         <h2 class="panel-title">Load balancing dosen</h2>
         <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">{{ $rows->count() }}</span> dari {{ $rows->count() }} dosen</span>
@@ -31,9 +31,12 @@
     <div class="flex flex-wrap items-end gap-3 border-b border-rule px-5 py-4 sm:px-6">
         <div class="min-w-[14rem] flex-1">
             <label class="field-label" for="plot-dosen-cari">Cari</label>
-            <div class="relative">
-                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-                <input id="plot-dosen-cari" type="search" class="input pl-9" placeholder="Nama atau kode dosen" autocomplete="off" @input="search">
+            <div class="flex gap-2">
+                <div class="relative min-w-0 flex-1">
+                    <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                    <input id="plot-dosen-cari" type="search" class="input pl-9" placeholder="Nama atau kode dosen" autocomplete="off" @input="search">
+                </div>
+                <x-sort-by id="urut-plot-dosen" default="nama" :options="['nama' => 'Dosen', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Peminatan)']" />
             </div>
         </div>
         @include('admin.plotting._filter-menu', ['panelId' => 'plot-dosen-filter', 'groups' => [
@@ -46,13 +49,14 @@
     <x-scroll-pager>
         <table class="data-table">
             <thead><tr><th>Dosen</th><th class="text-center">Dibimbing / maks</th><th class="text-center">Sisa bimbing</th><th class="text-center">Status bimbing</th><th class="text-center">Diuji / maks</th><th class="text-center">Sisa uji</th><th class="text-center">Status uji</th><th class="text-center">Sumber kuota</th><th><span class="sr-only">Aksi</span></th></tr></thead>
-            <tbody>
+            <tbody data-sort-list>
                 @forelse ($rows as $r)
                     @php
                         $lecturer = $r['lecturer'];
                         $reopen = session('plot_lecturer') === $lecturer->id;
                     @endphp
                     <tr x-data="registrationForm" data-open="{{ $reopen ? 'true' : 'false' }}" data-row
+                        data-sort-item data-sort-nama="{{ $lecturer->name }}" data-sort-terbaru="{{ $lecturer->created_at?->timestamp }}" data-sort-kategori="{{ $lecturer->lecturerProfile->specialization }}"
                         data-search="{{ mb_strtolower($lecturer->name.' '.$lecturer->lecturerProfile->lecturer_code) }}"
                         data-specialization="{{ $lecturer->lecturerProfile->specialization }}" data-quota-source="{{ $r['quota']['source'] }}"
                         data-supervise="{{ $r['flags']['pembimbing'] }}" data-examine="{{ $r['flags']['penguji'] }}">

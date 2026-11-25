@@ -34,8 +34,8 @@ class DashboardController extends Controller
             'topics' => ['label' => 'Topik menunggu approval', 'count' => Topic::query()->where('period_id', $period->id)->where('status', 'menunggu')->count(), 'route' => route('admin.topics.index', ['status' => 'menunggu'])],
             'supervisor' => ['label' => 'Tim belum memiliki pembimbing', 'count' => (clone $teams)->where('status', 'diterima')->whereDoesntHave('supervisor')->count(), 'route' => route('admin.plotting.index')],
             'examiner' => ['label' => 'Tim belum memiliki penguji', 'count' => (clone $teams)->where('status', 'diterima')->whereDoesntHave('examiner')->count(), 'route' => route('admin.plotting.index')],
-            'sync' => ['label' => 'Sinkronisasi Drive gagal', 'count' => DocumentVersion::query()->where('sync_status', 'gagal')->count(), 'route' => route('admin.documents.index', ['status' => 'gagal'])],
-            'reminders' => ['label' => 'Notifikasi gagal terkirim', 'count' => ReminderDispatch::query()->where('status', 'gagal')->count(), 'route' => route('admin.reminders.index', ['status' => 'gagal'])],
+            'sync' => ['label' => 'Sinkronisasi Drive gagal', 'count' => DocumentVersion::query()->where('sync_status', 'gagal')->whereHas('document.team', fn ($t) => $t->where('period_id', $period->id))->count(), 'route' => route('admin.documents.index', ['status' => 'gagal'])],
+            'reminders' => ['label' => 'Notifikasi gagal terkirim', 'count' => ReminderDispatch::query()->where('period_id', $period->id)->where('status', 'gagal')->count(), 'route' => route('admin.reminders.index', ['status' => 'gagal'])],
         ];
 
         return view('admin.dashboard', [
@@ -59,7 +59,7 @@ class DashboardController extends Controller
             ->where('teams.period_id', $period->id)->whereIn('teams.status', ['diterima', 'menunggu'])
             ->selectRaw('teams.status, count(distinct team_members.user_id) as total')->groupBy('teams.status')
             ->pluck('total', 'teams.status');
-        $studentTotal = User::query()->students()->count();
+        $studentTotal = User::query()->students()->inPeriod($period)->count();
         $joined = (int) ($memberStatus['diterima'] ?? 0);
         $waiting = (int) ($memberStatus['menunggu'] ?? 0);
 
@@ -80,7 +80,7 @@ class DashboardController extends Controller
         $both = $roles->filter(fn ($r) => $r->contains('pembimbing') && $r->contains('penguji'))->count();
         $supervisor = $roles->filter(fn ($r) => $r->contains('pembimbing') && ! $r->contains('penguji'))->count();
         $examiner = $roles->filter(fn ($r) => $r->contains('penguji') && ! $r->contains('pembimbing'))->count();
-        $total = User::query()->lecturers()->count();
+        $total = User::query()->lecturers()->inPeriod($period)->count();
 
         return [
             'counts' => ['keduanya' => $both, 'pembimbing' => $supervisor, 'penguji' => $examiner, 'belum' => max(0, $total - $both - $supervisor - $examiner)],

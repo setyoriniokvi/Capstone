@@ -12,7 +12,7 @@
         $supervisor = $team->supervisor?->lecturer;
         $node = 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand text-sm font-semibold tabular text-white';
     @endphp
-    <div x-data="registrationForm" data-open="{{ $errors->hasAny(['title', 'description', 'object']) ? 'true' : 'false' }}">
+    <div x-data="registrationForm" data-open="{{ $errors->hasAny(['title', 'description', 'object', 'object_detail']) ? 'true' : 'false' }}">
         @if ($canSubmitIndependent)
 <x-modal>
     <x-slot:heading>{{ $independent ? 'Edit Topik Mandiri Tim' : 'Registrasi Topik Mandiri Tim' }}</x-slot:heading>
@@ -30,6 +30,9 @@
                     </x-field>
                     <x-field label="Objek Capstone" name="object" required hint="Dapat berupa perusahaan, instansi, atau objek lainnya.">
                         <input id="object" name="object" class="input" value="{{ old('object', $independent?->object) }}" required maxlength="255">
+                    </x-field>
+                    <x-field label="Detail Topik/Objek" name="object_detail" hint="Opsional. Tautan yang ditulis (mis. https://drive.google.com/…) dapat diklik setelah disimpan.">
+                        <textarea id="object_detail" name="object_detail" rows="3" class="input" maxlength="3000" placeholder="Keterangan tambahan atau tautan dokumen/situs objek">{{ old('object_detail', $independent?->object_detail) }}</textarea>
                     </x-field>
                     <div class="flex flex-wrap justify-end gap-3 border-t border-rule pt-4">
                         <button type="button" class="btn btn-ghost" @click="close">Batal</button>
@@ -69,6 +72,7 @@
                     <dl id="detail-final" x-show="expanded" x-cloak class="grid gap-x-6 gap-y-3 pb-5 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
                         <dt class="text-on-brand-muted">Deskripsi</dt><dd class="whitespace-pre-line">{{ $final->description }}</dd>
                         <dt class="text-on-brand-muted">Objek Capstone</dt><dd>{{ $final->object }}</dd>
+                        @if ($final->object_detail)<dt class="text-on-brand-muted">Detail Topik/Objek</dt><dd class="whitespace-pre-line break-words [&_a]:text-on-brand [&_a]:underline">{!! \App\Support\Format::linkify($final->object_detail) !!}</dd>@endif
                         @if ($final->source === 'dosen')
                             @if ($final->competencies)<dt class="text-on-brand-muted">Kompetensi</dt><dd class="whitespace-pre-line">{{ $final->competencies }}</dd>@endif
                             @if ($final->specializations)<dt class="text-on-brand-muted">Peminatan</dt><dd>{{ implode(', ', $final->specializations) }}</dd>@endif
@@ -139,6 +143,7 @@
                     <dl id="detail-mandiri" x-show="expanded" x-cloak class="grid gap-x-6 gap-y-3 pb-5 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
                         <dt class="text-muted">Deskripsi</dt><dd class="whitespace-pre-line text-ink">{{ $independent->description }}</dd>
                         <dt class="text-muted">Objek Capstone</dt><dd class="text-ink">{{ $independent->object }}</dd>
+                        @if ($independent->object_detail)<dt class="text-muted">Detail Topik/Objek</dt><dd class="whitespace-pre-line break-words text-ink">{!! \App\Support\Format::linkify($independent->object_detail) !!}</dd>@endif
                         <dt class="text-muted">Diajukan</dt><dd class="text-ink">{{ $independent->updated_at->translatedFormat('j F Y') }}</dd>
                         @if ($independent->reviewed_at)
                             <dt class="text-muted">Ditinjau</dt><dd class="text-ink">{{ $independent->reviewed_at->translatedFormat('j F Y') }}@if ($independent->reviewer) oleh {{ $independent->reviewer->name }}@endif</dd>

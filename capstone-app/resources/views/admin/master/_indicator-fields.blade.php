@@ -1,4 +1,4 @@
-{{-- Isian indikator (Tambah Indikator & Edit Pilihan): CLO, ID, Skema, Indikator, Bukti / Bab, bobot per bentuk penilaian.
+{{-- Isian indikator (Tambah Indikator & Edit Pilihan): CLO, ID, Skema, Indikator, Bukti / Bab, bobot per bentuk penilaian (dokumen terkait diatur di Rubrik Dokumen).
      Butuh $prefix (mis. "rows[12]" atau "" untuk tambah), $errorPrefix (mis. "rows.12." atau ""), $uid, $values,
      $clos, $schemes, $components, $star. --}}
 @php

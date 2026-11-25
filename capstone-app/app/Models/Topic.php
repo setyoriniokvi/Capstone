@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 class Topic extends Model
 {
     protected $fillable = [
-        'period_id', 'source', 'title', 'description', 'field', 'object', 'competencies', 'specializations', 'prodi_codes', 'team_id', 'lecturer_id', 'quota',
+        'period_id', 'source', 'title', 'description', 'field', 'object', 'object_detail', 'competencies', 'specializations', 'prodi_codes', 'team_id', 'lecturer_id', 'quota',
         'status', 'review_notes', 'keyword_hits', 'reviewed_by', 'reviewed_at',
     ];
 
@@ -89,11 +89,17 @@ class Topic extends Model
 
         return $topics
             ->filter(fn (Topic $t) => $peminatan === '' || in_array($peminatan, $t->specializations ?? [], true))
-            ->filter(fn (Topic $t) => $term === '' || Str::contains(Str::lower(implode(' ', [
-                $t->title, $t->description, $t->object, $t->competencies, implode(' ', $t->specializations ?? []), $t->lecturer->name, $t->proposers->pluck('name')->implode(' '),
-            ])), $term))
+            ->filter(fn (Topic $t) => $term === '' || Str::contains($t->bankSearchText(), $term))
             ->sortBy([fn (Topic $a, Topic $b) => strcasecmp($a->lecturer->name, $b->lecturer->name), fn (Topic $a, Topic $b) => strcasecmp($a->title, $b->title)])
             ->values();
+    }
+
+    /** Teks cari bank topik (huruf kecil): dipakai filterBank dan data-search tabel (cari langsung di browser). */
+    public function bankSearchText(): string
+    {
+        return Str::lower(implode(' ', [
+            $this->title, $this->description, $this->object, $this->competencies, implode(' ', $this->specializations ?? []), $this->lecturer?->name, $this->proposers->pluck('name')->implode(' '),
+        ]));
     }
 
     public function scopePublished(Builder $q): Builder

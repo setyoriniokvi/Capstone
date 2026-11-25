@@ -3,7 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\DocumentVersion;
-use App\Services\DocumentService;
+use App\Services\DocumentDriveSync;
+use App\Support\PeriodContext;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -36,7 +37,7 @@ class SyncDocumentVersion implements ShouldQueue
         return [(new WithoutOverlapping("document-sync-{$documentId}"))->releaseAfter(30)->expireAfter(600)];
     }
 
-    public function handle(DocumentService $documents): void
+    public function handle(DocumentDriveSync $drive): void
     {
         $version = DocumentVersion::query()->find($this->versionId);
 
@@ -44,6 +45,7 @@ class SyncDocumentVersion implements ShouldQueue
             return;
         }
 
-        $documents->sync($version);
+        // Akun Google Drive & data master mengikuti periode tim pemilik dokumen.
+        PeriodContext::using($version->document->team->period_id, fn () => $drive->sync($version));
     }
 }

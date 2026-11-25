@@ -23,7 +23,7 @@ class ImportController extends Controller
     {
         $columns = ImportService::TEMPLATES[$type];
         $examples = [
-            'dosen' => ['198001012010011001', 'Nama Dosen', 'ABC', 'dosen@gmail.com', '081234567890', 'Enterprise Intelligence System Development', 'pembimbing;penguji'],
+            'dosen' => ['198001012010011001', 'Nama Dosen', 'ABC', 'dosen@gmail.com', '081234567890', 'Enterprise Intelligence System Development', 'dosen_kelas'],
             'mahasiswa' => ['1020223000xx', 'Nama Mahasiswa', 'mahasiswa@gmail.com', '081234567890', '120', 'MK001;MK002', 'Jawa Barat', 'Enterprise Intelligence System Development'],
             'tim' => ['Nama Tim', '1020223000xx', '1020223000yy', ''],
         ][$type];
@@ -51,7 +51,7 @@ class ImportController extends Controller
         if ($rows === []) {
             return back()->withErrors(['file' => 'File tidak berisi data.']);
         }
-        if ($missing = $reader->missingColumns($rows, ImportService::REQUIRED[$type])) {
+        if ($missing = $reader->missingColumns($rows, ImportService::headerColumns($type))) {
             return back()->withErrors(['file' => 'Kolom wajib tidak ditemukan: '.implode(', ', $missing).'. Unduh template untuk format yang benar.']);
         }
 

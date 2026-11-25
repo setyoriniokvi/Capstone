@@ -68,6 +68,7 @@ class TopicService
             'description' => $data['description'],
             'field' => $data['field'] ?? $topic?->field,
             'object' => $data['object'] ?? null,
+            'object_detail' => $data['object_detail'] ?? null,
             'status' => 'menunggu',
             'review_notes' => null,
             'reviewed_by' => null,
@@ -89,7 +90,7 @@ class TopicService
     public function lecturerTopicRules(int $periodId): array
     {
         $allowed = RuleSpecialization::query()->whereHas('rule', fn ($q) => $q->where('period_id', $periodId))->pluck('name')->all();
-        $lecturer = Rule::exists('users', 'id')->where('role', 'dosen')->where('is_active', true);
+        $lecturer = User::lecturerRule($periodId);
 
         return [[
             'title' => ['required', 'string', 'max:255'],
@@ -244,7 +245,7 @@ class TopicService
         $title = $approve ? 'Topik diterima' : 'Topik ditolak';
         $recipients = $topic->source === 'mandiri' ? $topic->team->activeUsers : $this->proposersOf($topic);
         $url = $topic->source === 'mandiri' ? route('mahasiswa.topic.index') : route('dosen.topics.index');
-        SystemNotice::sendTo($recipients, $title, "“{$topic->title}”".($notes ? " — {$notes}" : ''), $url);
+        SystemNotice::sendTo($recipients, $title, "“{$topic->title}”".($notes ? " - {$notes}" : ''), $url);
     }
 
     /**
@@ -348,7 +349,7 @@ class TopicService
         SystemNotice::sendTo(
             $application->team->activeUsers,
             $accept ? 'Lamaran topik diterima' : 'Lamaran topik ditolak',
-            "“{$application->topic->title}”".($notes ? " — {$notes}" : ''),
+            "“{$application->topic->title}”".($notes ? " - {$notes}" : ''),
             route('mahasiswa.topic.index')
         );
     }

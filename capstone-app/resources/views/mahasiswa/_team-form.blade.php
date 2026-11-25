@@ -4,7 +4,7 @@
 @php
     $pickerOptions = $students->map(fn ($s) => [
         'id' => $s->id, 'name' => $s->name, 'nim' => (string) $s->nim, 'email' => $s->email,
-        'specialization' => $s->specialization, 'region' => $s->origin_region,
+        'specialization' => $s->specialization, 'region' => $s->origin_region, 'class_name' => $s->class_name,
     ])->values();
 @endphp
 <script type="application/json" id="data-mahasiswa">{!! $pickerOptions->toJson(JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>

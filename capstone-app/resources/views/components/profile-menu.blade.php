@@ -1,4 +1,4 @@
-{{-- Menu profil di topbar kanan: avatar + nama + peran; dropdown berisi identitas akun dan tombol keluar.
+{{-- Menu profil di topbar kanan: avatar + nama + peran; dropdown berisi identitas akun, Ganti Password (dosen), dan tombol keluar.
      Layar sempit hanya menampilkan avatar. --}}
 @props(['user'])
 <div x-data="popover" class="relative" @click.outside="close" @keydown.escape.window="close">
@@ -26,6 +26,14 @@
                 @endif
             </div>
         </div>
+        @if ($user->isLecturer())
+            <div class="border-t border-rule p-2">
+                <a href="{{ route('dosen.password.edit') }}" class="flex min-h-[44px] w-full items-center gap-3 rounded px-3 text-sm font-medium text-ink hover:bg-sunken">
+                    <x-heroicon-o-key class="h-5 w-5 text-muted" aria-hidden="true" />
+                    Ganti Password
+                </a>
+            </div>
+        @endif
         <form method="POST" action="{{ route('logout') }}" class="border-t border-rule p-2">
             @csrf
             <button type="submit" class="flex min-h-[44px] w-full items-center gap-3 rounded px-3 text-sm font-medium text-bad-ink hover:bg-bad-tint">

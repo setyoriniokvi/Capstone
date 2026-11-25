@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\OralRubricLevel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use App\Support\PeriodContext;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 use Illuminate\View\View;
@@ -24,7 +25,7 @@ class OralRubricController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'level' => ['required', 'integer', 'between:1,5', Rule::unique('oral_rubric_levels', 'level')],
+            'level' => ['required', 'integer', 'between:1,5', Rule::unique('oral_rubric_levels', 'level')->where('period_id', PeriodContext::id())],
         ] + self::rules(), self::messages());
         OralRubricLevel::create($data);
 

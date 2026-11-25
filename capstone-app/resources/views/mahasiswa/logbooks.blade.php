@@ -42,7 +42,7 @@
                 <div class="mb-4 flex gap-3 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink" role="alert">
                     <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0" />
                     <p><span class="font-semibold">Tim belum dapat mengikuti Sidang Capstone dan Pameran.</span>
-                        Baru <span class="tabular font-semibold">{{ $approved }}</span> dari minimal <span class="tabular font-semibold">{{ $minLogbooks }}</span> sesi bimbingan yang disetujui pembimbing — kurang <span class="tabular font-semibold">{{ $minLogbooks - $approved }}</span> sesi lagi.</p>
+                        Baru <span class="tabular font-semibold">{{ $approved }}</span> dari minimal <span class="tabular font-semibold">{{ $minLogbooks }}</span> sesi bimbingan yang disetujui pembimbing - kurang <span class="tabular font-semibold">{{ $minLogbooks - $approved }}</span> sesi lagi.</p>
                 </div>
             @endif
 
@@ -57,14 +57,15 @@
                 @endif
             </section>
 
-            <section class="panel" aria-label="Riwayat sesi bimbingan">
+            <section data-sort-scope class="panel" aria-label="Riwayat sesi bimbingan">
                 @if ($team->logbooks->isEmpty())
                     <x-empty title="Belum ada sesi bimbingan" icon="clipboard-document-check" />
                 @else
-                    <ol class="divide-y divide-rule px-5 sm:px-6">
-                        @foreach ($team->logbooks->sortByDesc('session_no') as $log)
+                    <div class="flex justify-end border-b border-rule px-5 py-3 sm:px-6"><x-sort-by id="urut-sesi" default="sesi" :options="['sesi' => 'Sesi', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Status)']" /></div>
+                    <ol data-sort-list class="divide-y divide-rule px-5 sm:px-6">
+                        @foreach ($team->logbooks->sortBy('session_no') as $log)
                             @php $locked = $log->status === 'disetujui'; @endphp
-                            <li x-data="registrationForm" data-open="{{ $errors->hasAny(['session_date', 'activity']) && old('_log') == $log->id ? 'true' : 'false' }}" class="grid gap-x-4 gap-y-3 py-5 sm:grid-cols-[3.5rem_minmax(0,1fr)]">
+                            <li data-sort-item data-sort-sesi="{{ $log->session_no }}" data-sort-terbaru="{{ $log->created_at?->timestamp }}" data-sort-kategori="{{ $log->status }}" x-data="registrationForm" data-open="{{ $errors->hasAny(['session_date', 'activity']) && old('_log') == $log->id ? 'true' : 'false' }}" class="grid gap-x-4 gap-y-3 py-5 sm:grid-cols-[3.5rem_minmax(0,1fr)]">
                                 <span class="hidden h-14 w-14 place-items-center rounded-xl bg-brand-wash text-brand sm:grid" title="Sesi {{ $log->session_no }}">
                                     <x-icons.hand-book class="h-8 w-8" />
                                 </span>

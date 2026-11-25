@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Period;
 use App\Services\QrService;
+use App\Support\PeriodContext;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -26,6 +28,12 @@ class QrResolveController extends Controller
 
         if ($user->isAdmin()) {
             return redirect()->route('admin.teams.show', $team);
+        }
+
+        // Dosen di beberapa periode aktif: QR tim periode lain membuka periode tim tersebut.
+        if ($user->isLecturer() && $team->period_id !== Period::active()?->id
+            && ($period = PeriodContext::periodsFor($user)->firstWhere('id', $team->period_id))) {
+            PeriodContext::choose($period);
         }
 
         if (! $user->isLecturer()) {

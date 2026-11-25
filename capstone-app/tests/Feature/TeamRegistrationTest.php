@@ -43,7 +43,7 @@ class TeamRegistrationTest extends TestCase
         return array_merge([
             'nim' => $nim, 'name' => $name, 'email' => strtolower(str_replace(' ', '.', $name)).'@student.test',
             'specialization' => '', 'sks_passed' => 120, 'grades' => [$this->course->id => 'AB'],
-            'origin_region' => $region, 'khs' => UploadedFile::fake()->create('khs.pdf', 100, 'application/pdf'),
+            'origin_region' => $region, 'class_name' => 'SI-47-01', 'khs' => UploadedFile::fake()->create('khs.pdf', 100, 'application/pdf'),
         ], $extra);
     }
 
@@ -51,9 +51,21 @@ class TeamRegistrationTest extends TestCase
     {
         return [
             'name' => 'Tim Registrasi',
-            'leader' => $this->person('1030001', 'Ketua Baru', 'Bandung, Jawa Barat', $leader + ['password' => 'rahasia123', 'password_confirmation' => 'rahasia123', 'specialization' => 'Enterprise Resource Planning']),
-            'members' => [$this->person('1030002', 'Anggota Baru', 'Medan, Sumatera Utara', $member)],
+            'leader' => $this->person('1030001', 'Ketua Baru', 'Kota Bandung', $leader + ['password' => 'rahasia123', 'password_confirmation' => 'rahasia123', 'specialization' => 'Enterprise Resource Planning']),
+            'members' => [$this->person('1030002', 'Anggota Baru', 'Kota Medan', $member)],
         ];
+    }
+
+    public function test_pending_team_approvals_are_paged_with_adjustable_page_size(): void
+    {
+        // Menunggu approval dibagi per halaman di browser (bawaan 10): pilihan jumlah data di kiri, nomor halaman di kanan
+        $page = $this->asAdmin()->get(route('admin.teams.index'))->assertOk()
+            ->assertSee('data-page-size="10"', false)->assertSee('Tampilkan')
+            ->assertSee('<option value="25"', false)->assertSee('<option value="100"', false)->assertSee('<option value="0">Semua</option>', false)
+            ->assertSee('Halaman tim menunggu approval')->assertSee('x-for="number in pageList"', false)->assertDontSee('rangeText');
+        // Semua tim menunggu tetap dikirim ke halaman agar cari, filter & Setujui pilihan berjalan tanpa memuat ulang
+        $pending = Team::query()->where('status', 'menunggu')->count();
+        $this->assertSame($pending, substr_count($page->getContent(), 'data-team="'));
     }
 
     public function test_register_page_offers_dropdowns_from_period_settings(): void
@@ -64,6 +76,44 @@ class TeamRegistrationTest extends TestCase
             ->assertSee('Indeks nilai '.$this->course->code)
             ->assertSee('<option value="Belum Lulus"', false);
         $this->get(route('login'))->assertSee(route('register'));
+    }
+
+    public function test_class_is_chosen_from_period_classes_set_by_admin(): void
+    {
+        $classes = [...array_map(fn ($n) => sprintf('SI-47-%02d', $n), range(1, 10)), 'SI-47-INT'];
+        $this->assertSame($classes, Period::active()->registrationRule->classes);
+        $this->get(route('register'))->assertOk()->assertSee('Pilih kelas')
+            ->assertSee('<option value="SI-47-INT"', false)->assertSee('<option value="SI-47-10"', false);
+
+        // Wajib & harus dari daftar
+        $this->post(route('register.store'), $this->form(['class_name' => '']))->assertSessionHasErrors(['leader.class_name' => 'Pilih kelas.']);
+        $this->post(route('register.store'), $this->form([], ['class_name' => 'SI-99-01']))
+            ->assertSessionHasErrors(['members.0.class_name' => 'Pilih kelas dari daftar.']);
+        \Illuminate\Support\Facades\Notification::fake();
+        $this->post(route('register.store'), $this->form(['class_name' => 'SI-47-INT'], ['class_name' => 'SI-47-03']))->assertSessionHasNoErrors();
+        $this->assertSame('SI-47-INT', User::query()->where('nim', '1030001')->value('class_name'));
+        $this->assertSame('SI-47-03', User::query()->where('nim', '1030002')->value('class_name'));
+    }
+
+    public function test_origin_region_is_a_searchable_list_of_regencies_and_cities(): void
+    {
+        // 514 kabupaten/kota (Kepmendagri 2025), urut abjad tanpa awalan Kabupaten/Kota, dikirim sekali per halaman
+        $regions = \App\Support\Regions::all();
+        $this->assertCount(514, $regions);
+        $this->assertSame(['Kabupaten Aceh Barat', 'Aceh'], $regions[0]);
+        $this->assertContains('Kota Bandung', \App\Support\Regions::names());
+        $page = $this->get(route('register'))->assertOk()->assertSee('Cari kabupaten/kota atau provinsi');
+        $this->assertSame(1, substr_count($page->getContent(), 'id="data-wilayah"'));
+        $this->assertStringContainsString('["Kota Yogyakarta","Daerah Istimewa Yogyakarta"]', $page->getContent());
+
+        // Tidak ada di daftar: boleh diketik manual (pilihan "Gunakan ..."), minimal 3 karakter
+        $page->assertSee('canUseTyped', false)->assertSee('diisi manual');
+        $this->post(route('register.store'), $this->form([], ['origin_region' => 'Ab']))
+            ->assertSessionHasErrors(['members.0.origin_region' => 'Daerah asal minimal 3 karakter.']);
+        $this->post(route('register.store'), $this->form([], ['origin_region' => 'Kabupaten Contoh Baru']))
+            ->assertSessionDoesntHaveErrors('members.0.origin_region');
+        $this->assertFalse(\App\Support\Regions::isListed('Kabupaten Contoh Baru'));
+        $this->assertTrue(\App\Support\Regions::isListed('kota bandung'));
     }
 
     public function test_leader_registers_account_and_team_then_members_activate_after_approval(): void
@@ -111,10 +161,10 @@ class TeamRegistrationTest extends TestCase
         Notification::assertSentTo($member, TeamRegistrationDecision::class, function (TeamRegistrationDecision $n) use ($member) {
             $lines = $n->toMail($member)->introLines;
 
-            return in_array('• Ketua Baru — NIM 1030001 (Ketua)', $lines, true) && ! collect($lines)->contains(fn ($l) => str_contains($l, '1030002'));
+            return in_array('• Ketua Baru - NIM 1030001 (Ketua)', $lines, true) && ! collect($lines)->contains(fn ($l) => str_contains($l, '1030002'));
         });
         Notification::assertSentTo($leader, TeamRegistrationDecision::class,
-            fn (TeamRegistrationDecision $n) => in_array('• Anggota Baru — NIM 1030002', $n->toMail($leader)->introLines, true));
+            fn (TeamRegistrationDecision $n) => in_array('• Anggota Baru - NIM 1030002', $n->toMail($leader)->introLines, true));
         $this->post(route('logout'));
 
         // Tautan Signed URL: tanpa kedaluwarsa, ditolak bila diubah, dan hanya berlaku sampai password diatur
@@ -134,7 +184,7 @@ class TeamRegistrationTest extends TestCase
         Notification::fake();
         $this->post(route('register.store'), $this->form())->assertSessionHasNoErrors();
         $member = User::query()->where('nim', '1030002')->sole();
-        $url = \App\Notifications\AccountActivation::url($member);
+        $url = \App\Notifications\AccountActivation::passwordSetupUrl($member);
         $action = \Illuminate\Support\Facades\URL::signedRoute('password.setup.store', ['user' => $member->id]);
 
         // Tidak dialihkan ke Kelola Periode: halaman atur password tampil dengan identitas anggota
@@ -264,7 +314,7 @@ class TeamRegistrationTest extends TestCase
             ->assertSee('x-data="studentPicker"', false)->assertSee('"nim":"1030002"', false);
         $form = $this->form();
         unset($form['leader']['nim'], $form['leader']['name'], $form['leader']['email'], $form['leader']['password'], $form['leader']['password_confirmation']);
-        $member = fn (User $u) => ['user_id' => $u->id] + collect($this->person('x', 'x', 'Medan, Sumatera Utara'))->except(['nim', 'name', 'email'])->all();
+        $member = fn (User $u) => ['user_id' => $u->id] + collect($this->person('x', 'x', 'Kota Medan'))->except(['nim', 'name', 'email'])->all();
         $form['members'] = [$member($oldMember), $member($replacement)];
         $this->actingAs($leader)->post(route('mahasiswa.team.store'), $form)->assertSessionHasNoErrors()->assertRedirect(route('mahasiswa.team.show'));
         $again = $leader->fresh()->teamFor(Period::active());

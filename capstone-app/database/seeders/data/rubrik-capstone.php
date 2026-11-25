@@ -312,7 +312,7 @@ return [
             'name' => 'Kontribusi dan keandalan individu dalam tim',
             'evidence' => 'Peer review + logbook',
             'weight' => 5,
-            'scheme' => 'peer_observasi',
+            'scheme' => 'peer',
             'components' => [
                 'peer_review' => 5,
             ],
@@ -322,7 +322,7 @@ return [
             'name' => 'Kolaborasi, kepemimpinan, dan penyelesaian proyek',
             'evidence' => 'Peer review + observasi',
             'weight' => 5,
-            'scheme' => 'peer_observasi',
+            'scheme' => 'peer',
             'components' => [
                 'peer_review' => 5,
             ],
@@ -354,7 +354,7 @@ return [
             'name' => 'Mutu pameran bagi audiens non-spesialis',
             'evidence' => 'Pameran',
             'weight' => 4,
-            'scheme' => 'observasi',
+            'scheme' => 'dokumen',
             'components' => [
                 'pameran' => 4,
             ],
@@ -384,7 +384,7 @@ return [
             'name' => 'Komitmen dan ketepatan waktu penyelesaian tugas',
             'evidence' => 'Logbook + observasi',
             'weight' => 2,
-            'scheme' => 'observasi',
+            'scheme' => 'dokumen',
             'components' => [
                 'sidang_pembimbing' => 2,
             ],
@@ -434,7 +434,6 @@ return [
             'level_2' => 'Sistem eksisting diuraikan, tetapi permasalahan dinyatakan tanpa data pendukung - hanya berdasar pernyataan pihak perusahaan atau pengamatan sekilas',
             'level_1' => 'Permasalahan dinyatakan tanpa penjelasan sistem tempatnya berada; tidak dapat dibedakan apakah masalah itu nyata atau diasumsikan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Bab 1 memuat peta proses gudang dari penerimaan sampai serah terima ke ekspedisi (tujuh subproses, batas sistem dinyatakan tegas) serta sistem relevan: sistem informasi gudang, armada pendingin, pola pesanan. Permasalahan dinyatakan sebagai gejala teramati - kesalahan picking 3,2% dari 48.600 baris pesanan periode Januari-Juni 2026, diambil dari log sistem informasi gudang dan dicocokkan dengan 312 berita acara retur. Cara pengambilan, periode, dan sumber disebut. Besaran dinyatakan: 1.555 baris salah, setara nilai retur Rp 218 juta.',
         ],
         '1.2' => [
             'assessment_points' => '- Penjelasan atribut permasalahan kompleks (pilih 3)
@@ -449,7 +448,6 @@ return [
             'level_2' => 'Kurang dari tiga atribut dibahas, atau ketiganya disebut tanpa bukti pada konteks masalahnya; alat analisis disebut tanpa terlihat dipakai',
             'level_1' => 'Kompleksitas tidak dibahas; masalah yang diangkat bersifat rutin dan berjawab tunggal',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Tiga atribut dibahas dengan bukti masing-masing. Isu teknis bertentangan: mempercepat picking menuntut penyimpanan berbasis frekuensi, sementara CDOB menuntut pemisahan berdasarkan golongan dan suhu - data menunjukkan 41% SKU cepat-putar justru wajib di area dingin. Banyak subsistem: perubahan penempatan mengubah rute picking, beban armada pendingin, dan aturan penempatan di sistem informasi; keterkaitan ketiganya dipetakan. Konsekuensi signifikan: kesalahan pada obat termolabil berisiko pada keselamatan pasien, disertai catatan tujuh kejadian penarikan produk. Akar masalah diturunkan dengan diagram sebab-akibat dan lima-mengapa.',
         ],
         '1.3' => [
             'assessment_points' => '- Tabel alternatif solusi berdasarkan masalah yang ada dengan referensi solusi (minimal 3 yang berbeda)
@@ -461,7 +459,6 @@ return [
             'level_2' => 'Kurang dari tiga alternatif, atau alternatif disebut sebagai pelengkap tanpa benar-benar dibandingkan',
             'level_1' => 'Hanya satu konsep, langsung dikerjakan tanpa alternatif',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Tabel empat alternatif yang berbeda pendekatannya: penataan ulang slotting berbasis frekuensi-suhu; pick-to-light pada zona cepat-putar; pemisahan gelombang pesanan per rute kirim; alih daya penyimpanan rantai dingin. Kriteria seleksi - penurunan galat, biaya investasi, kepatuhan CDOB, waktu penerapan - dinyatakan eksplisit dan diberi bobot lewat AHP. Alasan penolakan tiap alternatif dinyatakan; alih daya ditolak karena memindahkan risiko tanpa menurunkan galat picking.',
         ],
         '1.4' => [
             'assessment_points' => '- Rumusan masalah
@@ -474,7 +471,6 @@ return [
             'level_2' => 'Rumusan masalah kabur atau sudah bercampur dengan solusi yang ditetapkan lebih dulu; tujuan hanya mengulang rumusan masalah; manfaat berupa kalimat umum yang berlaku untuk proyek mana pun',
             'level_1' => 'Tidak ada rumusan masalah yang dapat dinilai; tujuan dan manfaat tidak dinyatakan atau tidak berkaitan dengan masalah',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Rumusan masalah: "Bagaimana merancang aturan penempatan dan proses picking yang menurunkan kesalahan picking dari 3,2% menjadi kurang dari atau sama dengan 1% tanpa melanggar persyaratan CDOB dan tanpa penambahan armada pendingin?" Lingkup: area penyimpanan kering dan dingin, tidak termasuk transportasi ke pelanggan. Asumsi: profil permintaan enam bulan terakhir mewakili. Tiga tujuan diturunkan, masing-masing berpasangan dengan satu bagian rumusan. Manfaat: nilai retur turun dari Rp 218 juta menjadi paling banyak Rp 68 juta per tahun, dan lembur turun sekitar Rp 96 juta per tahun.',
         ],
         '2.1' => [
             'assessment_points' => '- Tiga body of knowledge dengan susunan yang ditetapkan:
@@ -489,7 +485,6 @@ return [
             'level_2' => 'Kurang dari tiga body of knowledge, atau susunannya tidak dipenuhi - System Design & Engineering tidak dipakai di awal, atau Engineering Economic Analysis tidak dipakai di akhir; landasan teori berupa kumpulan kutipan tanpa hubungan ke persoalan',
             'level_1' => 'Landasan teori tidak relevan dengan persoalan, atau tidak ada',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Teori slotting dan class-based storage diturunkan dari sumber primer, bukan dari ringkasan pihak ketiga. Model jarak tempuh picking diturunkan langkah demi langkah dari asumsi tata letaknya. Setiap rumus yang muncul di Bab 4 dapat ditemukan asalnya di Bab 2 - tidak ada teori yang dikutip lalu tidak terpakai.',
         ],
         '2.2' => [
             'assessment_points' => null,
@@ -499,7 +494,6 @@ return [
             'level_2' => 'Metode disebut tetapi tidak tampak diikuti dalam pengerjaan',
             'level_1' => 'Tidak ada metode perancangan yang dinyatakan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Metode yang dipilih systematic layout planning dipadukan dengan class-based slotting, dengan alasan yang mengacu pada karakter masalah: yang diubah adalah aturan penempatan, bukan membangun fasilitas baru. Dibandingkan dengan dua metode lain - simulasi diskret murni dan heuristik cube-per-order index - beserta alasan tidak dipilih. Seluruh tahapan metode terlihat berurutan di Bab 3 dan 4.',
         ],
         '2.3' => [
             'assessment_points' => null,
@@ -509,7 +503,6 @@ return [
             'level_2' => 'Standar dikutip di daftar acuan tetapi tidak memengaruhi rancangan',
             'level_1' => 'Tidak ada standar atau regulasi yang diacu',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Peraturan BPOM tentang Pedoman Teknis CDOB disebut lengkap dengan nomor dan tahunnya, beserta butir tentang penyimpanan rantai dingin dan pemisahan golongan obat. Setiap keputusan penempatan yang terikat aturan itu diberi rujukan klausulnya di tabel keputusan rancangan, sehingga penguji dapat menelusuri satu per satu.',
         ],
         '2.4' => [
             'assessment_points' => null,
@@ -519,7 +512,6 @@ return [
             'level_2' => 'Batasan hanya didaftar tanpa kaitan ke keputusan rancangan',
             'level_1' => 'Tidak ada pembahasan batasan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Empat batasan dibahas: ekonomi (pagu investasi Rp 400 juta), kesehatan dan keselamatan (batas waktu kerja di area 2-8 derajat C), lingkungan (konsumsi energi pendingin), hukum (CDOB). Masing-masing ditunjukkan mengubah keputusan - pagu investasi menggugurkan pick-to-light di seluruh zona menjadi zona cepat-putar saja. Trade-off-nya dinyatakan, bukan disembunyikan.',
         ],
         '2.5' => [
             'assessment_points' => '- Tabel spesifikasi dengan kolom: kebutuhan pemangku kepentingan, spesifikasi, besaran dan satuan, nilai target atau toleransi, metode verifikasi',
@@ -529,7 +521,6 @@ return [
             'level_2' => 'Spesifikasi bersifat kualitatif (kuat, murah, mudah dirawat)',
             'level_1' => 'Tidak ada spesifikasi rancangan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Tabel spesifikasi berkolom: kebutuhan pemangku kepentingan, spesifikasi, besaran dan satuan, nilai target atau toleransi, metode verifikasi. Contoh satu baris: "Kepala gudang membutuhkan penurunan galat picking" - galat baris pesanan - persen - paling banyak 1,0% - uji jalan 4 minggu, dihitung dari log sistem informasi gudang. Setiap spesifikasi dapat dilacak balik ke kebutuhan asalnya.',
         ],
         '2.6' => [
             'assessment_points' => null,
@@ -539,7 +530,6 @@ return [
             'level_2' => 'Dokumen perencanaan ada namun tidak sesuai dengan kriteria',
             'level_1' => 'Tidak ada dokumen rancangan yang dapat dinilai',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Gambar tata letak berdimensi skala 1:100 dengan penomoran zona; daftar komponen rak dan perangkat dengan spesifikasi material; peta alur proses baru; aturan slotting dalam bentuk tabel keputusan. Seluruhnya bernomor rujukan dan terbaca pada cetakan A4.',
         ],
         '2.7' => [
             'assessment_points' => null,
@@ -549,7 +539,6 @@ return [
             'level_2' => 'Perhitungan tidak dapat diikuti atau metodenya tidak sesuai',
             'level_1' => 'Tidak ada perhitungan perancangan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Perhitungan jarak tempuh picking, kapasitas zona, dan waktu siklus disajikan lengkap. Asumsi dinyatakan beserta sumbernya - kecepatan jalan 1,2 m/detik dari pengukuran sendiri, waktu ambil 8 detik per baris dari 200 pengamatan. Faktor keamanan kapasitas 15% dijustifikasi dari lonjakan permintaan Desember.',
         ],
         '2.8' => [
             'assessment_points' => null,
@@ -559,7 +548,6 @@ return [
             'level_2' => 'Ketidaksamaan angka terjadi pada besaran kunci rancangan',
             'level_1' => 'Bagian-bagian dokumen tampak tidak berasal dari satu rancangan yang sama',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Kapasitas zona dingin bernilai sama - 1.240 lokasi - di gambar tata letak, di perhitungan, di tabel spesifikasi, dan di analisis biaya. Tabel keterlacakan memetakan tiap keputusan penempatan ke klausul CDOB atau ke butir spesifikasi.',
         ],
         '3.1' => [
             'assessment_points' => null,
@@ -569,7 +557,6 @@ return [
             'level_2' => 'Data hasil uji disajikan tanpa prosedur yang jelas atau tanpa penafsiran',
             'level_1' => 'Tidak ada pengujian atau verifikasi',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Setiap spesifikasi terhubung ke satu metode uji. Galat picking diuji lewat uji jalan empat minggu pada satu zona percontohan; prosedur, variabel, dan instrumen dinyatakan. Data diolah dengan selang kepercayaan 95%. Hasilnya 1,1% ditafsirkan terhadap target paling banyak 1,0% dan dinyatakan belum tercapai - bukan dibulatkan menjadi berhasil.',
         ],
         '3.2' => [
             'assessment_points' => null,
@@ -579,7 +566,6 @@ return [
             'level_2' => 'Biaya hanya berupa angka total tanpa rincian',
             'level_1' => 'Tidak ada identifikasi biaya',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Investasi rak, perangkat, dan pelatihan dirinci berdasar penawaran pemasok; biaya operasi dan perawatan per tahun dihitung; pemasukan berupa penghindaran retur dan lembur, dengan dasar data enam bulan yang dapat diperiksa.',
         ],
         '3.3' => [
             'assessment_points' => null,
@@ -589,7 +575,6 @@ return [
             'level_2' => 'Analisis hanya membandingkan biaya dan pemasukan tanpa indikator kelayakan',
             'level_1' => 'Tidak ada analisis kelayakan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'NPV dengan tingkat diskonto 12% yang disebut asalnya, disertai IRR dan payback. Asumsi dinyatakan. Diuji kepekaannya terhadap dua hal: penurunan galat yang hanya mencapai 1,5% dan 2,0%, serta kenaikan biaya investasi 20%.',
         ],
         '3.4' => [
             'assessment_points' => null,
@@ -599,7 +584,6 @@ return [
             'level_2' => 'Validasi tercampur dengan verifikasi spesifikasi; kebutuhan awal tidak dirujuk',
             'level_1' => 'Tidak ada validasi terhadap kebutuhan awal',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Enam kebutuhan pemangku kepentingan di Bab 1 ditinjau satu per satu dengan buktinya. Satu kebutuhan - waktu siklus kirim - dinyatakan belum terpenuhi beserta alasannya, tidak dilewati.',
         ],
         '3.5' => [
             'assessment_points' => null,
@@ -609,7 +593,6 @@ return [
             'level_2' => 'Menyatakan masalah terselesaikan tanpa data pembanding',
             'level_1' => 'Tidak ada evaluasi terhadap masalah awal',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Kondisi awal 3,2% dibandingkan kondisi setelah solusi 1,1%. Mekanisme sebab-akibat dijelaskan: pemendekan rute dan pemisahan zona suhu mengurangi perpindahan silang antar-zona. Sisa masalah disebut - galat pada SKU baru yang belum masuk aturan slotting. Efek samping disebut - beban zona dingin naik 12%. Syarat keberlakuan dinyatakan - profil permintaan tidak berubah drastis.',
         ],
         '4.1' => [
             'assessment_points' => null,
@@ -619,7 +602,6 @@ return [
             'level_2' => 'Piranti disebut tanpa bukti pemakaian',
             'level_1' => 'Tidak ada pemanfaatan piranti teknologi informasi',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Simulasi diskret dipilih karena perlu menguji antrean picking pada jam sibuk; dibandingkan dengan spreadsheet analitis dan satu perangkat simulasi lain, beserta alasan tidak dipilih. Berkas model dilampirkan. Penggunaan piranti bantu kecerdasan artifisial untuk menulis skrip pengolahan data dinyatakan terbuka, beserta cara hasilnya diperiksa.',
         ],
         '4.2' => [
             'assessment_points' => null,
@@ -629,7 +611,6 @@ return [
             'level_2' => 'Hanya menjelaskan langkah menjalankan piranti; hasil diterima apa adanya',
             'level_1' => 'Tidak dapat menjelaskan asumsi maupun cara kerja piranti yang dipakai',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Asumsi model dinyatakan beserta sumbernya - kedatangan pesanan Poisson dan waktu picking lognormal, keduanya diuji kecocokannya terhadap data. Keterbatasan disebut: model tidak mencakup kegagalan alat. Hasil simulasi dibandingkan dengan perhitungan analitis jarak tempuh dan dengan data uji jalan - dua jalur pemeriksaan, bukan diterima apa adanya.',
         ],
         '5.1' => [
             'assessment_points' => null,
@@ -639,7 +620,6 @@ return [
             'level_2' => 'Bagiannya sering tidak selesai dan dialihkan ke rekan lain',
             'level_1' => 'Tidak memberi kontribusi yang dapat diidentifikasi',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Logbook dan berkas kerja menunjukkan anggota yang bersangkutan mengerjakan model simulasi dan aturan slotting sendiri, selesai sebelum tenggat, tanpa perlu dikerjakan ulang rekan. Peer assessment menempatkannya di atas rata-rata tim pada aspek kontribusi.',
         ],
         '5.2' => [
             'assessment_points' => null,
@@ -649,7 +629,6 @@ return [
             'level_2' => 'Bekerja terpisah dari tim; perbedaan pendapat dibiarkan atau memicu perpecahan',
             'level_1' => 'Menghambat kerja tim',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Memimpin bagian perancangan tata letak dan menetapkan sasaran mingguan bersama. Ketika terjadi beda pendapat soal luas zona dingin, perbedaan diselesaikan dengan membandingkan dua skenario simulasi - bukan dengan suara terbanyak atau senioritas.',
         ],
         '6.1' => [
             'assessment_points' => null,
@@ -659,7 +638,6 @@ return [
             'level_2' => 'Banyak ketentuan panduan tidak dipenuhi; sitasi tidak tertib',
             'level_1' => 'Tidak mengikuti panduan; sumber tidak disitasi',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Seluruh ketentuan panduan dipenuhi: struktur, format, penomoran, tabel dan gambar, sitasi dan daftar pustaka. Setiap gambar dan tabel dirujuk di narasi. Bahasa baku, tanpa kesalahan yang mengganggu pembacaan.',
         ],
         '6.2' => [
             'assessment_points' => null,
@@ -669,7 +647,6 @@ return [
             'level_2' => 'Paparan membaca teks; jawaban sering tidak mengenai pertanyaan',
             'level_1' => 'Tidak mampu memaparkan maupun menjawab',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Paparan 15 menit runtut dari masalah ke hasil dan selesai tepat waktu; visual mendukung, bukan menyalin laporan. Menjawab pertanyaan pengandaian penguji - "kalau permintaan naik 30%, aturan slotting ini masih berlaku?" - dengan merujuk hasil uji kepekaan yang sudah dikerjakan.',
         ],
         '6.3' => [
             'assessment_points' => null,
@@ -679,7 +656,6 @@ return [
             'level_2' => 'Pameran menampilkan isi laporan apa adanya; pengunjung tidak terbantu',
             'level_1' => 'Tidak ada peraga atau tidak dapat menjelaskan karyanya',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Poster menjelaskan masalah dengan satu gambar alur, prinsip kerja dengan maket zona gudang, dan manfaat dengan satu angka besar. Peraga pick-to-light mini berfungsi dan dapat dicoba pengunjung. Penjelasan lisan ringkas tanpa jargon - pengunjung dari luar bidang paham dalam dua menit.',
         ],
         '7.1' => [
             'assessment_points' => null,
@@ -689,7 +665,6 @@ return [
             'level_2' => 'Rencana kerja hanya berupa daftar kegiatan tanpa waktu',
             'level_1' => 'Tidak ada rencana kerja',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'WBS empat tingkat, jadwal dengan enam tonggak capaian, penanggung jawab bernama untuk tiap paket pekerjaan, serta kebutuhan sumber daya - akses gudang, lisensi perangkat simulasi - dengan alokasi waktu yang masuk akal terhadap lingkupnya.',
         ],
         '7.2' => [
             'assessment_points' => null,
@@ -699,7 +674,6 @@ return [
             'level_2' => 'Logbook diisi menjelang tenggat pengumpulan',
             'level_1' => 'Tidak ada logbook',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Logbook terisi mingguan sepanjang 16 minggu, mencatat pekerjaan, hasil, dan kendala. Tiap entri dapat dipetakan ke tonggak capaian pada rencana kerja.',
         ],
         '7.3' => [
             'assessment_points' => null,
@@ -709,7 +683,6 @@ return [
             'level_2' => 'Keterlambatan berulang tanpa pemberitahuan',
             'level_1' => 'Menghilang dari proses; tenggat utama tidak dipenuhi',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Seluruh tenggat dan dua belas jadwal bimbingan dipenuhi tanpa perlu diingatkan pembimbing.',
         ],
         '7.4' => [
             'assessment_points' => null,
@@ -719,7 +692,6 @@ return [
             'level_2' => 'Menyatakan proyek berjalan lancar sementara logbook menunjukkan keterlambatan',
             'level_1' => 'Tidak ada evaluasi pelaksanaan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Realisasi dibandingkan dengan rencana awal dan titik deviasi ditunjukkan - uji jalan mundur dua minggu karena bertabrakan dengan stock opname. Batasan paling menentukan disebut: akses gudang hanya di luar jam sibuk. Tindakan koreksi diuraikan beserta akibatnya pada jadwal berikutnya. Pelajaran yang dirumuskan spesifik pada proyek ini, bukan kalimat umum.',
         ],
         '8.1' => [
             'assessment_points' => null,
@@ -729,7 +701,6 @@ return [
             'level_2' => 'Pengetahuan baru disebut secara umum; sumber tidak dapat diperiksa',
             'level_1' => 'Tidak ada pengetahuan baru yang dikenali',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Menyatakan secara khusus bahwa class-based slotting dan pemodelan antrean tidak diperoleh di perkuliahan; menjelaskan mengapa keduanya diperlukan untuk persoalan ini; menyebut strategi memperolehnya dan sumber primer yang dipakai.',
         ],
         '8.2' => [
             'assessment_points' => null,
@@ -739,7 +710,6 @@ return [
             'level_2' => 'Pengetahuan baru hanya muncul di landasan teori',
             'level_1' => 'Tidak ada penerapan',
             'level_0' => 'Tidak mengumpulkan, tidak mengerjakan, atau tidak ada bukti yang dapat dinilai.',
-            'example_level_5' => 'Menunjukkan aturan penempatan versi awal - berdasar abjad nama produk - dan versi akhir berdasar frekuensi-suhu, serta menjelaskan bahwa perubahan itu terjadi setelah mempelajari class-based slotting. Keadaan sebelum dan sesudahnya terlihat, bukan hanya dinyatakan.',
         ],
     ],
     'oral' => [

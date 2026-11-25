@@ -10,7 +10,7 @@
 @endphp
 <x-layouts.app title="Rubrik Lisan">
 <div x-data="rowSelection" data-row-selection>
-    <x-page-head title="Rubrik penilaian lisan" lede="Level 1–5 dengan faktor pemahaman 0,25–1,00. Faktor dikalikan ke nilai indikator berskema Lisan atau Dokumen + Lisan.">
+    <x-page-head title="Rubrik penilaian lisan">
         <x-slot:actions>
             {{-- Hapus Pilihan --}}
             <form method="POST" action="{{ route('admin.oral.destroy-many') }}" data-confirm="Hapus level rubrik lisan yang dipilih?" data-confirm-label="Hapus">
@@ -100,10 +100,13 @@
     @error('ids')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
     @error('rows')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
-    <section class="panel overflow-hidden" aria-labelledby="lisan-judul">
-        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+    <section data-sort-scope class="panel overflow-hidden" aria-labelledby="lisan-judul">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
             <h2 id="lisan-judul" class="text-lg font-semibold text-ink">Rubrikasi penilaian lisan</h2>
-            <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $levels->count() }} level</span>
+            <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                @if ($levels->isNotEmpty())<x-sort-by id="urut-lisan" default="level" :options="['level' => 'Level', 'nama' => 'Sebutan', 'terbaru' => 'Tanggal']" />@endif
+                <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $levels->count() }} level</span>
+            </div>
         </div>
         @if ($levels->isEmpty())
             <div class="border-t border-rule"><x-empty title="Belum ada level rubrik lisan" icon="list-bullet">Tambahkan lewat tombol Tambah Level.</x-empty></div>
@@ -115,9 +118,9 @@
                         <th class="!px-0 !text-center"><input type="checkbox" class="checkbox" data-select-all aria-label="Pilih semua level"></th>
                         <th class="text-center">Level</th><th class="text-center">Faktor</th><th>Sebutan</th><th>Perilaku teramati pada verifikasi lisan</th>
                     </tr></thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($levels as $lvl)
-                            <tr>
+                            <tr data-sort-item data-sort-level="{{ $lvl->level }}" data-sort-nama="{{ $lvl->label }}" data-sort-terbaru="{{ $lvl->created_at?->timestamp }}">
                                 <td class="!px-0 text-center"><input type="checkbox" class="checkbox" value="{{ $lvl->id }}" data-select-row @checked(in_array($lvl->id, $editIds, true)) aria-label="Pilih level {{ $lvl->level }}"></td>
                                 <td class="text-center tabular font-medium text-ink">{{ $lvl->level }}</td>
                                 <td class="text-center tabular text-ink">{{ number_format($lvl->factor, 2, ',', '') }}</td>

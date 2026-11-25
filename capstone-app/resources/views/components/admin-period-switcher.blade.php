@@ -1,8 +1,12 @@
 {{-- Sidebar admin: dropdown ganti periode. Daftar periode dapat digulir; di bawahnya bagian tetap
      "Keluar dari Dashboard Periode ini" untuk kembali ke dashboard awal (Kelola Periode).
+     Admin fakultas: semua periode. Admin prodi: hanya periode yang memakai akun (email) yang sama, tanpa Kelola Periode.
      current: periode yang sedang dibuka (Period::workspace()). --}}
 @props(['current'])
-@php $periods = \App\Models\Period::query()->latest('starts_on')->get(); @endphp
+@php
+    $user = auth()->user();
+    $periods = $user->workspacePeriods();
+@endphp
 <div x-data="popover" class="relative mt-4 border-t border-rule pt-3" @click.outside="close" @keydown.escape.window="close">
     <button type="button" @click="toggle" :aria-expanded="expanded" aria-controls="ganti-periode" aria-haspopup="true"
             class="-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-sunken">
@@ -25,7 +29,7 @@
                         <button class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm {{ $isCurrent ? 'bg-brand-tint text-brand-deep' : 'text-ink hover:bg-sunken' }}" @if ($isCurrent) aria-current="true" @endif>
                             <span class="min-w-0 flex-1">
                                 <span class="block truncate font-medium">{{ $period->academic_year }} · {{ ucfirst($period->semester) }}</span>
-                                <span class="block truncate text-caption {{ $isCurrent ? 'text-brand-deep' : 'text-muted' }}">{{ $period->name }}@if ($period->is_active) · aktif @endif</span>
+                                <span class="block truncate text-caption {{ $isCurrent ? 'text-brand-deep' : 'text-muted' }}">{{ $period->prodi_name }} · {{ $period->name }}@if ($period->is_active) · aktif @endif</span>
                             </span>
                             @if ($isCurrent)<x-heroicon-o-check class="h-4 w-4 shrink-0" aria-hidden="true" />@endif
                         </button>
@@ -33,13 +37,15 @@
                 </li>
             @endforeach
         </ul>
-        {{-- Bagian tetap di bawah daftar --}}
-        <form method="POST" action="{{ route('admin.workspace.leave') }}" class="border-t border-rule p-1.5">
-            @csrf
-            <button class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-bad-ink hover:bg-bad-tint">
-                <x-heroicon-o-arrow-left-on-rectangle class="h-4 w-4 shrink-0" aria-hidden="true" />
-                Keluar dari Dashboard Periode ini
-            </button>
-        </form>
+        {{-- Bagian tetap di bawah daftar (admin fakultas: kembali ke Kelola Periode) --}}
+        @if ($user->isFacultyAdmin())
+            <form method="POST" action="{{ route('admin.workspace.leave') }}" class="border-t border-rule p-1.5">
+                @csrf
+                <button class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-bad-ink hover:bg-bad-tint">
+                    <x-heroicon-o-arrow-left-on-rectangle class="h-4 w-4 shrink-0" aria-hidden="true" />
+                    Keluar dari Dashboard Periode ini
+                </button>
+            </form>
+        @endif
     </div>
 </div>

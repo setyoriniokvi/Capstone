@@ -1,4 +1,4 @@
-{{-- Isian CLO (Tambah CLO & Edit Pilihan): Kode, Skema Penilaian, Komponen Penilaian (deskripsi), bobot per bentuk
+{{-- Isian CLO (Tambah CLO & Edit Pilihan): Kode, CLO iGadis (PLOxx-CLOyy), Skema Penilaian, Komponen Penilaian (deskripsi), bobot per bentuk
      penilaian (Bobot Penilaian = jumlahnya). Butuh $prefix ("" untuk tambah, mis. "rows[3]" untuk edit),
      $errorPrefix ("" / "rows.3."), $uid, $values, $components. --}}
 @php
@@ -11,7 +11,12 @@
         <input id="{{ $uid }}-code" name="{{ $name('code') }}" class="input tabular uppercase" maxlength="10" value="{{ $values['code'] ?? '' }}" required>
         @error($errorPrefix.'code')<p class="field-error">{{ $message }}</p>@enderror
     </div>
-    <div class="sm:col-span-3">
+    <div>
+        <label class="field-label" for="{{ $uid }}-igadis">CLO iGadis</label>
+        <input id="{{ $uid }}-igadis" name="{{ $name('igadis_code') }}" class="input tabular uppercase" maxlength="30" value="{{ $values['igadis_code'] ?? '' }}" placeholder="PLO01-CLO10">
+        @error($errorPrefix.'igadis_code')<p class="field-error">{{ $message }}</p>@enderror
+    </div>
+    <div class="sm:col-span-2">
         <label class="field-label" for="{{ $uid }}-scheme">Skema Penilaian</label>
         <input id="{{ $uid }}-scheme" name="{{ $name('assessment_scheme') }}" class="input" maxlength="150" value="{{ $values['assessment_scheme'] ?? '' }}" placeholder="Mis. KPPM & Capstone Design dan Project">
     </div>

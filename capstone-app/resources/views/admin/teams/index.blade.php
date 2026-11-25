@@ -1,5 +1,5 @@
 {{-- Registrasi Tim admin: tombol Impor & Tambah Tim (modal), lalu kartu Menunggu Approval (cari + filter syarat
-     screening di bawah judul) dan kartu terpisah Riwayat keputusan (diterima/ditolak). Draf (belum diajukan) tidak ditampilkan. Tabel menunggu menampilkan rincian screening langsung, kotak centang
+     screening di bawah judul) (riwayat keputusan diterima/ditolak ada di Master Data → Master Data Mahasiswa). Draf (belum diajukan) tidak ditampilkan. Tabel menunggu menampilkan rincian screening langsung, kotak centang
      per tim + "pilih semua" untuk "Setujui pilihan" (Alpine "bulkApproval"). Aksi per tim: Tolak (dengan catatan) & Terima,
      lalu "Detail tim" yang membuka modal admin/teams/_detail (waktu diajukan, peminatan, ubah tim, dll.). --}}
 @php
@@ -36,7 +36,7 @@
                                         <select id="team-member-{{ $i }}" name="members[{{ $i }}]" class="input" @if ($required) required @endif>
                                             <option value="">Pilih mahasiswa</option>
                                             @foreach ($students as $student)
-                                                <option value="{{ $student->id }}" @selected((string) $selected === (string) $student->id)>{{ $student->nim }} — {{ $student->name }}</option>
+                                                <option value="{{ $student->id }}" @selected((string) $selected === (string) $student->id)>{{ $student->nim }} - {{ $student->name }}</option>
                                             @endforeach
                                         </select>
                                         @if ($creating)@error("members.$i")<p class="field-error">{{ $message }}</p>@enderror @endif
@@ -57,10 +57,13 @@
     </x-page-head>
 
     {{-- Menunggu approval: cari + filter syarat screening, lalu bar aksi sekaligus dan tabel --}}
-    <section x-data="bulkApproval" class="panel mb-6 overflow-hidden" aria-labelledby="registrasi-judul">
-        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+    <section x-data="bulkApproval" data-page-size="10" data-sort-scope @sorted="apply" class="panel mb-6 overflow-hidden" aria-labelledby="registrasi-judul">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
             <h2 id="registrasi-judul" class="text-lg font-semibold text-ink">Menunggu Approval</h2>
-            <span class="text-sm text-muted">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></span>
+            <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                {{-- Data menunggu: bawaan terbaru (diajukan paling akhir di atas) --}}
+                <span class="text-sm text-muted">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></span>
+            </div>
         </div>
 
         @if ($pending->isEmpty())
@@ -68,7 +71,7 @@
         @else
             {{-- Cari & filter syarat: menyaring baris langsung di browser (Alpine "bulkApproval"), tanpa memuat ulang halaman --}}
             <div class="flex flex-wrap items-end gap-3 border-t border-rule px-5 py-4 sm:px-6">
-                <div class="min-w-[12rem] flex-1"><label class="field-label" for="q">Cari</label><input id="q" type="search" class="input" placeholder="Nama tim, anggota, NIM" autocomplete="off" @input="search"></div>
+                <div class="min-w-[12rem] flex-1"><label class="field-label" for="q">Cari</label><div class="flex gap-2"><input id="q" type="search" class="input min-w-0 flex-1" placeholder="Nama tim, anggota, NIM" autocomplete="off" @input="search"><x-sort-by id="urut-menunggu-tim" default="terbaru" dir="desc" :options="['terbaru' => 'Tanggal', 'nama' => 'Nama tim', 'kategori' => 'Kategori (Syarat screening)']" /></div></div>
                 <div><label class="field-label" for="syarat">Syarat</label>
                     <select id="syarat" class="input" @change="filterRequirement">
                         <option value="">Semua</option>
@@ -121,13 +124,14 @@
                         <th><input type="checkbox" class="checkbox" data-select-all :checked="allSelected" aria-label="Pilih semua tim yang menunggu"></th>
                         <th>Tim</th><th>Anggota</th><th>Screening</th><th class="text-center">Aksi</th>
                     </tr></thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($pending as $team)
                             @php
                                 $searchText = mb_strtolower(collect([$team->name])->merge($team->members->pluck('user.name'))->merge($team->members->pluck('user.nim'))->filter()->implode(' '));
                                 $requirementState = collect($team->screening ?? [])->contains('passed', false) ? 'belum' : 'terpenuhi';
                             @endphp
-                            <tr data-team="{{ $team->id }}" data-search="{{ $searchText }}" data-requirement="{{ $requirementState }}" class="[&>td]:py-4 [&>td]:align-top">
+                            <tr data-team="{{ $team->id }}" data-search="{{ $searchText }}" data-requirement="{{ $requirementState }}"
+                                data-sort-item data-sort-nama="{{ $team->name }}" data-sort-terbaru="{{ $team->submitted_at?->timestamp ?? $team->created_at?->timestamp }}" data-sort-kategori="{{ $requirementState === 'terpenuhi' ? 'Memenuhi syarat' : 'Belum memenuhi syarat' }}" class="[&>td]:py-4 [&>td]:align-top">
                                 <td><input type="checkbox" class="checkbox" form="terima-pilihan" name="teams[]" value="{{ $team->id }}" data-select-row aria-label="Pilih {{ $team->name }}"></td>
                                 @include('admin.teams._row', ['fullScreening' => true])
                                 <td class="!align-middle">
@@ -152,38 +156,12 @@
                 </table>
             </x-scroll-pager>
             <p x-show="empty" x-cloak class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada tim menunggu yang cocok dengan pencarian atau filter.</p>
+
+            {{-- Kiri: jumlah data per halaman · kanan: ‹ 1 2 3 › (dibagi di browser; cari, filter & pilih tetap tanpa memuat ulang) --}}
+            <x-client-pager id="per-halaman" label="Halaman tim menunggu approval" />
         @endif
     </section>
 
-    {{-- Riwayat keputusan (kartu terpisah): 3 terbaru per halaman --}}
-    <section class="panel overflow-hidden" aria-labelledby="riwayat-judul">
-        <div class="px-5 py-4 sm:px-6">
-            <h2 id="riwayat-judul" class="text-lg font-semibold text-ink">Riwayat</h2>
-        </div>
-        @if ($decided->isEmpty())
-            <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Belum ada keputusan.</p>
-        @else
-            <x-scroll-pager>
-                <table class="data-table w-full min-w-[64rem] table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
-                    <colgroup><col class="w-[16%]"><col class="w-[22%]"><col class="w-[15%]"><col class="w-[11%]"><col class="w-[12%]"><col class="w-[12%]"><col class="w-[12%]"></colgroup>
-                    <thead class="{{ $greenHead }}"><tr><th>Tim</th><th>Anggota</th><th>Screening</th><th>Keputusan</th><th>Waktu</th><th>Catatan</th><th class="text-center">Aksi</th></tr></thead>
-                    <tbody>
-                        @foreach ($decided as $team)
-                            <tr class="[&>td]:align-top">
-                                @include('admin.teams._row')
-                                <td><x-badge class="!whitespace-normal" :status="$team->status" /></td>
-                                <td class="text-sm text-ink">{{ $team->reviewed_at?->translatedFormat('j M Y, H:i') ?? '—' }}</td>
-                                {{-- Catatan hanya ada pada penolakan (opsional); menerima tim tidak disertai catatan --}}
-                                <td class="text-sm text-muted">{{ $team->status === 'ditolak' && filled($team->review_notes) ? $team->review_notes : '—' }}</td>
-                                <td class="!align-middle text-center">@include('admin.teams._detail-button')</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </x-scroll-pager>
-            <x-history-pager :paginator="$decided" />
-        @endif
-    </section>
 
     @if ($extraTeam)
         {{-- Detail tim dari tautan ?tim= yang tidak ada di halaman/filter ini --}}

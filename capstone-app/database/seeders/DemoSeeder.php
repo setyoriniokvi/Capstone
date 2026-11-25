@@ -39,16 +39,24 @@ class DemoSeeder extends Seeder
         DB::transaction(function () use ($screening, $topics, $qr) {
             $period = $this->period();
             $this->rules($period);
-            [$admin, $lecturers] = $this->people();
+            [$admin, $lecturers] = $this->people($period);
             $students = $this->students();
+            foreach ($students as $student) {
+                $student->joinPeriod($period);
+            }
 
             LoadQuota::query()->updateOrCreate(['period_id' => $period->id, 'scope' => 'global', 'category' => null, 'lecturer_id' => null], [
                 'supervise_min' => 2, 'supervise_max' => 8,
                 'examine_min' => 2, 'examine_max' => 8,
             ]);
 
-            foreach ([['penilaian', 48], ['approval_logbook', 72], ['approval_pelamar', 48]] as [$type, $hours]) {
-                ReminderRule::query()->updateOrCreate(['job_type' => $type, 'hours_before' => $hours], ['channels' => ['email', 'whatsapp'], 'is_active' => true]);
+            // Reminder otomatis: penilaian per bentuk penilaian (48 jam), approval log bimbingan (72 jam), approval pelamar (48 jam)
+            foreach (array_keys(ReminderRule::deadlineOptions()) as $deadline) {
+                [$type, $component] = array_pad(explode(':', $deadline, 2), 2, null);
+                ReminderRule::query()->updateOrCreate(
+                    ['job_type' => $type, 'component' => $component, 'hours_before' => $type === 'approval_logbook' ? 72 : 48],
+                    ['channels' => ['email', 'whatsapp'], 'message' => ReminderRule::DEFAULT_MESSAGE, 'is_active' => true]
+                );
             }
 
             // Topik dosen di bank topik: [pengusul utama, judul, bidang, kuota, objek, prodi, peminatan, kompetensi, pengusul bersama]
@@ -170,7 +178,8 @@ class DemoSeeder extends Seeder
             'Enterprise Infrastructure Management',
         ];
         // Satu aturan registrasi untuk periode beserta daftar peminatannya
-        $rule = RegistrationRule::create(['period_id' => $period->id, 'min_sks' => 110]);
+        $rule = RegistrationRule::create(['period_id' => $period->id, 'min_sks' => 110,
+            'classes' => [...array_map(fn ($n) => sprintf('SI-47-%02d', $n), range(1, 10)), 'SI-47-INT']]);
         $rule->courses()->create(['code' => 'KP', 'name' => 'Kerja Praktek (contoh)']);
         foreach ($specializations as $name) {
             $rule->specializations()->create(['name' => $name]);
@@ -178,10 +187,13 @@ class DemoSeeder extends Seeder
     }
 
     /** @return array{0: User, 1: array<string, User>} */
-    private function people(): array
+    private function people(Period $period): array
     {
         $password = config('capstone.demo_password');
-        $admin = User::query()->updateOrCreate(['email' => 'admin@gmail.com'], ['name' => 'Admin Capstone', 'role' => 'admin', 'password' => $password]);
+        // Admin fakultas (CRUD periode) dan admin prodi (langsung masuk ke Dashboard Periode demo).
+        $admin = User::query()->updateOrCreate(['email' => 'admin@gmail.com'], ['name' => 'Admin Fakultas', 'role' => 'admin', 'password' => $password]);
+        $prodiAdmin = User::query()->updateOrCreate(['email' => 'adminprodi@gmail.com'], ['name' => 'Admin '.$period->prodi_name, 'role' => 'admin_prodi', 'password' => $password]);
+        $period->forceFill(['admin_user_id' => $prodiAdmin->id])->save();
 
         $data = [
             'dsn1' => ['Dr. Ratna Wulandari', 'RWL', 'Enterprise Intelligence System Development', '081200000001'],
@@ -196,6 +208,7 @@ class DemoSeeder extends Seeder
             LecturerProfile::query()->updateOrCreate(['user_id' => $user->id], [
                 'lecturer_code' => $code, 'specialization' => $spec,
             ]);
+            $user->joinPeriod($period);
             $lecturers[$key] = $user;
         }
 
@@ -214,20 +227,20 @@ class DemoSeeder extends Seeder
     private function students(): array
     {
         $rows = [
-            ['s1', 'Alya Rahmadani', 128, 'Jawa Barat', 'Enterprise Intelligence System Development'],
-            ['s2', 'Bima Nugraha', 124, 'Sumatera Utara', 'Enterprise Data Management'],
-            ['s3', 'Citra Ayuningtyas', 130, 'Jawa Tengah', 'Enterprise Resource Planning'],
-            ['s4', 'Dimas Prakoso', 126, 'Jawa Timur', 'Enterprise Infrastructure Management'],
-            ['s5', 'Eka Larasati', 121, 'Kalimantan Timur', 'System Architecture and Governance'],
-            ['s6', 'Farhan Akbar', 119, 'Sulawesi Selatan', 'Enterprise Resource Planning'],
-            ['s7', 'Gita Permatasari', 122, 'Sulawesi Selatan', 'Enterprise Resource Planning'],
-            ['s8', 'Hafiz Ramadhan', 116, 'Riau', 'Enterprise Resource Planning'],
-            ['s9', 'Indah Puspita', 127, 'Bali', 'Enterprise Intelligence System Development'],
-            ['s10', 'Joko Santoso', 112, 'DI Yogyakarta', 'Enterprise Data Management'],
-            ['s11', 'Kevin Wijaya', 125, 'Banten', 'System Architecture and Governance'],
-            ['s12', 'Laras Sekar', 120, 'Papua', 'Enterprise Resource Planning'],
-            ['s13', 'Mira Anggraini', 98, 'Jawa Barat', 'Enterprise Intelligence System Development'],
-            ['s14', 'Naufal Hakim', 131, 'Aceh', 'System Architecture and Governance'],
+            ['s1', 'Alya Rahmadani', 128, 'Kota Bandung', 'Enterprise Intelligence System Development'],
+            ['s2', 'Bima Nugraha', 124, 'Kota Medan', 'Enterprise Data Management'],
+            ['s3', 'Citra Ayuningtyas', 130, 'Kota Semarang', 'Enterprise Resource Planning'],
+            ['s4', 'Dimas Prakoso', 126, 'Kota Surabaya', 'Enterprise Infrastructure Management'],
+            ['s5', 'Eka Larasati', 121, 'Kota Samarinda', 'System Architecture and Governance'],
+            ['s6', 'Farhan Akbar', 119, 'Kota Makassar', 'Enterprise Resource Planning'],
+            ['s7', 'Gita Permatasari', 122, 'Kota Makassar', 'Enterprise Resource Planning'],
+            ['s8', 'Hafiz Ramadhan', 116, 'Kota Pekanbaru', 'Enterprise Resource Planning'],
+            ['s9', 'Indah Puspita', 127, 'Kota Denpasar', 'Enterprise Intelligence System Development'],
+            ['s10', 'Joko Santoso', 112, 'Kota Yogyakarta', 'Enterprise Data Management'],
+            ['s11', 'Kevin Wijaya', 125, 'Kota Serang', 'System Architecture and Governance'],
+            ['s12', 'Laras Sekar', 120, 'Kota Jayapura', 'Enterprise Resource Planning'],
+            ['s13', 'Mira Anggraini', 98, 'Kota Bandung', 'Enterprise Intelligence System Development'],
+            ['s14', 'Naufal Hakim', 131, 'Kota Banda Aceh', 'System Architecture and Governance'],
         ];
 
         $students = [];

@@ -3,11 +3,13 @@
 @if ($teams->isEmpty())
     <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Belum ada tim.</p>
 @else
+<div data-sort-scope>
+    <div class="flex justify-end border-t border-rule px-5 py-3 sm:px-6"><x-sort-by id="urut-tim-mahasiswa" default="tim" :options="['tim' => 'Tim', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Peran Anda)']" /></div>
     <table class="data-table min-w-0 border-t border-rule [&_td]:break-words [&_tbody_tr:hover_td]:bg-transparent">
         <thead class="bg-brand-tint"><tr class="[&>th]:border-0 [&>th]:py-3.5 [&>th]:text-sm [&>th]:font-semibold [&>th]:text-brand-deep"><th>Tim</th><th>Peran Anda</th><th>Log disetujui</th></tr></thead>
-        <tbody>
+        <tbody data-sort-list>
             @foreach ($teams as $team)
-                <tr class="[&>td]:py-4 [&>td]:align-top">
+                <tr data-sort-item data-sort-tim="{{ $team->name }}" data-sort-terbaru="{{ $team->created_at?->timestamp }}" data-sort-kategori="{{ $team->lecturers->pluck('role')->unique()->sort()->implode(', ') }}" class="[&>td]:py-4 [&>td]:align-top">
                     <td class="min-w-[18rem]">
                         <p class="font-semibold text-ink">{{ $team->name }}</p>
                         @if ($team->finalTopic)<p class="mt-0.5 whitespace-normal text-sm text-muted">{{ $team->finalTopic->title }}</p>@endif
@@ -27,4 +29,5 @@
             @endforeach
         </tbody>
     </table>
+</div>
 @endif

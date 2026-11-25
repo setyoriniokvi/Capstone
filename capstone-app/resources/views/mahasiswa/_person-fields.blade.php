@@ -3,7 +3,8 @@
      $required : baris wajib (ketua & anggota minimal); baris opsional boleh dikosongkan seluruhnya.
      $account  : ?User ketua yang masuk — NIM, nama, dan email diambil dari akunnya (hanya ditampilkan).
      $invite   : anggota dipilih (invite) dari $students lewat pencarian nama/NIM/email (Alpine "studentPicker");
-                 peminatan & daerah asal terisi dari data mahasiswa terpilih.
+                 kelas, peminatan & daerah asal terisi dari data mahasiswa terpilih.
+     Kelas (mahasiswa/_class-field) di samping Email, pilihan dari daftar kelas periode ($classes).
      Butuh $courses, $specializations, $grades dari TeamRegistration::options(). --}}
 @php
     $parts = explode('.', $dot);
@@ -23,10 +24,11 @@
             <label class="field-label" for="{{ $dot }}.nim">NIM</label>
             <input id="{{ $dot }}.nim" class="input tabular bg-sunken text-muted" value="{{ $account->nim }}" readonly aria-readonly="true">
         </div>
-        <div class="sm:col-span-2">
+        <div>
             <label class="field-label" for="{{ $dot }}.email">Email</label>
             <input id="{{ $dot }}.email" class="input bg-sunken text-muted" value="{{ $account->email }}" readonly aria-readonly="true">
         </div>
+        @include('mahasiswa._class-field')
     @elseif ($invite)
         <div class="relative sm:col-span-2" x-data="studentPicker" data-row="{{ $dot }}" data-selected="{{ old("{$dot}.user_id") }}" @click.outside="hide" @keydown.escape="hide">
             <label class="field-label" for="{{ $dot }}.user_id">Nama / NIM / email anggota{!! $required ? '<span class="text-bad-ink" aria-hidden="true"> *</span>' : '' !!}</label>
@@ -60,6 +62,7 @@
             <p class="field-hint">Hanya mahasiswa terdaftar yang belum tergabung di tim pada periode ini.</p>
             @error("{$dot}.user_id")<p class="field-error">{{ $message }}</p>@enderror
         </div>
+        @include('mahasiswa._class-field')
     @else
     <x-field label="Nama lengkap" name="{{ $dot }}.name" :required="$required">
         <input id="{{ $dot }}.name" name="{{ $input('name') }}" data-summary-source="name" class="input" value="{{ $value('name') }}" maxlength="150" autocomplete="{{ $dot === 'leader' ? 'name' : 'off' }}" @required($required)>
@@ -67,10 +70,11 @@
     <x-field label="NIM" name="{{ $dot }}.nim" :required="$required">
         <input id="{{ $dot }}.nim" name="{{ $input('nim') }}" data-summary-source="nim" class="input tabular" value="{{ $value('nim') }}" inputmode="numeric" pattern="[0-9]{6,20}" maxlength="20" autocomplete="off" @required($required)>
     </x-field>
-    <x-field label="Email" name="{{ $dot }}.email" class="sm:col-span-2" :required="$required"
+    <x-field label="Email" name="{{ $dot }}.email" :required="$required"
              :hint="$dot === 'leader' ? 'Dipakai untuk masuk ke aplikasi.' : 'Tautan atur password dikirim ke email ini setelah tim disetujui admin.'">
         <input id="{{ $dot }}.email" type="email" name="{{ $input('email') }}" class="input" value="{{ $value('email') }}" maxlength="150" autocomplete="{{ $dot === 'leader' ? 'email' : 'off' }}" @required($required)>
     </x-field>
+    @include('mahasiswa._class-field')
     @endif
 
     <x-field label="Peminatan" name="{{ $dot }}.specialization" hint="Kosongkan jika belum ada peminatan.">
@@ -85,19 +89,63 @@
         <input id="{{ $dot }}.sks_passed" type="number" min="0" max="200" name="{{ $input('sks_passed') }}" class="input tabular" value="{{ $value('sks_passed') }}" @required($required)>
     </x-field>
 
-    @foreach ($courses as $course)
-        <x-field label="Indeks nilai {{ $course->code }} — {{ $course->name }}" name="{{ $dot }}.grades.{{ $course->id }}" :required="$required">
-            <select id="{{ $dot }}.grades.{{ $course->id }}" name="{{ $base }}[grades][{{ $course->id }}]" class="input" @required($required)>
-                <option value="">Pilih indeks nilai</option>
-                @foreach ($grades as $option)
-                    <option value="{{ $option }}" @selected($grade($course) === $option)>{{ $option }}</option>
-                @endforeach
-            </select>
-        </x-field>
-    @endforeach
+    {{-- Indeks nilai mata kuliah prasyarat: 2 per baris (mata kuliah ke-3 di bawah ke-1, ke-4 di bawah ke-2, dst.);
+         dropdown sebaris walau judulnya berbeda panjang (mt-auto mendorong dropdown ke dasar sel). --}}
+    @if ($courses->isNotEmpty())
+        <div class="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+            @foreach ($courses as $course)
+                <x-field label="Indeks nilai {{ $course->code }} - {{ $course->name }}" name="{{ $dot }}.grades.{{ $course->id }}" :required="$required" class="flex flex-col">
+                    <select id="{{ $dot }}.grades.{{ $course->id }}" name="{{ $base }}[grades][{{ $course->id }}]" class="input mt-auto" @required($required)>
+                        <option value="">Pilih indeks nilai</option>
+                        @foreach ($grades as $option)
+                            <option value="{{ $option }}" @selected($grade($course) === $option)>{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </x-field>
+            @endforeach
+        </div>
+    @endif
 
-    <x-field label="Daerah asal (berdasarkan KTP)" name="{{ $dot }}.origin_region" :required="$required">
-        <input id="{{ $dot }}.origin_region" name="{{ $input('origin_region') }}" class="input" value="{{ $value('origin_region') }}" placeholder="Kota, Provinsi" maxlength="100" @required($required)>
+    {{-- Daerah asal: pilih kabupaten/kota (App\Support\Regions) lewat pencarian nama atau provinsi (Alpine "regionPicker");
+         daftar dikirim sekali per halaman di #data-wilayah. Bila tidak ditemukan, pilihan "Gunakan "<ketikan>"" mengisi secara
+         manual (ditandai "diisi manual"). Saat anggota dipilih (studentPicker), terisi dari datanya. --}}
+    @once
+        <script type="application/json" id="data-wilayah">@json(\App\Support\Regions::all())</script>
+    @endonce
+    <x-field label="Daerah asal (berdasarkan KTP)" name="{{ $dot }}.origin_region" :required="$required" class="sm:col-span-2">
+        <div class="relative" x-data="regionPicker" data-region-picker data-selected="{{ $value('origin_region') }}" @click.outside="hide" @keydown.escape="hide" @region-fill="fill">
+            <input type="hidden" name="{{ $input('origin_region') }}" :value="selected" value="{{ $value('origin_region') }}">
+            <div x-show="hasSelection" x-cloak class="input flex items-center justify-between gap-3">
+                <span class="min-w-0 break-words text-[13px] sm:text-base"><span x-text="selectedLabel"></span>
+                    <span x-show="manual" x-cloak class="ml-1.5 inline-block rounded-md border border-rule bg-sunken px-1.5 py-0.5 align-middle text-caption font-medium text-muted">diisi manual</span></span>
+                <button type="button" class="link shrink-0 text-sm" @click="clear">Ganti</button>
+            </div>
+            <div x-show="noSelection" class="relative">
+                <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                <input id="{{ $dot }}.origin_region" x-ref="search" type="text" class="input pl-9" placeholder="Cari kabupaten/kota atau provinsi" autocomplete="off"
+                       role="combobox" aria-autocomplete="list" aria-controls="{{ $dot }}-wilayah" :aria-expanded="expanded"
+                       :value="query" @input="search" @focus="show" @click="show" @keydown.enter.prevent="chooseFirst">
+            </div>
+            <ul id="{{ $dot }}-wilayah" x-show="open" x-cloak role="listbox"
+                class="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-rule bg-surface py-1 shadow-overlay">
+                <template x-for="option in results" :key="option.name">
+                    <li role="option">
+                        {{-- Nama & provinsi tampil utuh (tanpa "..."): sebaris di layar ≥ sm, provinsi di bawah nama di layar sempit --}}
+                        <button type="button" class="flex w-full flex-col gap-x-3 px-3 py-2 text-left hover:bg-sunken focus-visible:bg-sunken sm:flex-row sm:items-baseline sm:justify-between" :data-name="option.name" @click="choose">
+                            <span class="text-[13px] text-ink sm:text-sm" x-text="option.name"></span>
+                            <span class="text-xs text-muted sm:shrink-0 sm:text-right" x-text="option.province"></span>
+                        </button>
+                    </li>
+                </template>
+                <li x-show="noResults" class="px-3 py-2 text-sm text-muted">Kabupaten/kota tidak ditemukan di daftar.</li>
+                {{-- Tidak ada di daftar: pakai ketikan sendiri (minimal 3 huruf) --}}
+                <li x-show="canUseTyped" role="option">
+                    <button type="button" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-brand-deep hover:bg-sunken focus-visible:bg-sunken" @click="useTyped">
+                        <x-heroicon-o-plus class="h-4 w-4 shrink-0" /><span class="min-w-0 break-words" x-text="typedLabel"></span>
+                    </button>
+                </li>
+            </ul>
+        </div>
     </x-field>
     <x-field label="KHS" name="{{ $dot }}.khs" class="sm:col-span-2" :required="$required" :hint="$fileHint">
         <input id="{{ $dot }}.khs" type="file" name="{{ $input('khs') }}" accept=".pdf,.jpg,.jpeg,.png" class="input py-2" @required($required)>

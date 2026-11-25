@@ -2,10 +2,13 @@
 
 namespace App\Providers;
 
-use App\Models\AssessmentComponent;
+use App\Models\Period;
+use App\Observers\PeriodObserver;
 use App\Services\Drive\DriveGateway;
 use App\Services\Drive\DriveOAuth;
 use App\Services\Drive\GoogleDriveClient;
+use App\Services\MasterData\MasterDataLogger;
+use App\Support\PeriodContext;
 use Carbon\Carbon;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +28,12 @@ class AppServiceProvider extends ServiceProvider
     {
         Carbon::setLocale('id');
         Paginator::defaultView('components.pagination');
-        AssessmentComponent::syncConfig();
+
+        // Efek samping model didaftarkan di sini agar model tidak bergantung pada service.
+        Period::observe(PeriodObserver::class);
+        MasterDataLogger::register();
+
+        // Config bentuk penilaian & rubrik peer review untuk periode aktif; disesuaikan lagi per request (SyncPeriodContext).
+        PeriodContext::syncConfig();
     }
 }

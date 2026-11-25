@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\EnsureAdminPeriod;
 use App\Models\ActivityLog;
+use App\Models\Period;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,10 +50,20 @@ class LoginController extends Controller
             return back()->withErrors(['email' => 'Akun Anda dinonaktifkan. Hubungi admin Capstone.'])->onlyInput('email');
         }
 
+        // Admin prodi: satu akun dapat dipakai beberapa periode; tanpa periode tidak ada yang dapat dikelola.
+        $adminPeriod = $user->isProdiAdmin() ? EnsureAdminPeriod::defaultPeriodFor($user) : null;
+        if ($user->isProdiAdmin() && ! $adminPeriod) {
+            return back()->withErrors(['email' => 'Akun admin prodi ini belum ditautkan ke periode mana pun. Hubungi admin fakultas.'])->onlyInput('email');
+        }
+
         $user->forceFill(['last_login_at' => now()])->save();
 
+        // Setiap perangkat punya sesinya sendiri, jadi satu akun dapat dipakai di beberapa perangkat sekaligus.
         Auth::login($user, remember: $request->boolean('remember'));
         $request->session()->regenerate();
+        if ($adminPeriod) {
+            session([Period::WORKSPACE_KEY => $adminPeriod->id]);
+        }
         ActivityLog::record('login');
 
         // F59 — kembali ke halaman yang dituju (mis. halaman penilaian dari QR).
@@ -60,7 +72,8 @@ class LoginController extends Controller
 
     public function logout(Request $request): RedirectResponse
     {
-        Auth::logout();
+        // Hanya perangkat ini: token "ingat saya" tidak diganti sehingga perangkat lain dengan akun yang sama tetap masuk.
+        Auth::logoutCurrentDevice();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

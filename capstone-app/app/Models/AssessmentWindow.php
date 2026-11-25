@@ -16,9 +16,25 @@ class AssessmentWindow extends Model
         ];
     }
 
+    /**
+     * Penilaian dapat diisi sejak jendela dibuka dan tetap terbuka setelah tenggat — jadwal hanya berfungsi sebagai
+     * pengingat (reminder), bukan pengunci.
+     */
     public function isOpen(): bool
     {
-        return now()->between($this->opens_at, $this->due_at);
+        return now()->greaterThanOrEqualTo($this->opens_at);
+    }
+
+    /** Tenggat penilaian sudah lewat (penilaian tetap dapat diisi). */
+    public function isOverdue(): bool
+    {
+        return now()->greaterThan($this->due_at);
+    }
+
+    /** Status singkat untuk dosen: Belum dibuka / Dibuka / Lewat tenggat. */
+    public function statusLabel(): string
+    {
+        return ! $this->isOpen() ? 'Belum dibuka' : ($this->isOverdue() ? 'Lewat tenggat' : 'Dibuka');
     }
 
     public function label(): string

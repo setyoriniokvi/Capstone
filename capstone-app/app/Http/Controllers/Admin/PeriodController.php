@@ -3,18 +3,25 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Validation\LecturerComponentInput;
+use App\Http\Validation\MilestoneInput;
 use App\Models\ActivityLog;
-use App\Models\Milestone;
+use App\Models\AssessmentComponent;
 use App\Models\Period;
-use App\Models\RegistrationRule;
+use App\Models\User;
+use App\Services\PeriodSetup;
+use App\Support\PeriodContext;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
-/** F2 — CRUD periode, timeline, deadline, jendela penilaian, dan folder Drive periode. */
+/**
+ * F2 — Kelola Periode (admin fakultas): daftar, buat, ubah, aktif/nonaktif, hapus, dan buka Dashboard Periode.
+ * Controller ini hanya memvalidasi isian; penyimpanan periode beserta pengaturannya ada di PeriodSetup.
+ */
 class PeriodController extends Controller
 {
     /** Dashboard awal admin: daftar periode untuk dikelola atau dibuka sebagai Dashboard Periode. */
@@ -38,12 +45,16 @@ class PeriodController extends Controller
             'periods' => $periods,
             'studentCounts' => $students,
             'lecturerCounts' => $lecturers,
+            'teamCounts' => DB::table('teams')->whereIn('period_id', $ids)->groupBy('period_id')->selectRaw('period_id, count(*) as total')->pluck('total', 'period_id'),
         ]);
     }
 
-    public function enter(Period $period): RedirectResponse
+    public function enter(Request $request, Period $period): RedirectResponse
     {
+        // Admin prodi hanya dapat membuka periode yang memakai akunnya.
+        abort_unless($request->user()->canOpenPeriod($period), 403, 'Periode ini tidak dikelola akun Anda.');
         session([Period::WORKSPACE_KEY => $period->id]);
+        PeriodContext::refresh();
 
         return redirect()->route('admin.dashboard')->with('status', "Dashboard periode {$period->name} dibuka.");
     }
@@ -57,54 +68,91 @@ class PeriodController extends Controller
 
     public function create(): View
     {
-        return view('admin.periods.form', ['period' => new Period(['semester' => 'ganjil']), 'rule' => null]);
+        $sources = Period::query()->latest('starts_on')->orderByDesc('id')->get();
+
+        return view('admin.periods.form', [
+            'period' => new Period(['semester' => 'ganjil']),
+            'rule' => null,
+            'sources' => $sources,
+            'lecturerComponents' => collect(),
+            // Jadwal penilaian periode baru: bentuk penilaian dosen milik tiap sumber data master ('' = bawaan)
+            'componentSets' => collect(['' => null])->merge($sources->pluck('id', 'id'))
+                ->map(fn ($id) => AssessmentComponent::inPeriod($id)->orderBy('sort_order')->orderBy('id')->get()
+                    ->reject->isPeerReview()->values()),
+        ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, PeriodSetup $setup): RedirectResponse
     {
-        $period = DB::transaction(function () use ($request) {
-            $period = Period::create($this->validated($request));
-            $this->syncExtras($period, $request);
+        $source = $request->validate([
+            'master_source' => ['nullable', 'integer', 'exists:periods,id'],
+        ])['master_source'] ?? null;
+        $admin = $this->validatedAdmin($request);
+        $data = $this->validatedPeriod($request);
+        $milestones = $this->draftMilestones($request);
+        $components = $this->draftComponents($request);
+        $rule = $this->validatedRule($request);
 
-            return $period;
-        });
+        $period = $setup->create(
+            $data,
+            $source ? (int) $source : null,
+            $milestones,
+            (array) $request->input('drive_folders', []),
+            (array) $request->input('windows', []),
+            $components,
+            $rule,
+            $admin,
+        );
         ActivityLog::record('create_period', $period);
 
-        return redirect()->route('admin.periods.edit', $period)->with('status', 'Periode dibuat. Lanjutkan dengan menyusun milestone.');
+        return redirect()->route('admin.periods.edit', $period)->with('status', 'Periode dibuat.');
     }
 
     public function edit(Period $period): View
     {
         return view('admin.periods.form', [
-            'period' => $period->load('milestones', 'assessmentWindows'),
+            'period' => $period->load('milestones', 'assessmentWindows', 'admin'),
+            'sharedPeriods' => $period->admin ? $period->admin->adminPeriods()->whereKeyNot($period->id)->get() : collect(),
             'rule' => $period->registrationRule()->with('courses', 'specializations')->first(),
+            // Bentuk penilaian dosen periode ini (peer review diisi mahasiswa, tidak dijadwalkan di sini).
+            'lecturerComponents' => AssessmentComponent::query()->orderBy('sort_order')->orderBy('id')->get()->reject->isPeerReview()->values(),
         ]);
     }
 
-    public function update(Request $request, Period $period): RedirectResponse
+    public function update(Request $request, Period $period, PeriodSetup $setup): RedirectResponse
     {
-        DB::transaction(function () use ($request, $period) {
-            $period->update($this->validated($request));
-            $this->syncExtras($period, $request);
-        });
+        $admin = $this->validatedAdmin($request);
+        $setup->update($period, $this->validatedPeriod($request), $this->validatedRule($request), (array) $request->input('drive_folders', []), $admin);
 
         return back()->with('status', 'Periode diperbarui.');
     }
 
-    public function destroy(Period $period): RedirectResponse
+    /**
+     * Periode kosong cukup dikonfirmasi. Periode yang sudah punya tim harus dinonaktifkan dulu dan admin mengetik nama
+     * periode persis (confirm_name).
+     */
+    public function destroy(Request $request, Period $period, PeriodSetup $setup): RedirectResponse
     {
-        if ($period->teams()->exists()) {
-            return back()->withErrors(['period' => 'Periode yang sudah memiliki tim tidak dapat dihapus.']);
+        $hasData = $period->teams()->exists();
+        if ($hasData && $period->is_active) {
+            return back()->withErrors(['period' => "Nonaktifkan {$period->name} terlebih dahulu sebelum menghapusnya."]);
         }
-        if (session(Period::WORKSPACE_KEY) === $period->id) {
+        if ($hasData && trim((string) $request->input('confirm_name')) !== $period->name) {
+            return back()->withErrors(['period' => "Nama periode tidak sesuai. Ketik \"{$period->name}\" untuk menghapus periode beserta datanya."]);
+        }
+
+        $name = $period->name;
+        $wasOpen = session(Period::WORKSPACE_KEY) === $period->id;
+        $teams = $setup->delete($period);
+        if ($wasOpen) {
             session()->forget(Period::WORKSPACE_KEY);
         }
-        $period->delete();
+        ActivityLog::record('delete_period', null, ['period' => $name, 'teams' => $teams]);
 
-        return redirect()->route('admin.periods.index')->with('status', 'Periode dihapus.');
+        return redirect()->route('admin.periods.index')->with('status', "Periode {$name} dihapus.");
     }
 
-    /** Periode tidak lagi dipakai mahasiswa & dosen (tidak ada periode aktif sampai periode lain diaktifkan). */
+    /** Periode tidak lagi dipakai mahasiswa & dosen (periode aktif lain tetap berjalan). */
     public function deactivate(Period $period): RedirectResponse
     {
         $period->update(['is_active' => false]);
@@ -114,17 +162,15 @@ class PeriodController extends Controller
 
     public function activate(Period $period): RedirectResponse
     {
-        DB::transaction(function () use ($period) {
-            Period::query()->update(['is_active' => false]);
-            $period->update(['is_active' => true]);
-        });
+        // Beberapa periode boleh aktif bersamaan (tiap prodi berjalan paralel); periode lain tidak ikut dinonaktifkan.
+        $period->update(['is_active' => true]);
 
-        return back()->with('status', "{$period->name} sekarang menjadi periode aktif.");
+        return back()->with('status', "{$period->name} sekarang aktif.");
     }
 
-    private function validated(Request $request): array
+    private function validatedPeriod(Request $request): array
     {
-        $data = $request->validate([
+        return $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'academic_year' => ['required', 'regex:/^\d{4}\/\d{4}$/'],
             'semester' => ['required', 'in:ganjil,genap'],
@@ -137,87 +183,110 @@ class PeriodController extends Controller
             'prodi_name.required' => 'Isi nama prodi.',
             'min_approved_logbooks.required' => 'Isi minimal log bimbingan (0 bila tanpa syarat).',
         ]);
-        return $data;
     }
 
-    /** Aturan registrasi tim dan folder Drive per milestone dokumen. Jadwal pengisian nilai dikelola terpisah (AssessmentComponentController). */
-    private function syncExtras(Period $period, Request $request): void
+    /** F5 — isian aturan registrasi tim (rule[...]); teks per baris diurai PeriodSetup. */
+    private function validatedRule(Request $request): array
     {
-        $this->syncRule($period, $request);
-        $this->syncDriveFolders($period, $request);
-    }
-
-    /**
-     * F35 — satu folder Google Drive Database per milestone dokumen (isian mengikuti milestone dokumen yang ada).
-     * Boleh diisi tautan folder atau ID-nya; kosong = dokumen milestone tersebut belum disinkronkan ke Drive.
-     */
-    private function syncDriveFolders(Period $period, Request $request): void
-    {
-        $input = (array) $request->input('drive_folders', []);
-        $milestones = $period->milestones()->where('kind', 'dokumen')->get();
-        $errors = [];
-        $folders = [];
-
-        foreach ($milestones as $milestone) {
-            $value = trim((string) ($input[$milestone->id] ?? ''));
-            $folders[$milestone->id] = $value === '' ? null : Milestone::parseDriveFolder($value);
-            if ($value !== '' && $folders[$milestone->id] === null) {
-                $errors["drive_folders.{$milestone->id}"] = 'Tautan folder Google Drive tidak dikenali. Salin tautan folder dari address bar Google Drive.';
-            }
-        }
-        if ($errors) {
-            throw ValidationException::withMessages($errors);
-        }
-
-        foreach ($milestones as $milestone) {
-            if (array_key_exists($milestone->id, $input)) {
-                $milestone->update(['drive_folder_id' => $folders[$milestone->id]]);
-            }
-        }
-    }
-
-    /**
-     * F5 — satu aturan registrasi per periode: minimal SKS, jumlah anggota, syarat multikultural/multidisiplin,
-     * mata kuliah prasyarat (satu per baris "KODE - Nama") dan peminatan (satu per baris).
-     */
-    private function syncRule(Period $period, Request $request): void
-    {
-        $data = $request->validate([
+        $rule = $request->validate([
             'rule.min_sks' => ['required', 'integer', 'between:0,160'],
             'rule.min_members' => ['required', 'integer', 'between:1,10'],
             'rule.max_members' => ['required', 'integer', 'gte:rule.min_members', 'between:1,10'],
             'rule.courses' => ['nullable', 'string', 'max:5000'],
             'rule.specializations' => ['nullable', 'string', 'max:5000'],
+            'rule.classes' => ['nullable', 'string', 'max:5000'],
         ], [
             'rule.max_members.gte' => 'Maksimal anggota tidak boleh kurang dari minimal anggota.',
         ])['rule'];
 
-        $rule = RegistrationRule::query()->where('period_id', $period->id)->orderBy('id')->first() ?? new RegistrationRule;
-        $rule->fill([
-            'min_sks' => $data['min_sks'],
-            'min_members' => $data['min_members'],
-            'max_members' => $data['max_members'],
+        return $rule + [
             'require_distinct_region' => $request->boolean('rule.require_distinct_region'),
             'require_distinct_specialization' => $request->boolean('rule.require_distinct_specialization'),
+        ];
+    }
+
+    /**
+     * Kartu "Akun admin prodi": email + password akun yang langsung masuk ke Dashboard Periode ini. Email yang sama
+     * di beberapa periode = satu akun (password berlaku untuk semuanya); akun tersebut dapat berganti periode.
+     *
+     * @return array{email: ?string, password: ?string}
+     */
+    private function validatedAdmin(Request $request): array
+    {
+        $data = $request->validate([
+            'admin_email' => ['nullable', 'email', 'max:150'],
+            'admin_password' => ['nullable', 'string', 'min:8', 'max:100'],
+        ], [
+            'admin_email.email' => 'Format email admin prodi tidak valid.',
+            'admin_password.min' => 'Password admin prodi minimal 8 karakter.',
         ]);
-        $period->registrationRules()->save($rule);
+        $email = filled($data['admin_email'] ?? null) ? Str::lower(trim($data['admin_email'])) : null;
+        $password = filled($data['admin_password'] ?? null) ? $data['admin_password'] : null;
 
-        $lines = fn (?string $text) => collect(preg_split('/\r\n|\r|\n/', (string) $text))->map(fn ($l) => trim($l))->filter()->values();
-
-        $courses = $lines($data['courses'] ?? null)->map(function (string $line) {
-            [$code, $name] = array_pad(preg_split('/\s+-\s+|\s*\|\s*/', $line, 2), 2, null);
-
-            return ['code' => Str::upper(trim($code)), 'name' => trim($name ?? $code)];
-        })->unique('code');
-        $rule->courses()->whereNotIn('code', $courses->pluck('code'))->delete();
-        foreach ($courses as $course) {
-            $rule->courses()->updateOrCreate(['code' => $course['code']], ['name' => $course['name']]);
+        if ($email) {
+            $owner = User::query()->where('email', $email)->first();
+            if ($owner && ! $owner->isProdiAdmin()) {
+                throw ValidationException::withMessages(['admin_email' => "Email ini sudah dipakai akun {$owner->roleLabel()}. Gunakan email lain untuk admin prodi."]);
+            }
+            if (! $owner && ! $password) {
+                throw ValidationException::withMessages(['admin_password' => 'Isi password untuk akun admin prodi baru.']);
+            }
+        } elseif ($password) {
+            throw ValidationException::withMessages(['admin_email' => 'Isi email akun admin prodi.']);
         }
 
-        $specializations = $lines($data['specializations'] ?? null)->unique();
-        $rule->specializations()->whereNotIn('name', $specializations)->delete();
-        foreach ($specializations as $name) {
-            $rule->specializations()->firstOrCreate(['name' => $name]);
+        return ['email' => $email, 'password' => $password];
+    }
+
+    /**
+     * Milestone yang disusun di halaman Periode baru (JSON draft_milestones), divalidasi seperti form milestone.
+     *
+     * @return array<string, array<string, mixed>> kunci draf (d1, d2, …) => isian milestone
+     */
+    private function draftMilestones(Request $request): array
+    {
+        $items = json_decode((string) $request->input('draft_milestones', '[]'), true);
+        if (! is_array($items)) {
+            throw ValidationException::withMessages(['draft_milestones' => 'Data milestone tidak terbaca. Muat ulang halaman lalu susun kembali milestone.']);
         }
+        $clean = [];
+        foreach (array_slice($items, 0, 100) as $index => $item) {
+            $item = is_array($item) ? $item : [];
+            $name = trim((string) ($item['name'] ?? '')) ?: 'ke-'.($index + 1);
+            try {
+                $data = MilestoneInput::validate($item);
+            } catch (ValidationException $e) {
+                throw ValidationException::withMessages(['draft_milestones' => "Milestone {$name}: ".collect($e->errors())->flatten()->first()]);
+            }
+            $key = preg_match('/^d\d{1,4}$/', (string) ($item['key'] ?? '')) ? $item['key'] : 'd'.($index + 1);
+            $clean[$key] = $data;
+        }
+
+        return $clean;
+    }
+
+    /**
+     * Bentuk penilaian dosen baru dari halaman Periode baru (JSON draft_components). Nama unik dicek PeriodSetup
+     * terhadap data master yang disalin.
+     *
+     * @return list<array{label: string, roles: list<string>, document_types: list<string>, opens_at: ?string, due_at: ?string}>
+     */
+    private function draftComponents(Request $request): array
+    {
+        $items = json_decode((string) $request->input('draft_components', '[]'), true);
+        if (! is_array($items)) {
+            return [];
+        }
+        $clean = [];
+        foreach (array_slice($items, 0, 30) as $item) {
+            $item = is_array($item) ? $item : [];
+            try {
+                $clean[] = LecturerComponentInput::validate($item, uniqueLabel: false);
+            } catch (ValidationException $e) {
+                throw ValidationException::withMessages(['draft_components' => 'Bentuk penilaian '.($item['label'] ?? '').': '.collect($e->errors())->flatten()->first()]);
+            }
+        }
+
+        return $clean;
     }
 }

@@ -1,6 +1,6 @@
 {{-- F43 — detail Approval Pengajuan Topik (dosen) untuk satu topik (dibuka "Lihat Pengajuan" di halaman utama): ringkasan kuota
      topik → kartu "Pengajuan Topik" berisi filter peminatan tim, pengajuan aktif (peminatan anggota tim; Detail tim di modal;
-     Terima / Tolak dengan alasan opsional) dan, dipisah garis, riwayat keputusan topik ini 3 per halaman.
+     Terima / Tolak dengan alasan opsional). Riwayat keputusan ada di Master Data Mahasiswa admin.
      Kartu menu utama: tabel selalu pas selebar kartu (teks membungkus), tanpa scroll samping. --}}
 @php
     // Judul kolom hijau hanya untuk tabel di bawah judul kartu ("Pengajuan Topik").
@@ -12,7 +12,7 @@
     $remaining = max(0, $topic->quota - $topic->accepted_count);
 @endphp
 <x-layouts.app :title="'Pengajuan '.$topic->title">
-    <x-page-head :title="$topic->title" lede="Menerima tim menjadikan Anda dosen pembimbing tim tersebut secara otomatis. Kuota tidak dapat dilampaui.">
+    <x-page-head :title="$topic->title" lede="Menerima tim menjadikan Anda dosen pembimbing tim tersebut secara otomatis.">
         <x-slot:actions>
             <a href="{{ route('dosen.applications.index') }}" class="btn btn-ghost">Kembali</a>
         </x-slot:actions>
@@ -40,16 +40,19 @@
         </div>
     </section>
 
-    {{-- Pengajuan Topik: pengajuan aktif, lalu riwayat keputusan (satu kartu, dipisah garis) --}}
-    <section class="panel overflow-hidden" aria-labelledby="pelamar-judul">
-        {{-- Judul kiri · jumlah menunggu di tengah · filter peminatan kanan --}}
-        <div class="grid gap-3 px-5 py-4 sm:grid-cols-3 sm:items-center sm:px-6">
-            <h2 id="pelamar-judul" class="text-lg font-semibold text-ink">Pengajuan Topik</h2>
-            <p class="text-sm text-muted sm:text-center">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></p>
-            {{-- Filter peminatan anggota tim yang mengajukan --}}
-            <form method="GET" action="{{ route('dosen.applications.show', $topic) }}" x-data="autoSubmit" class="sm:justify-self-end">
+    {{-- Pengajuan Topik: pengajuan yang menunggu keputusan --}}
+    <section x-data="listFilter" data-sort-scope class="panel overflow-hidden" aria-labelledby="pelamar-judul">
+        {{-- Layar ≥ 1440px (ruang cukup lega): judul kiri · jumlah menunggu tepat di tengah kartu (kolom kiri & kanan sama lebar) · Sort + filter peminatan kanan.
+             Layar lebih sempit: jumlah menunggu di bawah judul agar dropdown peminatan tetap utuh. --}}
+        <div class="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-4 sm:gap-y-1 sm:px-6 min-[1440px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+            <h2 id="pelamar-judul" class="text-lg font-semibold text-ink sm:col-start-1 sm:row-start-1">Pengajuan Topik</h2>
+            <p class="text-sm text-muted sm:col-start-1 sm:row-start-2 min-[1440px]:col-start-2 min-[1440px]:row-start-1 min-[1440px]:text-center">Menunggu keputusan: <span class="tabular font-medium text-ink">{{ $pending->count() }}</span></p>
+            {{-- Filter peminatan anggota tim yang mengajukan — langsung di browser (Alpine "listFilter") --}}
+            <form method="GET" action="{{ route('dosen.applications.show', $topic) }}" @submit.prevent="apply" class="flex min-w-0 items-center justify-end gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 min-[1440px]:col-start-3 min-[1440px]:row-span-1">
+                {{-- Data menunggu: bawaan terbaru (diajukan paling akhir di atas); urut langsung di browser --}}
+                @if ($pending->isNotEmpty())<x-sort-by id="urut-pengajuan" default="terbaru" dir="desc" :options="['terbaru' => 'Tanggal', 'nama' => 'Nama tim', 'kategori' => 'Kategori (Peminatan)']" />@endif
                 <label for="peminatan" class="sr-only">Filter peminatan tim</label>
-                <select id="peminatan" name="peminatan" class="input w-full sm:w-64" @change="submit">
+                <select id="peminatan" name="peminatan" data-filter="peminatan" class="input w-full min-w-0 sm:w-64 min-[1440px]:w-full min-[1440px]:max-w-[16rem]" @change="filter">
                     <option value="">Semua peminatan</option>
                     @foreach ($specializations as $spec)<option value="{{ $spec }}" @selected($peminatan === $spec)>{{ $spec }}</option>@endforeach
                 </select>
@@ -58,18 +61,18 @@
         </div>
 
         @if ($pending->isEmpty())
-            <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">{{ $peminatan !== '' ? 'Tidak ada pengajuan dari tim berpeminatan '.$peminatan.'.' : 'Tidak ada pengajuan topik yang menunggu.' }}</p>
+            <p class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada pengajuan topik yang menunggu.</p>
         @else
             <table class="data-table min-w-0 w-full table-fixed border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                 <colgroup><col class="w-[18%]"><col class="w-[20%]"><col class="w-[20%]"><col class="w-[13%]"><col class="w-[14%]"><col class="w-[15%]"></colgroup>
                 <thead class="{{ $greenHead }}"><tr><th>Nama tim</th><th>Anggota</th><th>Peminatan</th><th>Portofolio</th><th>Detail tim</th><th class="text-center">Aksi</th></tr></thead>
-                <tbody>
+                <tbody data-sort-list>
                     @foreach ($pending as $app)
                         @php
                             $remaining = max(0, $topic->quota - $topic->accepted_count);
                             $members = $app->team->members->where('invite_status', 'diterima');
                         @endphp
-                        <tr x-data="disclosure" class="[&>td]:py-4 [&>td]:align-top">
+                        <tr x-data="disclosure" data-filter-item data-filter-peminatan="{{ $members->pluck('user.specialization')->filter()->unique()->implode('|') }}" data-sort-item data-sort-nama="{{ $app->team->name }}" data-sort-terbaru="{{ $app->created_at?->timestamp }}" data-sort-kategori="{{ $members->pluck('user.specialization')->filter()->unique()->sort()->implode(', ') }}" class="[&>td]:py-4 [&>td]:align-top">
                             <td class="font-semibold text-ink">{{ $app->team->name }}</td>
                             <td class="text-sm">
                                 <ul class="space-y-0.5 text-ink">
@@ -133,31 +136,7 @@
                     @endforeach
                 </tbody>
             </table>
+            <p x-show="empty" x-cloak class="border-t border-rule px-5 py-5 text-sm text-muted sm:px-6">Tidak ada pengajuan dari tim dengan peminatan ini.</p>
         @endif
-
-        {{-- Riwayat keputusan: 3 terbaru per halaman --}}
-        <div class="border-t-2 border-rule">
-            <h3 class="px-5 pb-2 pt-5 text-base font-semibold text-ink sm:px-6">Riwayat</h3>
-            @if ($decided->isEmpty())
-                <p class="px-5 pb-5 text-sm text-muted sm:px-6">Belum ada keputusan.</p>
-            @else
-                <table class="data-table min-w-0 w-full table-fixed {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
-                    <colgroup><col class="w-[26%]"><col class="w-[18%]"><col class="w-[22%]"><col class="w-[34%]"></colgroup>
-                    <thead class="{{ $greenHead }}"><tr><th>Tim</th><th>Keputusan</th><th>Waktu</th><th>Catatan</th></tr></thead>
-                    <tbody>
-                        @foreach ($decided as $app)
-                            <tr class="[&>td]:align-top">
-                                <td class="font-medium text-ink">{{ $app->team->name }}</td>
-                                <td><x-badge class="!whitespace-normal" :status="$app->status" /></td>
-                                <td class="text-sm text-ink">{{ $app->decided_at?->translatedFormat('j M Y, H:i') }}</td>
-                                {{-- Catatan hanya ada pada penolakan (alasan opsional); menerima tim tidak disertai catatan --}}
-                                <td class="text-sm text-muted">{{ $app->status === 'ditolak' && filled($app->notes) ? $app->notes : '—' }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-                <x-history-pager :paginator="$decided" />
-            @endif
-        </div>
     </section>
 </x-layouts.app>

@@ -37,9 +37,6 @@ class DashboardController extends Controller
             'period' => $period,
             'reminderGroups' => $reminderGroups,
             'windows' => $period ? $period->assessmentWindows()->get()->keyBy('component') : collect(),
-            // "Sebagian dinilai" bila sudah ada skor tersimpan
-            'partial' => Assessment::query()->where('assessor_id', $user->id)->where('status', 'draft')->has('scores')->get()
-                ->mapWithKeys(fn ($a) => ["{$a->team_id}:{$a->component}" => true]),
             'supervisedCount' => $teams->filter(fn ($t) => $t->lecturers->contains('role', 'pembimbing'))->count(),
             'examinedCount' => $teams->filter(fn ($t) => $t->lecturers->contains('role', 'penguji'))->count(),
             'counts' => [
@@ -49,6 +46,10 @@ class DashboardController extends Controller
             ],
             'minLogbooks' => Period::minLogbooks($period),
             'profile' => $user->lecturerProfile,
+            // Kuota di tab kartu sambutan hanya untuk peran dosen ini (pembimbing / penguji; belum keduanya → keduanya).
+            'roles' => $user->lecturerRoles() ?: ['pembimbing', 'penguji'],
+            // Akun hasil impor yang belum mengganti password default diingatkan di dashboard.
+            'usesDefaultPassword' => PasswordController::usesDefault($user),
             // Kuota bimbingan/uji dari pengaturan admin (per dosen → kategori → global).
             'quota' => $period ? $loads->quotaFor($user, $period) : null,
             'todo' => $period ? $this->todo($user, $period, $pendingAssessments) : collect(),
@@ -70,7 +71,7 @@ class DashboardController extends Controller
                 continue;
             }
             $todo->push(Todo::item(
-                'Isi nilai '.config("capstone.components.{$row['component']}.label").' — '.$row['team']->name,
+                'Isi nilai '.config("capstone.components.{$row['component']}.label").' - '.$row['team']->name,
                 'Penilaian sebagai '.$row['role'].'.',
                 route('dosen.assessments.edit', [$row['team'], $row['component']]), 'warn', 'heroicon-o-pencil-square', $window->due_at,
             ));

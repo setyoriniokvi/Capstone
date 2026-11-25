@@ -1,6 +1,6 @@
 {{-- F7 — Approval Topik admin (pola Approval Registrasi Tim): kartu tab (Approval Topik Mandiri / Approval Topik Dosen)
      paling atas, lalu isi tab: instruksi (admin/topics/_instruction), kata kunci terlarang jenis topik tersebut (admin/topics/_keywords), kemudian
-     admin/topics/_mandiri (menunggu approval + riwayat) atau admin/topics/_dosen (menunggu approval + bank topik dosen
+     admin/topics/_mandiri (menunggu approval) atau admin/topics/_dosen (menunggu approval; bank topik dosen di menu sendiri
      yang dapat ditambah/diubah/dihapus admin). --}}
 @php
     // Judul kolom hijau & sel selebar kartu (sama dengan Approval Registrasi Tim)

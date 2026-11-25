@@ -8,7 +8,7 @@ use Illuminate\View\View;
 /**
  * F29 — menu Penilaian mahasiswa: nilai akhir per tahapan Capstone (bentuk penilaian yang dinilai dosen, mis. Proposal,
  * Laporan Progress, Sidang, Pameran) beserta penilai dan feedback. Nilai hanya tampil setelah dosen memfinalkannya;
- * peer review dilihat di menu Peer Review.
+ * peer review dilihat di menu Peer Review. Nilai akhir & indeks tidak ditampilkan ke mahasiswa.
  */
 class AssessmentController extends StudentController
 {
@@ -34,31 +34,7 @@ class AssessmentController extends StudentController
             })
             : collect();
 
-        return view('mahasiswa.assessments', ['team' => $team, 'stages' => $stages, 'final' => $stages->isEmpty() ? null : $this->finalScore($calculator, $team)]);
+        return view('mahasiswa.assessments', ['team' => $team, 'stages' => $stages]);
     }
 
-    /**
-     * Nilai akhir mahasiswa yang masuk = Σ nilai CLO (penilaian dosen + peer review individual), sama dengan Rekap Nilai.
-     * Hanya ditetapkan bila semua tahapan dosen final dan peer review dari rekan tim untuk mahasiswa ini lengkap.
-     *
-     * @return array{complete: bool, total: ?float, grade: ?array, pending: list<string>}
-     */
-    private function finalScore(ScoreCalculator $calculator, $team): array
-    {
-        $result = $calculator->forTeam($team);
-        $mine = $result['rows']->first(fn (array $row) => $row['student']->id === auth()->id());
-        $pending = collect($result['missing'])->reject(fn ($c) => $c === 'peer_review')
-            ->map(fn ($c) => config("capstone.components.{$c}.label", $c))->values()->all();
-        if ($calculator->indicatorsFor('peer_review')->isNotEmpty() && ! ($mine['peer_complete'] ?? false)) {
-            $pending[] = 'Peer review dari rekan tim';
-        }
-        $complete = $mine && $pending === [];
-
-        return [
-            'complete' => $complete,
-            'total' => $complete ? $mine['total'] : null,
-            'grade' => $complete ? $calculator->gradeInfo($mine['total']) : null,
-            'pending' => $pending,
-        ];
-    }
 }

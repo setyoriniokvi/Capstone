@@ -1,4 +1,4 @@
-{{-- F13 — Resume CLO: satu tabel seperti lembar "Resume Penilaian" (CLO · Komponen Penilaian · Skema Penilaian · Bobot
+{{-- F13 — Resume CLO: satu tabel seperti lembar "Resume Penilaian" (CLO · CLO iGadis · Komponen Penilaian · Skema Penilaian · Bobot
      Penilaian, baris Total Penilaian di bawah), kotak centang tiap baris (Alpine "rowSelection"). Kanan atas: Hapus Pilihan
      · Edit Pilihan · Tambah CLO (modal). Bobot Penilaian = jumlah pembagian bobot ke setiap bentuk penilaian (diisi di form).
      Di bawah tabel: ringkasan validasi bobot per bentuk penilaian (admin/master/_weights-summary). --}}
@@ -12,7 +12,7 @@
 @endphp
 <x-layouts.app title="Resume CLO">
 <div x-data="rowSelection" data-row-selection>
-    <x-page-head title="Resume penilaian per CLO" lede="Kode, komponen penilaian, skema penilaian, dan bobot CLO. Bobot penilaian dihitung dari jumlah pembagiannya ke setiap bentuk penilaian.">
+    <x-page-head title="Resume penilaian per CLO">
         <x-slot:actions>
             <div class="flex flex-nowrap items-center gap-2">
                 {{-- Hapus Pilihan --}}
@@ -37,7 +37,7 @@
                             @foreach ($clos as $clo)
                                 @php
                                     $values = $editing && isset(old('rows')[$clo->id]) ? old("rows.{$clo->id}") : [
-                                        'code' => $clo->code, 'description' => $clo->description, 'assessment_scheme' => $clo->assessment_scheme,
+                                        'code' => $clo->code, 'igadis_code' => $clo->igadis_code, 'description' => $clo->description, 'assessment_scheme' => $clo->assessment_scheme,
                                         'weights' => collect($components)->mapWithKeys(fn ($c, $k) => [$k => $clo->weightFor($k) ? $clo->weightFor($k) + 0 : ''])->all(),
                                     ];
                                 @endphp
@@ -77,28 +77,32 @@
     @error('ids')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
     @error('rows')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
-    <section class="panel mb-6 overflow-hidden" aria-labelledby="clo-judul">
-        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+    <section data-sort-scope class="panel mb-6 overflow-hidden" aria-labelledby="clo-judul">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
             <h2 id="clo-judul" class="text-lg font-semibold text-ink">Resume penilaian</h2>
-            <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $clos->count() }} CLO</span>
+            <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                @if ($clos->isNotEmpty())<x-sort-by id="urut-clo" default="clo" :options="['clo' => 'CLO', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Skema penilaian)']" />@endif
+                <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $clos->count() }} CLO</span>
+            </div>
         </div>
         @if ($clos->isEmpty())
             <div class="border-t border-rule"><x-empty title="Belum ada CLO" icon="squares-2x2">Tambahkan lewat tombol Tambah CLO.</x-empty></div>
         @else
             <x-scroll-pager class="border-t border-rule">
-                <table class="data-table w-full min-w-[46rem] table-fixed [&_td]:align-top [&_td]:text-sm [&_td+td]:border-l [&_td]:border-rule [&_tbody_tr:hover_td]:bg-transparent" @change="pick">
-                    <colgroup><col class="w-[3rem]"><col class="w-[5.5rem]"><col><col class="w-[16rem]"><col class="w-[8rem]"></colgroup>
+                <table class="data-table w-full min-w-[54rem] table-fixed [&_td]:align-top [&_td]:text-sm [&_td+td]:border-l [&_td]:border-rule [&_tbody_tr:hover_td]:bg-transparent" @change="pick">
+                    <colgroup><col class="w-[3rem]"><col class="w-[5.5rem]"><col class="w-[8.5rem]"><col><col class="w-[16rem]"><col class="w-[8rem]"></colgroup>
                     <thead class="{{ $greenHead }}">
                         <tr>
                             <th class="!px-0 !text-center"><input type="checkbox" class="checkbox" data-select-all aria-label="Pilih semua CLO"></th>
-                            <th class="!text-center">CLO</th><th>Komponen Penilaian</th><th>Skema Penilaian</th><th class="!text-center">Bobot Penilaian</th>
+                            <th class="!text-center">CLO</th><th class="!text-center">CLO iGadis</th><th>Komponen Penilaian</th><th>Skema Penilaian</th><th class="!text-center">Bobot Penilaian</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($clos as $clo)
-                            <tr>
+                            <tr data-sort-item data-sort-clo="{{ $clo->code }}" data-sort-terbaru="{{ $clo->created_at?->timestamp }}" data-sort-kategori="{{ $clo->assessment_scheme }}">
                                 <td class="!px-0 text-center"><input type="checkbox" class="checkbox" value="{{ $clo->id }}" data-select-row @checked(in_array($clo->id, $editIds, true)) aria-label="Pilih {{ $clo->code }}"></td>
                                 <td class="code text-center font-medium text-ink">{{ $clo->code }}</td>
+                                <td class="code text-center {{ $clo->igadis_code ? 'text-ink' : 'text-muted' }}">{{ $clo->igadis_code ?: '-' }}</td>
                                 <td class="text-ink">{{ $clo->description }}</td>
                                 <td class="{{ $clo->assessment_scheme ? 'text-ink' : 'text-muted' }}">{{ $clo->assessment_scheme ?: '—' }}</td>
                                 <td class="text-center tabular font-medium text-ink">{{ $num($clo->weight) }}</td>
@@ -107,7 +111,7 @@
                     </tbody>
                     <tfoot>
                         <tr class="bg-sunken [&>td]:border-t-2 [&>td]:border-t-rule-strong [&>td]:py-2.5 [&>td]:font-semibold">
-                            <td colspan="4" class="text-center text-ink">Total Penilaian</td>
+                            <td colspan="5" class="text-center text-ink">Total Penilaian</td>
                             <td class="text-center tabular {{ $totalOk ? 'text-ink' : 'text-bad-ink' }}" @unless ($totalOk) title="Total bobot CLO harus 100" @endunless>{{ $num($summary['clo_total']) }}</td>
                         </tr>
                     </tfoot>

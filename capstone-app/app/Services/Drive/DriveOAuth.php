@@ -2,6 +2,7 @@
 
 namespace App\Services\Drive;
 
+use App\Support\PeriodContext;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -13,7 +14,8 @@ use Throwable;
 /**
  * F33–F41 — mode OAuth Google Drive (GOOGLE_DRIVE_AUTH=oauth): admin menghubungkan akun Google-nya sendiri
  * (persetujuan di halaman Google, aplikasi tidak pernah melihat password). Refresh token disimpan terenkripsi
- * (APP_KEY) di storage/app/private/google-drive-oauth.json — di luar git — lalu dipakai untuk meminta access token.
+ * (APP_KEY) per periode di storage/app/private/google-drive-oauth-{periode}.json — di luar git — lalu dipakai untuk
+ * meminta access token.
  */
 class DriveOAuth
 {
@@ -26,9 +28,16 @@ class DriveOAuth
     // Akses penuh Drive diperlukan karena folder tujuan dibuat admin sendiri (bukan oleh aplikasi); email untuk menampilkan akun terhubung.
     private const SCOPES = ['openid', 'email', 'https://www.googleapis.com/auth/drive'];
 
-    private const FILE = 'google-drive-oauth.json';
+    /** Setiap periode menghubungkan akun Google-nya sendiri (periode konteks: Dashboard Periode / periode dokumen). */
+    private function file(): string
+    {
+        return 'google-drive-oauth-'.(PeriodContext::id() ?? 'umum').'.json';
+    }
 
-    private const CACHE_KEY = 'gdrive.oauth.access_token';
+    private function cacheKey(): string
+    {
+        return 'gdrive.oauth.access_token.'.(PeriodContext::id() ?? 'umum');
+    }
 
     /** Client ID & secret OAuth sudah diisi di .env. */
     public function configured(): bool
@@ -76,7 +85,7 @@ class DriveOAuth
 
         $email = $this->emailFrom($json['id_token'] ?? null);
         $this->write(['refresh_token' => $json['refresh_token'], 'email' => $email, 'connected_at' => now()->toIso8601String()]);
-        Cache::put(self::CACHE_KEY, $json['access_token'], max(60, (int) ($json['expires_in'] ?? 3600) - 120));
+        Cache::put($this->cacheKey(), $json['access_token'], max(60, (int) ($json['expires_in'] ?? 3600) - 120));
 
         return $email ?? 'akun Google';
     }
@@ -92,7 +101,7 @@ class DriveOAuth
     /** Access token dari refresh token (di-cache sampai mendekati kedaluwarsa). */
     public function accessToken(): string
     {
-        if ($token = Cache::get(self::CACHE_KEY)) {
+        if ($token = Cache::get($this->cacheKey())) {
             return $token;
         }
 
@@ -108,7 +117,7 @@ class DriveOAuth
         }
 
         $json = $response->throw()->json();
-        Cache::put(self::CACHE_KEY, $json['access_token'], max(60, (int) ($json['expires_in'] ?? 3600) - 120));
+        Cache::put($this->cacheKey(), $json['access_token'], max(60, (int) ($json['expires_in'] ?? 3600) - 120));
 
         return $json['access_token'];
     }
@@ -123,8 +132,8 @@ class DriveOAuth
                 // Token tetap dihapus dari aplikasi walau pencabutan di Google gagal.
             }
         }
-        Storage::disk('local')->delete(self::FILE);
-        Cache::forget(self::CACHE_KEY);
+        Storage::disk('local')->delete($this->file());
+        Cache::forget($this->cacheKey());
     }
 
     /** Email dari id_token (diterima langsung dari endpoint token Google lewat HTTPS, jadi cukup dibaca payload-nya). */
@@ -138,11 +147,11 @@ class DriveOAuth
 
     private function read(): ?array
     {
-        if (! Storage::disk('local')->exists(self::FILE)) {
+        if (! Storage::disk('local')->exists($this->file())) {
             return null;
         }
         try {
-            return json_decode(Crypt::decryptString(Storage::disk('local')->get(self::FILE)), true, flags: JSON_THROW_ON_ERROR);
+            return json_decode(Crypt::decryptString(Storage::disk('local')->get($this->file())), true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable) {
             return null; // APP_KEY berganti → token tidak terbaca, perlu dihubungkan ulang
         }
@@ -150,6 +159,6 @@ class DriveOAuth
 
     private function write(array $data): void
     {
-        Storage::disk('local')->put(self::FILE, Crypt::encryptString(json_encode($data)));
+        Storage::disk('local')->put($this->file(), Crypt::encryptString(json_encode($data)));
     }
 }

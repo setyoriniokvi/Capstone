@@ -22,7 +22,7 @@
             ['specialization', 'Peminatan / bidang keahlian', true, 'sm:col-span-2', []],
         ] as [$field, $label, $required, $span, $opt])
             @php
-                $default = in_array($field, ['name', 'email', 'phone'], true) ? $lecturer->{$field} : $profile->{$field};
+                $default = $field === 'phone' ? $lecturer->waNumber() : (in_array($field, ['name', 'email'], true) ? $lecturer->{$field} : $profile->{$field});
                 $id = "l-{$field}-{$key}";
             @endphp
             <div class="min-w-0 {{ $span }}">
@@ -45,11 +45,11 @@
         <legend class="field-label">Hak akses</legend>
         <div class="flex flex-wrap gap-x-6">
             <label class="flex min-h-[44px] items-center gap-3 text-muted"><input type="checkbox" class="checkbox" checked disabled><span>Dosen</span></label>
-            @foreach (['can_supervise' => 'Pembimbing', 'can_examine' => 'Penguji'] as $k => $l)
+            @foreach (\App\Models\LecturerProfile::ACCESS as $k => $l)
                 <label class="flex min-h-[44px] items-center gap-3"><input type="checkbox" class="checkbox" name="{{ $k }}" value="1" @checked($mine ? old($k) : $profile->{$k})><span>{{ $l }}</span></label>
             @endforeach
         </div>
-        <p class="field-hint">Semua dosen berhak akses Dosen. Pembimbing dan Penguji tercentang otomatis saat dosen diplot.</p>
+        <p class="field-hint">Semua dosen berhak akses Dosen. Dosen Kelas dipakai untuk cakupan kuota dosen kelas. Pembimbing dan Penguji tercentang otomatis saat dosen diplot.</p>
     </fieldset>
     <div class="mt-6 flex justify-end gap-2">
         <button type="button" class="btn btn-ghost" @click="close">Batal</button>

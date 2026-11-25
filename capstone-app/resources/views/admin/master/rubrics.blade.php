@@ -1,6 +1,7 @@
 {{-- F15 — Rubrik penilaian dokumen: satu tabel seperti lembar "Rubrikasi Dokumen" (Kode · CLO · Indikator · Bobot ·
-     Poin Penilaian · deskripsi tingkat 5–0 · Contoh Pemenuhan Tingkat 5), kotak centang per baris (Alpine "rowSelection").
-     Kanan atas: Tambah Rubrik (modal; pilih indikator yang belum berubrik; semua isian wajib kecuali poin penilaian),
+     Poin Penilaian · deskripsi tingkat 5–0), kotak centang per baris (Alpine "rowSelection").
+     Kanan atas: Tambah Rubrik (modal; pilih indikator yang belum berubrik + dokumen terkait dari jenis dokumen milestone
+     periode; tingkat 0–1 wajib, 2–5 boleh kosong dari atas),
      Edit Pilihan (modal berisi isian rubrik baris yang dicentang, disimpan sekaligus), Hapus Pilihan.
      Kode, CLO, Indikator, dan Bobot adalah data indikator: hanya ditampilkan, diubah di menu Indikator.
      ?tambah={indicator_id} (tautan "Isi" di halaman Indikator) membuka modal Tambah dengan indikator tersebut.
@@ -24,7 +25,7 @@
 @endphp
 <x-layouts.app title="Rubrik Dokumen">
 <div x-data="rowSelection" data-row-selection>
-    <x-page-head title="Rubrik penilaian dokumen" lede="Deskripsi tiap tingkat skor per indikator: 5 Sangat Baik (95), 4 Baik (80), 3 Cukup (70), 2 Kurang (50), 1 Sangat Kurang (40), 0 Tidak Mengumpulkan (0).">
+    <x-page-head title="Rubrik penilaian dokumen">
         <x-slot:actions>
             {{-- Hapus Pilihan · Edit Pilihan · Tambah Rubrik selalu sebaris (deskripsi di kiri yang membungkus) --}}
             <div class="flex flex-nowrap items-center gap-2">
@@ -51,7 +52,7 @@
                             @php $r = $ind->rubric; $old = fn ($f) => $editing ? old("rows.{$ind->id}.{$f}", $r->{$f}) : $r->{$f}; @endphp
                             <fieldset x-show="isSelected({{ $ind->id }})" x-cloak :disabled="! isSelected({{ $ind->id }})" class="space-y-3 rounded-lg border border-rule p-4">
                                 <legend class="px-1 text-sm font-semibold text-ink"><span class="code">{{ $ind->code }}</span> · {{ $ind->clo->code }} · {{ $ind->name }}</legend>
-                                <p class="text-caption text-muted">Bobot {{ $num($ind->weight) }}. Kode, CLO, nama indikator, dan bobot adalah data indikator — ubah di menu <a href="{{ route('admin.indicators.index') }}" class="link">Indikator</a>.</p>
+                                @include('admin.master._rubric-document', ['id' => "e-{$ind->id}-document", 'name' => "rows[{$ind->id}][document_types]", 'value' => $editing ? old("rows.{$ind->id}.document_types", $ind->document_types ?? []) : ($ind->document_types ?? []), 'error' => "rows.{$ind->id}.document_types", 'current' => $ind->document_types ?? []])
                                 <div>
                                     <label class="field-label" for="e-{{ $ind->id }}-points">Poin penilaian <span class="font-normal text-muted">(opsional)</span></label>
                                     <textarea id="e-{{ $ind->id }}-points" name="rows[{{ $ind->id }}][assessment_points]" rows="3" class="input">{{ $old('assessment_points') }}</textarea>
@@ -64,11 +65,6 @@
                                             @error("rows.{$ind->id}.level_{$level}")<p class="field-error">{{ $message }}</p>@enderror
                                         </div>
                                     @endforeach
-                                </div>
-                                <div>
-                                    <label class="field-label" for="e-{{ $ind->id }}-ex">Contoh pemenuhan tingkat 5{!! $star !!}</label>
-                                    <textarea id="e-{{ $ind->id }}-ex" name="rows[{{ $ind->id }}][example_level_5]" rows="3" class="input" required>{{ $old('example_level_5') }}</textarea>
-                                    @error("rows.{$ind->id}.example_level_5")<p class="field-error">{{ $message }}</p>@enderror
                                 </div>
                             </fieldset>
                         @endforeach
@@ -100,6 +96,7 @@
                             </select>
                             @if ($adding)@error('indicator_id')<p class="field-error">{{ $message }}</p>@enderror @endif
                         </div>
+                        @include('admin.master._rubric-document', ['id' => 't-document', 'name' => 'document_types', 'value' => $adding ? old('document_types', []) : [], 'error' => $adding ? 'document_types' : '__none', 'current' => []])
                         <div>
                             <label class="field-label" for="t-points">Poin penilaian <span class="font-normal text-muted">(opsional)</span></label>
                             <textarea id="t-points" name="assessment_points" rows="3" class="input">{{ $adding ? old('assessment_points') : '' }}</textarea>
@@ -112,11 +109,6 @@
                                     @if ($adding)@error("level_{$level}")<p class="field-error">{{ $message }}</p>@enderror @endif
                                 </div>
                             @endforeach
-                        </div>
-                        <div>
-                            <label class="field-label" for="t-ex">Contoh pemenuhan tingkat 5{!! $star !!}</label>
-                            <textarea id="t-ex" name="example_level_5" rows="3" class="input" required>{{ $adding ? old('example_level_5') : '' }}</textarea>
-                            @if ($adding)@error('example_level_5')<p class="field-error">{{ $message }}</p>@enderror @endif
                         </div>
                         <div class="flex justify-end gap-3 border-t border-rule pt-4">
                             <button type="button" class="btn btn-ghost" @click="close">Batal</button>
@@ -132,38 +124,38 @@
     @error('ids')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
     @error('rows')<p class="mb-6 rounded-lg border border-bad-line bg-bad-tint px-4 py-3 text-sm text-bad-ink">{{ $message }}</p>@enderror
 
-    <section class="panel overflow-hidden" aria-labelledby="rubrik-judul">
-        <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+    <section data-sort-scope class="panel overflow-hidden" aria-labelledby="rubrik-judul">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
             <h2 id="rubrik-judul" class="text-lg font-semibold text-ink">Rubrikasi dokumen</h2>
-            <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $rubrics->count() }} rubrik @if ($available->isNotEmpty())· <span class="text-warn-ink">{{ $available->count() }} indikator belum berubrik</span>@endif</span>
+            <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                @if ($rubrics->isNotEmpty())<x-sort-by id="urut-rubrik" default="kode" :options="['kode' => 'Kode', 'nama' => 'Indikator', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (CLO)']" />@endif
+                <span class="text-sm text-muted"><span class="tabular font-medium text-ink" x-text="count">0</span> dipilih · {{ $rubrics->count() }} rubrik @if ($available->isNotEmpty())· <span class="text-warn-ink">{{ $available->count() }} indikator belum berubrik</span>@endif</span>
+            </div>
         </div>
         @if ($rubrics->isEmpty())
             <div class="border-t border-rule"><x-empty title="Belum ada rubrik dokumen" icon="list-bullet">Tambahkan lewat tombol Tambah Rubrik.</x-empty></div>
         @else
             <x-scroll-pager class="border-t border-rule">
-                <table class="data-table w-full min-w-[150rem] table-fixed border-separate border-spacing-0 [&_td]:align-top [&_td]:whitespace-pre-line [&_td]:text-sm [&_td+td]:border-l [&_td]:border-rule" @change="pick">
+                <table class="data-table w-full min-w-[132rem] table-fixed border-separate border-spacing-0 [&_td]:align-top [&_td]:whitespace-pre-line [&_td]:text-sm [&_td+td]:border-l [&_td]:border-rule" @change="pick">
                     <colgroup>
                         <col class="w-[3rem]"><col class="w-[4.5rem]"><col class="w-[5rem]"><col class="w-[14rem]"><col class="w-[5rem]"><col class="w-[16rem]">
                         @foreach ($levels as $level => $meta)<col class="w-[16rem]">@endforeach
-                        <col class="w-[18rem]">
                     </colgroup>
                     <thead class="{{ $greenHead }}"><tr>
                         <th class="{{ $frozenTh(0) }} !px-0 !text-center"><input type="checkbox" class="checkbox" data-select-all aria-label="Pilih semua rubrik"></th>
                         <th class="{{ $frozenTh(1) }}">Kode</th><th class="{{ $frozenTh(2) }}">CLO</th><th class="{{ $frozenTh(3) }}">Indikator</th><th class="{{ $frozenTh(4) }} text-center">Bobot</th><th>Poin Penilaian</th>
                         @foreach ($levels as $level => $meta)<th>{{ $levelTitle($level, $meta) }}</th>@endforeach
-                        <th>Contoh Pemenuhan Tingkat 5</th>
                     </tr></thead>
-                    <tbody>
+                    <tbody data-sort-list>
                         @foreach ($rubrics as $ind)
-                            <tr>
+                            <tr data-sort-item data-sort-kode="{{ $ind->code }}" data-sort-nama="{{ $ind->name }}" data-sort-terbaru="{{ $ind->rubric?->created_at?->timestamp }}" data-sort-kategori="{{ $ind->clo?->code }}">
                                 <td class="{{ $frozenTd(0) }} !px-0 text-center"><input type="checkbox" class="checkbox" value="{{ $ind->id }}" data-select-row @checked(in_array($ind->id, $editIds, true)) aria-label="Pilih rubrik {{ $ind->code }}"></td>
                                 <td class="{{ $frozenTd(1) }} code font-medium text-ink">{{ $ind->code }}</td>
                                 <td class="{{ $frozenTd(2) }} code text-ink">{{ $ind->clo->code }}</td>
-                                <td class="{{ $frozenTd(3) }} font-medium text-ink">{{ $ind->name }}</td>
+                                <td class="{{ $frozenTd(3) }} font-medium text-ink">{{ $ind->name }}@if ($ind->document_types)<span class="mt-4 flex flex-wrap gap-1.5">@foreach ($ind->documentTypeLabels() as $docLabel)<span class="rounded-md border border-rule bg-sunken px-1.5 py-0.5 text-caption font-medium text-muted">{{ $docLabel }}</span>@endforeach</span>@endif</td>
                                 <td class="{{ $frozenTd(4) }} text-center tabular text-ink">{{ $num($ind->weight) }}</td>
                                 <td class="{{ $ind->rubric->assessment_points ? 'text-ink' : 'text-muted' }}">{{ $ind->rubric->assessment_points ?: '—' }}</td>
                                 @foreach ($levels as $level => $meta)<td class="text-ink">{{ $ind->rubric->describe($level) }}</td>@endforeach
-                                <td class="{{ $ind->rubric->example_level_5 ? 'text-ink' : 'text-muted' }}">{{ $ind->rubric->example_level_5 ?: '—' }}</td>
                             </tr>
                         @endforeach
                     </tbody>

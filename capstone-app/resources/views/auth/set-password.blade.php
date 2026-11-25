@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Atur Password · Capstone FRI</title>
+    <title>Atur Password - Capstone FRI</title>
     <x-head-assets />
 </head>
 {{-- F21 — anggota tim mengatur password pertama dari tautan email (Signed URL, dikirim saat admin menerima registrasi tim). --}}

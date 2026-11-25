@@ -40,22 +40,18 @@ class TeamController extends Controller
 
         // Cari & filter syarat tabel menunggu dilakukan di browser (semua tim menunggu dimuat sekaligus).
         $pending = $base()->where('status', 'menunggu')->orderBy('submitted_at')->get();
-        $decided = $base()->whereIn('status', ['diterima', 'ditolak'])
-            ->orderByDesc('reviewed_at')->orderByDesc('id')
-            ->paginate(3, ['*'], 'riwayat')->withQueryString();
 
         // Tim yang diminta lewat ?tim= tetapi tidak tampil di halaman/filter ini tetap dibuka detailnya.
         $openTeam = $request->integer('tim');
-        $extraTeam = $openTeam && ! $pending->contains('id', $openTeam) && ! $decided->getCollection()->contains('id', $openTeam)
+        $extraTeam = $openTeam && ! $pending->contains('id', $openTeam)
             ? Team::query()->with(['members' => fn ($m) => $m->orderByDesc('is_leader'), 'members.user'])->find($openTeam) : null;
 
         return view('admin.teams.index', [
             'pending' => $pending,
-            'decided' => $decided,
             'period' => $period,
             'openTeam' => $openTeam,
             'extraTeam' => $extraTeam,
-            'students' => $period ? $this->availableStudents($period) : collect(),
+            'students' => $period ? self::availableStudents($period) : collect(),
         ] + $registration->options($period));
     }
 
@@ -107,7 +103,7 @@ class TeamController extends Controller
         $screening->apply($team->fresh());
         ActivityLog::record('admin_update_team', $team);
 
-        return redirect()->route('admin.teams.index', ['tim' => $team->id])->with('status', "Tim {$team->name} diperbarui.");
+        return self::returnTo($team)->with('status', "Tim {$team->name} diperbarui.");
     }
 
     /** Hapus tim beserta seluruh datanya (anggota, topik, dokumen, log bimbingan, nilai); akun mahasiswa tetap ada. */
@@ -120,7 +116,7 @@ class TeamController extends Controller
         });
         Storage::disk('local')->deleteDirectory("registrations/{$team->id}");
 
-        return redirect()->route('admin.teams.index')->with('status', "Tim {$name} dihapus.");
+        return self::returnTo(null)->with('status', "Tim {$name} dihapus.");
     }
 
     /**
@@ -132,7 +128,7 @@ class TeamController extends Controller
     private function validateTeam(Request $request, Period $period, ?Team $team = null): array
     {
         ['min' => $min, 'max' => $max] = config('capstone.team_size');
-        $available = $this->availableStudents($period)->pluck('id')->merge($team?->members->pluck('user_id') ?? [])->all();
+        $available = self::availableStudents($period)->pluck('id')->merge($team?->members->pluck('user_id') ?? [])->all();
         $request->merge(['members' => collect($request->input('members', []))->filter(fn ($id) => filled($id))->values()->all()]);
 
         $data = $request->validate([
@@ -255,7 +251,7 @@ class TeamController extends Controller
     private function mailSummary(array $mail): string
     {
         return "Email terkirim ke {$mail['sent']} anggota."
-            .($mail['failed'] ? " {$mail['failed']} email gagal dikirim — periksa pengaturan email (SMTP)." : '');
+            .($mail['failed'] ? " {$mail['failed']} email gagal dikirim - periksa pengaturan email (SMTP)." : '');
     }
 
     /** Kirim ulang tautan atur password untuk anggota tim diterima yang akunnya belum aktif (tautan kedaluwarsa/hilang). */
@@ -264,14 +260,35 @@ class TeamController extends Controller
         abort_unless($team->status === 'diterima', 409);
         $mail = $registration->resendActivation($team);
 
-        return redirect()->route('admin.teams.index', ['tim' => $team->id])
+        return self::returnTo($team)
             ->with('status', $mail['sent'] + $mail['failed'] ? 'Tautan atur password: '.$this->mailSummary($mail) : 'Semua anggota sudah mengatur password.');
     }
 
-    /** Mahasiswa aktif yang belum tergabung (undangan diterima) di tim mana pun pada periode ini. */
-    private function availableStudents(Period $period): Collection
+    /**
+     * Ubah / hapus tim & kirim ulang tautan juga dilakukan dari Detail tim di Monitoring progres dan Riwayat Registrasi Tim
+     * (Master Data): kembali ke halaman asal itu dan buka lagi detail timnya (?tim=); selain itu ke Registrasi Tim.
+     */
+    public static function returnTo(?Team $team): RedirectResponse
     {
-        return User::query()->students()->where('is_active', true)
+        $previous = url()->previous();
+        $from = collect([route('admin.monitoring.progress'), route('admin.master-data.index')])
+            ->first(fn ($url) => str_starts_with($previous, $url));
+        if (! $from) {
+            return redirect()->route('admin.teams.index', $team ? ['tim' => $team->id] : []);
+        }
+        parse_str((string) parse_url($previous, PHP_URL_QUERY), $query);
+        unset($query['tim']);
+        if ($team) {
+            $query['tim'] = $team->id;
+        }
+
+        return redirect()->to($from.($query ? '?'.http_build_query($query) : ''));
+    }
+
+    /** Mahasiswa aktif yang belum tergabung (undangan diterima) di tim mana pun pada periode ini. */
+    public static function availableStudents(Period $period): Collection
+    {
+        return User::query()->students()->inPeriod($period, true)
             ->whereDoesntHave('memberships', fn ($q) => $q->where('invite_status', 'diterima')
                 ->whereHas('team', fn ($t) => $t->where('period_id', $period->id)))
             ->orderBy('name')->get(['id', 'name', 'nim']);

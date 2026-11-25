@@ -1,7 +1,7 @@
 <x-layouts.app title="Dosen">
-    <x-page-head title="Data & akun dosen" lede="Dosen masuk dengan email dan password akun yang terdaftar (akun hasil impor: password awal = kode dosen). Setiap dosen berhak akses Dosen. Hak akses Pembimbing dan Penguji tercentang otomatis saat dosen diplot, dan dapat diubah lewat tombol Ubah.">
+    <x-page-head title="Data & akun dosen" lede="Dosen masuk dengan email dan password akun yang terdaftar (akun hasil impor: password awal = {{ config('capstone.lecturer_default_password') }}, lalu diganti dosen lewat menu profil → Ganti Password).">
         <x-slot:actions>
-            @include('admin._import', ['type' => 'dosen', 'label' => 'dosen', 'button' => true, 'hint' => 'Data dengan email yang sama diperbarui, bukan diduplikasi.'])
+            @include('admin._import', ['type' => 'dosen', 'label' => 'dosen', 'button' => true, 'hint' => 'Data dengan email yang sama diperbarui, bukan diduplikasi. Kolom hak_akses: dosen_kelas, pembimbing, penguji (pisahkan dengan titik koma); hak akses ditambahkan, tidak dihapus. Untuk menandai Dosen Kelas cukup isi kode_dosen + hak_akses: dosen dicocokkan menurut kode di periode ini.'])
             {{-- Tambah dosen: modal di atas halaman; terbuka lagi bila simpan gagal validasi. --}}
             <div x-data="registrationForm" data-open="{{ $errors->any() && old('_lecturer') === 'baru' ? 'true' : 'false' }}">
                 <button type="button" class="btn btn-primary" @click="open" :aria-expanded="expanded"><x-heroicon-o-plus class="h-5 w-5" />Tambah dosen</button>
@@ -17,10 +17,10 @@
     <div class="panel">
         <div class="panel-head">
             <x-filter-bar :action="route('admin.lecturers.index')">
-                <div class="min-w-[12rem] flex-1"><label class="field-label" for="q">Cari</label><input id="q" name="q" value="{{ request('q') }}" class="input" placeholder="Nama, email, kode"></div>
+                <div class="min-w-[12rem] flex-1"><label class="field-label" for="q">Cari</label><div class="flex gap-2"><input id="q" name="q" value="{{ request('q') }}" class="input min-w-0 flex-1" placeholder="Nama, email, kode"><x-sort-by mode="server" id="urut-dosen" default="kode" :options="['kode' => 'Kode', 'nama' => 'Nama', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Peminatan)']" /></div></div>
                 <div><label class="field-label" for="akses">Hak akses</label>
                     <select id="akses" name="akses" class="input"><option value="">Semua</option>
-                        @foreach (['can_supervise' => 'Pembimbing', 'can_examine' => 'Penguji'] as $k => $l)<option value="{{ $k }}" @selected(request('akses') === $k)>{{ $l }}</option>@endforeach
+                        @foreach (\App\Models\LecturerProfile::ACCESS as $k => $l)<option value="{{ $k }}" @selected(request('akses') === $k)>{{ $l }}</option>@endforeach
                     </select></div>
             </x-filter-bar>
         </div>
@@ -35,15 +35,15 @@
                             <tr>
                                 <td class="code font-medium">{{ $l->lecturerProfile?->lecturer_code }}</td>
                                 <td><p class="font-medium">{{ $l->name }}</p>@if ($l->lecturerProfile?->nip)<p class="code text-muted">{{ $l->lecturerProfile->nip }}</p>@endif</td>
-                                <td><p>{{ $l->email }}</p><p class="code text-muted">{{ $l->phone ?: '— WA belum diisi' }}</p></td>
+                                <td><p>{{ $l->email }}</p><p class="code whitespace-nowrap text-muted">{{ $l->waNumber() ?: '-' }}</p></td>
                                 <td>{{ $l->lecturerProfile?->specialization ?? '—' }}</td>
                                 <td><div class="flex max-w-[16rem] flex-wrap gap-1">@foreach ($l->lecturerProfile?->accessLabels() ?? ['Dosen'] as $a)<span class="rounded bg-sunken px-1.5 py-0.5 text-caption">{{ $a }}</span>@endforeach</div></td>
-                                <td>@if ($l->is_active)<x-badge status="aktif" />@else<x-badge status="nonaktif" />@endif</td>
+                                <td>@if ($l->periodActive())<x-badge status="aktif" />@else<x-badge status="nonaktif" />@endif</td>
                                 <td>
                                     <div x-data="registrationForm" data-open="{{ $errors->any() && old('_lecturer') === (string) $l->id ? 'true' : 'false' }}" class="flex justify-end gap-1">
-                                        <button type="button" class="btn btn-ghost btn-sm" @click="open" :aria-expanded="expanded">Ubah</button>
-                                        @if ($l->is_active)
-                                            <form method="POST" action="{{ route('admin.lecturers.toggle', $l) }}" data-confirm="Nonaktifkan akun {{ $l->name }}? Dosen tidak dapat masuk sampai akunnya diaktifkan kembali." data-confirm-label="Nonaktifkan">
+                                        <button type="button" class="btn btn-secondary btn-sm" @click="open" :aria-expanded="expanded">Ubah</button>
+                                        @if ($l->periodActive())
+                                            <form method="POST" action="{{ route('admin.lecturers.toggle', $l) }}" data-confirm="Nonaktifkan {{ $l->name }} di periode ini? Dosen tidak dapat dipilih di periode ini; akun tidak dapat masuk bila nonaktif di semua periode." data-confirm-label="Nonaktifkan">
                                                 @csrf<button class="btn btn-ghost btn-sm text-bad-ink hover:bg-bad-tint">Nonaktifkan</button>
                                             </form>
                                         @else

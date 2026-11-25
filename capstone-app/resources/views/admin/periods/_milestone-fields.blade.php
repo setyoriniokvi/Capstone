@@ -1,12 +1,17 @@
 {{-- Isian milestone. Jenis milestone: Dokumen (jenis dokumen + tipe file; masuk pengumpulan mahasiswa) atau
-     Lainnya (tahapan seperti registrasi tim; hanya tampil di dashboard & timeline). Alpine "milestoneCategory". --}}
+     Lainnya (tahapan seperti registrasi tim; hanya tampil di dashboard & timeline). Alpine "milestoneCategory".
+     $draft (periode baru, belum tersimpan): form tidak dikirim ke server — isiannya disimpan ke draf periode
+     (Alpine "periodDraft" saveMilestone) dan ikut terkirim bersama tombol "Buat Periode". --}}
 @php
-    $uid = $m->id ?? 'new';
-    $category = old('category', $m->exists ? $m->category() : 'dokumen');
+    $draft ??= false;
+    $uid = $draft ? 'draft' : ($m->id ?? 'new');
+    $category = $draft ? 'dokumen' : old('category', $m->exists ? $m->category() : 'dokumen');
 @endphp
-<form method="POST" action="{{ $action }}" x-data="milestoneCategory" data-category="{{ $category }}" class="grid gap-3 sm:grid-cols-6">
-    @csrf
-    @if ($method === 'PUT') @method('PUT') @endif
+<form @if ($draft) data-draft-milestone @submit.prevent="saveMilestone" @else method="POST" action="{{ $action }}" @endif x-data="milestoneCategory" data-category="{{ $category }}" class="grid gap-3 sm:grid-cols-6">
+    @unless ($draft)
+        @csrf
+        @if ($method === 'PUT') @method('PUT') @endif
+    @endunless
     <div class="sm:col-span-3">
         <label class="field-label" for="m-name-{{ $uid }}">Nama milestone<span class="text-bad-ink" aria-hidden="true"> *</span></label>
         <input id="m-name-{{ $uid }}" name="name" class="input" value="{{ $m->name }}" required placeholder="Pengumpulan Proposal">

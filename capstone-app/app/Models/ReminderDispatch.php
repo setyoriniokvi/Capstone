@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ReminderDispatch extends Model
 {
     protected $fillable = [
+        'period_id',
         'dedupe_key', 'job_type', 'job_ref', 'lecturer_id', 'reminder_rule_id', 'trigger', 'channel', 'recipient',
         'payload', 'status', 'attempts', 'last_error', 'deadline_at', 'claimed_at', 'sent_at', 'created_by',
     ];

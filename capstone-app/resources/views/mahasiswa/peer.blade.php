@@ -1,8 +1,9 @@
 {{-- F28 — Peer review. Kartu tim: nama tim + indikator "x/y Anggota Tim dinilai"; daftar rekan dengan status
-     Dinilai/Belum Dinilai dan tombol "Nilai" yang membuka panel penilaian 6 aspek (rubrik config/peer_rubric.php).
-     Tiap aspek dinilai dengan skala 1–5 (tombol bulat ala Google Form) berikon wajah (Alpine "peerSlider"): 1–2 cemberut, 3 datar, 4–5 senyum. --}}
+     Dinilai/Belum Dinilai dan tombol "Nilai" yang membuka panel penilaian per aspek (rubrik diatur admin di Rubrik Peer Review).
+     Tiap aspek dinilai dengan 5 level bernilai 0 / 50 / 65 / 75 / 90 (tombol bulat ala Google Form, PeerAspect::POINTS) berikon wajah
+     (Alpine "peerSlider"): 0–50 cemberut, 65 datar, 75–90 senyum; deskripsi rubrik level terpilih tampil di bawahnya. --}}
 <x-layouts.app title="Peer Review">
-    <x-page-head title="Peer review" lede="Nilai rekan satu tim pada {{ count($aspects) }} aspek kerja tim (skala 1–5). Peer review menyumbang 10% nilai akhir (CLO5). Terbuka selama periode berlangsung dan dapat diubah kapan saja." />
+    <x-page-head title="Peer review" />
 
     @if (! $team || $team->status !== 'diterima')
         <div class="panel"><x-empty title="Peer review tersedia setelah tim diterima" icon="users" /></div>
@@ -30,16 +31,21 @@
                         $mine = old('reviewee_id') == $mate->id;
                     @endphp
                     <li x-data="registrationForm" data-open="{{ $mine && $errors->any() ? 'true' : 'false' }}" class="px-5 py-4 sm:px-6">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-tint text-sm font-semibold text-brand-deep" aria-hidden="true">{{ $mate->initials() }}</span>
-                            <div class="min-w-0 flex-1">
-                                <p class="font-semibold text-ink">{{ $mate->name }}</p>
-                                <p class="code text-sm text-muted">{{ $mate->nim }}</p>
+                        {{-- Layar ≥ sm: tiga kolom sama lebar kiri/kanan sehingga status tepat di tengah baris --}}
+                        <div class="flex flex-wrap items-center gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                            <div class="flex min-w-0 flex-1 items-center gap-3">
+                                <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-tint text-sm font-semibold text-brand-deep" aria-hidden="true">{{ $mate->initials() }}</span>
+                                <div class="min-w-0">
+                                    <p class="font-semibold text-ink">{{ $mate->name }}</p>
+                                    <p class="code text-sm text-muted">{{ $mate->nim }}</p>
+                                </div>
                             </div>
-                            <x-badge :status="$isDone ? 'diterima' : 'menunggu'" :label="$isDone ? 'Dinilai' : 'Belum Dinilai'" />
-                            <button type="button" class="btn btn-secondary btn-sm" @click="toggle" :aria-expanded="expanded" aria-controls="nilai-{{ $mate->id }}">
-                                {{ $isDone ? 'Ubah nilai' : 'Nilai' }}
-                            </button>
+                            <x-badge class="justify-self-center" :status="$isDone ? 'diterima' : 'menunggu'" :label="$isDone ? 'Dinilai' : 'Belum Dinilai'" />
+                            <div class="flex justify-end">
+                                <button type="button" class="btn btn-secondary btn-sm" @click="toggle" :aria-expanded="expanded" aria-controls="nilai-{{ $mate->id }}">
+                                    {{ $isDone ? 'Ubah nilai' : 'Nilai' }}
+                                </button>
+                            </div>
                         </div>
 
                         <x-modal width="sm:max-w-3xl">
@@ -51,8 +57,10 @@
                             <div class="divide-y divide-rule [&>*]:py-6 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
                                 @foreach ($aspects as $aspect => $label)
                                     @php
-                                        $value = (int) ($mine ? old("scores.{$aspect}") : null) ?: (int) ($existing->get($mate->id)?->get($aspect) ?? 3);
-                                        $levelNames = [1 => 'Sangat buruk', 2 => 'Buruk', 3 => 'Cukup', 4 => 'Baik', 5 => 'Sangat baik'];
+                                        // Nilai terpilih: isian gagal kirim → nilai tersimpan → bawaan 65 (level tengah)
+                                        $old = $mine ? old("scores.{$aspect}") : null;
+                                        $value = (int) ($old ?? $existing->get($mate->id)?->get($aspect) ?? 65);
+                                        $points = \App\Models\PeerAspect::POINTS;
                                     @endphp
                                     <div>{{-- pembungkus: garis pemisah di atas tiap aspek (legend fieldset tidak ikut "menumpang" di garis) --}}
                                     <fieldset x-data="peerSlider" data-value="{{ $value }}">
@@ -67,17 +75,17 @@
                                                 <circle cx="26" cy="16" r="2" class="fill-ink" />
                                                 <path class="fill-none stroke-ink" stroke-width="2.5" stroke-linecap="round" :style="mouthStyle" />
                                             </svg>
-                                            {{-- Skala linear 1–5 ala Google Form: 1 (kiri) = sangat buruk, 5 (kanan) = sangat baik --}}
+                                            {{-- Skala 5 level ala Google Form: 0 (kiri) = terendah, 90 (kanan) = tertinggi --}}
                                             <div class="min-w-0 flex-1">
                                                 <div class="flex items-end gap-2 sm:gap-4">
                                                     <span class="hidden pb-2.5 text-caption text-muted sm:block">Sangat buruk</span>
                                                     <div class="grid flex-1 grid-cols-5">
-                                                        @foreach (range(1, 5) as $s)
+                                                        @foreach ($points as $level => $s)
                                                             <label class="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 hover:bg-sunken">
                                                                 <span class="text-sm font-medium tabular text-ink" aria-hidden="true">{{ $s }}</span>
                                                                 <input type="radio" name="scores[{{ $aspect }}]" value="{{ $s }}" @checked($value === $s) @change="change"
                                                                        class="h-5 w-5 cursor-pointer accent-brand">
-                                                                <span class="sr-only">{{ $s }} — {{ $levelNames[$s] }}</span>
+                                                                <span class="sr-only">{{ $s }} - {{ $rubric[$aspect]['levels'][$level] ?? '' }}</span>
                                                             </label>
                                                         @endforeach
                                                     </div>
@@ -86,6 +94,12 @@
                                                 <div class="mt-1 flex justify-between text-caption text-muted sm:hidden"><span>Sangat buruk</span><span>Sangat baik</span></div>
                                             </div>
                                         </div>
+                                        {{-- Deskripsi rubrik untuk nilai yang sedang dipilih --}}
+                                        @foreach ($points as $level => $s)
+                                            <p x-show="value === {{ $s }}" @if ($value !== $s) x-cloak @endif class="mt-3 rounded-lg border border-rule bg-sunken px-3 py-2 text-sm text-ink">
+                                                <span class="font-semibold tabular">[{{ $s }}]</span> {{ $rubric[$aspect]['levels'][$level] ?? '' }}
+                                            </p>
+                                        @endforeach
                                     </fieldset>
                                     </div>
                                 @endforeach

@@ -53,7 +53,7 @@ class PlottingController extends Controller
 
         $data = $request->validate([
             'role' => ['required', 'in:pembimbing,penguji'],
-            'lecturer_id' => ['required', Rule::exists('users', 'id')->where('role', 'dosen')->where('is_active', true)],
+            'lecturer_id' => ['required', User::lecturerRule()],
         ], ['lecturer_id.required' => 'Pilih dosen.']);
         $lecturer = User::query()->findOrFail($data['lecturer_id']);
         $fromLecturer = $request->input('return') === 'dosen';

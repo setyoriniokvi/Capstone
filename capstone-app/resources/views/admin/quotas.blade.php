@@ -1,5 +1,5 @@
 {{-- F9 — Kuota beban dosen: kartu "Aturan kuota" (Berlaku untuk · Kuota Pembimbing · Kuota Penguji · Edit/Hapus).
-     "Tambah Kuota" (kanan atas) membuka modal: cakupan Global atau Dosen tertentu — pencarian dosen (nama/NIP/peminatan,
+     "Tambah Kuota" (kanan atas) membuka modal: cakupan Global, Dosen kelas, atau Dosen tertentu — pencarian dosen (nama/NIP/peminatan,
      boleh lebih dari satu; Alpine "proposerPicker") hanya aktif untuk dosen tertentu (Alpine "quotaForm").
      Di bawahnya kartu daftar dosen (admin/_quota-lecturers): cari kode/nama + filter peminatan, area gulir setinggi
      10,5 baris dengan tombol panah ke bawah, kuota yang berlaku per dosen, serta Edit / Reset kuota. --}}
@@ -13,7 +13,7 @@
     ])->values();
 @endphp
 <x-layouts.app title="Kuota Dosen">
-    <x-page-head title="Kuota beban dosen" lede="Maksimum = jumlah tim yang dapat dibimbing / diuji (0 = tidak menerima tim); minimum untuk menandai beban UNDER. Prioritas: per dosen, lalu global.">
+    <x-page-head title="Kuota beban dosen" lede="Maksimum = jumlah tim yang dapat dibimbing / diuji (0 = tidak menerima tim); minimum untuk menandai beban UNDER.">
         @if ($period)
             <x-slot:actions>
                 {{-- Tambah kuota: modal di atas halaman; terbuka lagi bila simpan gagal validasi --}}
@@ -28,6 +28,7 @@
                             <x-field label="Cakupan" name="scope" required>
                                 <select id="scope" name="scope" class="input" @change="change">
                                     <option value="global">Global (semua dosen)</option>
+                                    <option value="dosen_kelas" @selected($creating && old('scope') === 'dosen_kelas')>Dosen kelas</option>
                                     <option value="dosen" @selected($creating && old('scope') === 'dosen')>Dosen tertentu</option>
                                 </select>
                             </x-field>
@@ -77,7 +78,7 @@
                                 <button type="button" class="btn btn-ghost" @click="close">Batal</button>
                                 <button class="btn btn-primary" data-once>Simpan kuota</button>
                             </div>
-                            <p class="text-caption text-muted">Menyimpan cakupan yang sama (global, atau dosen yang sudah punya aturan) menimpa aturan sebelumnya.</p>
+                            <p class="text-caption text-muted">Menyimpan cakupan yang sama (global, dosen kelas, atau dosen yang sudah punya aturan) menimpa aturan sebelumnya.</p>
                         </form>
                     </x-modal>
                 </div>
@@ -88,10 +89,13 @@
     @if (! $period)
         <div class="panel"><x-empty title="Buka dashboard periode terlebih dahulu" icon="calendar-days" /></div>
     @else
-        <section class="panel overflow-hidden" aria-labelledby="kuota-judul">
-            <div class="flex items-center justify-between gap-3 px-5 py-4 sm:px-6">
+        <section data-sort-scope class="panel overflow-hidden" aria-labelledby="kuota-judul">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6">
                 <h2 id="kuota-judul" class="text-lg font-semibold text-ink">Aturan kuota</h2>
-                <span class="text-sm text-muted"><span class="tabular font-medium text-ink">{{ $quotas->count() }}</span> aturan</span>
+                <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                    @if ($quotas->isNotEmpty())<x-sort-by id="urut-aturan-kuota" default="berlaku" :options="['berlaku' => 'Berlaku untuk', 'terbaru' => 'Tanggal', 'kategori' => 'Kategori (Global / Dosen kelas / Dosen tertentu)']" />@endif
+                    <span class="text-sm text-muted"><span class="tabular font-medium text-ink">{{ $quotas->count() }}</span> aturan</span>
+                </div>
             </div>
             @if ($quotas->isEmpty())
                 <div class="border-t border-rule"><x-empty title="Belum ada aturan kuota" icon="scale">Mulai dari aturan global lewat tombol Tambah Kuota.</x-empty></div>
@@ -99,13 +103,14 @@
                 <x-scroll-pager>
                     <table class="data-table w-full min-w-[44rem] border-t border-rule {{ $cells }} [&_tbody_tr:hover_td]:bg-transparent">
                         <thead class="{{ $greenHead }}"><tr><th>Berlaku untuk</th><th>Kuota Pembimbing</th><th>Kuota Penguji</th><th><span class="sr-only">Aksi</span></th></tr></thead>
-                        <tbody>
+                        <tbody data-sort-list>
                             @foreach ($quotas as $q)
                                 @php $editing = $errors->any() && old('_quota') === (string) $q->id; @endphp
-                                <tr x-data="registrationForm" data-open="{{ $editing ? 'true' : 'false' }}" class="[&>td]:py-4">
+                                <tr x-data="registrationForm" data-open="{{ $editing ? 'true' : 'false' }}" class="[&>td]:py-4"
+                                    data-sort-item data-sort-berlaku="{{ $q->targetLabel() }}" data-sort-terbaru="{{ $q->created_at?->timestamp }}" data-sort-kategori="{{ $q->coverageLabel() }}">
                                     <td>
-                                        @if ($q->scope === 'global')
-                                            <p class="font-medium text-ink">Semua dosen</p><p class="text-caption text-muted">Global</p>
+                                        @if ($q->scope !== 'dosen')
+                                            <p class="font-medium text-ink">{{ $q->targetLabel() }}</p><p class="text-caption text-muted">{{ $q->coverageLabel() }}</p>
                                         @else
                                             <p class="font-medium text-ink">{{ $q->lecturer?->name ?? '—' }}</p><p class="text-caption text-muted">{{ $q->lecturer?->lecturerProfile?->nip ?: 'Dosen tertentu' }}</p>
                                         @endif
@@ -120,13 +125,13 @@
                                     @endforeach
                                     <td>
                                         <div class="flex justify-end gap-1">
-                                            <button type="button" class="btn btn-ghost btn-sm" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
-                                            <form method="POST" action="{{ route('admin.quotas.destroy', $q) }}" data-confirm="Hapus aturan kuota {{ $q->scope === 'global' ? 'global' : 'untuk '.$q->lecturer?->name }}?" data-confirm-label="Hapus">
+                                            <button type="button" class="btn btn-secondary btn-sm" @click="open" :aria-expanded="expanded"><x-heroicon-o-pencil-square class="h-4 w-4" /> Edit</button>
+                                            <form method="POST" action="{{ route('admin.quotas.destroy', $q) }}" data-confirm="Hapus aturan kuota {{ $q->scope === 'dosen' ? 'untuk '.$q->lecturer?->name : mb_strtolower($q->coverageLabel()) }}?" data-confirm-label="Hapus">
                                                 @csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-bad-ink"><x-heroicon-o-trash class="h-4 w-4" /> Hapus</button>
                                             </form>
                                         </div>
                                         <x-modal width="sm:max-w-xl">
-                                            <x-slot:heading>Edit kuota · {{ $q->scope === 'global' ? 'Semua dosen' : $q->lecturer?->name }}</x-slot:heading>
+                                            <x-slot:heading>Edit kuota · {{ $q->targetLabel() }}</x-slot:heading>
                                             <form method="POST" action="{{ route('admin.quotas.update', $q) }}" class="space-y-4">
                                                 @csrf @method('PUT')
                                                 <input type="hidden" name="_quota" value="{{ $q->id }}">

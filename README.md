@@ -1,6 +1,6 @@
 # Capstone — Fakultas Rekayasa Industri, Telkom University
 
-Aplikasi web untuk mengelola siklus mata kuliah Capstone Design & Project selama 16 minggu: registrasi tim, topik, plotting dosen, bimbingan, dokumen milestone, penilaian berbasis rubrik, peer review, sampai rekap nilai akhir. Ada tiga peran: **Admin**, **Mahasiswa**, dan **Dosen**.
+Aplikasi web untuk mengelola siklus mata kuliah Capstone Design & Project selama 16 minggu: registrasi tim, topik, plotting dosen, bimbingan, dokumen milestone, penilaian berbasis rubrik, peer review, sampai rekap nilai akhir. Ada empat peran: **Admin Fakultas**, **Admin Prodi**, **Mahasiswa**, dan **Dosen**.
 
 ```
 Capstone/
@@ -78,18 +78,42 @@ Selama mengembangkan tampilan, `npm run dev` lebih praktis karena perubahan lang
 
 Gambar di `resources/images` diberi nama ber-hash saat build, sehingga browser otomatis memuat versi terbaru bila gambar diganti.
 
-Akun demo (password semua akun `password`, daftarnya tampil di bawah form login bila `DEV_LOGIN=true`): `admin@gmail.com`, `mahasiswa@gmail.com`, `dosen@gmail.com`. Data demo lain memakai `mahasiswa2`–`mahasiswa14@gmail.com` dan `dosen2`–`dosen5@gmail.com`. Semua nama dan email pada `DemoSeeder` adalah contoh, bukan data resmi.
+Akun demo (password semua akun `password`, daftarnya tampil di bawah form login bila `DEV_LOGIN=true`): `admin@gmail.com` (admin fakultas), `adminprodi@gmail.com` (admin prodi periode demo), `mahasiswa@gmail.com`, `dosen@gmail.com`. Data demo lain memakai `mahasiswa2`–`mahasiswa14@gmail.com` dan `dosen2`–`dosen5@gmail.com`. Semua nama dan email pada `DemoSeeder` adalah contoh, bukan data resmi.
+
+Ada dua peran admin:
+- **Admin fakultas** mengelola semua periode (Kelola Periode). Admin fakultas juga mengatur akun admin prodi lewat kartu *Akun admin prodi* di pengaturan periode.
+- **Admin prodi** punya satu akun per periode. Saat masuk, admin prodi langsung berada di Dashboard Periode miliknya. Jika email yang sama dipakai di beberapa periode, itu satu akun dan bisa berganti periode lewat menu periode di sidebar.
+
+Semua akun bisa masuk dari beberapa perangkat sekaligus.
+
+Data master dimiliki tiap periode, jadi perubahan di satu periode tidak memengaruhi periode lain. Data master ini mencakup:
+- bentuk penilaian, CLO, indikator, dan rubrik
+- reminder
+- instruksi dan kata kunci topik
+- file pendukung
+- log master data
+- daftar dosen dan mahasiswa
+- koneksi Google Drive (OAuth)
+
+Periode baru menyalin data master dari periode lain atau dari data bawaan.
+
+Beberapa periode boleh aktif bersamaan, sehingga tiap prodi bisa berjalan paralel:
+- **Dosen dan mahasiswa** yang terdaftar di beberapa periode aktif mendapat menu ganti periode di sidebar. Pilihannya disimpan per sesi, jadi tiap perangkat bisa membuka periode berbeda.
+- **Registrasi tim** meminta pendaftar memilih periode/prodi bila ada lebih dari satu periode aktif.
+- **Reminder dan notifikasi deadline** berjalan untuk setiap periode aktif.
+- **Profil dosen dibuat per periode:** kode dosen, NIP, peminatan, hak Pembimbing/Penguji, dan nomor WhatsApp. Email, nama, dan password tetap satu akun.
 
 ## Konfigurasi produksi
 
 | Kebutuhan | Variabel `.env` | Catatan |
 | --- | --- | --- |
 | Database (PRD §3.1) | `DB_CONNECTION=mysql`, `DB_*` | MySQL/MariaDB 8 |
-| Login (F1) | `DEV_LOGIN=false` | Login email + password. Password awal akun impor: mahasiswa = NIM, dosen = kode dosen; admin dapat menggantinya di form edit. `DEV_LOGIN=false` menyembunyikan daftar akun demo |
+| Login (F1) | `DEV_LOGIN=false` | Login email + password. Password awal akun impor: mahasiswa = NIM, dosen = `LECTURER_DEFAULT_PASSWORD` (bawaan `12345678`); dosen menggantinya sendiri lewat menu profil → Ganti Password, admin juga dapat menggantinya di form edit. `DEV_LOGIN=false` menyembunyikan daftar akun demo |
 | Google Drive (F33–F41) — service account | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_AUTH=service_account`, `GOOGLE_DRIVE_CREDENTIALS` | Service account JSON. Folder tujuan sebaiknya di **Shared Drive** yang dibagikan ke email service account. ID folder Drive diatur per milestone di menu Periode |
-| Google Drive (F33–F41) — OAuth | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_AUTH=oauth`, `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI` (opsional) | OAuth client ID tipe *Web application*; Authorized redirect URI = `{APP_URL}/admin/google-drive/callback`. Admin lalu klik **Hubungkan akun Google** di menu Sinkronisasi Dokumen. Token tersimpan terenkripsi di `storage/app/private` (tidak masuk git) |
+| Google Drive (F33–F41) — OAuth | `GOOGLE_DRIVE_ENABLED=true`, `GOOGLE_DRIVE_AUTH=oauth`, `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, `GOOGLE_DRIVE_REDIRECT_URI` (opsional) | OAuth client ID tipe *Web application*; Authorized redirect URI = `{APP_URL}/admin/google-drive/callback`. Admin lalu klik **Hubungkan akun Google** di menu Sinkronisasi Dokumen, satu kali per periode. Token tersimpan terenkripsi per periode di `storage/app/private` (tidak masuk git) |
 | Email (F21) | `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` | Mengirim keputusan registrasi tim dan tautan atur password ke anggota. Tanpa SMTP (`MAIL_MAILER=log`) email hanya ditulis ke `storage/logs/laravel.log` |
-| n8n (F49–F57) | `AUTOMATION_TOKEN`, `N8N_REMINDER_WEBHOOK_URL` | Token acak panjang; URL webhook diambil dari node *Pemicu manual* |
+| WhatsApp pengingat dosen (F49–F57) | `REMINDER_SENDER=app`, `FONNTE_TOKEN` | Aplikasi mengirim sendiri: WhatsApp lewat Fonnte (token perangkat dari dashboard Fonnte → Device), email lewat SMTP. Jalankan scheduler (`php artisan schedule:work` saat lokal); uji di Admin → Notifikasi Otomatis → *Kirim pesan uji* |
+| n8n (F49–F57, alternatif) | `REMINDER_SENDER=n8n`, `AUTOMATION_TOKEN`, `N8N_REMINDER_WEBHOOK_URL` | Token acak panjang; URL webhook diambil dari node *Pemicu manual* |
 
 Akun dosen dan admin dibuat lewat impor / ditambah admin. Mahasiswa dapat mendaftar sendiri di `/registrasi`: ketua membuat akunnya sekaligus mendaftarkan tim; anggota lain mengatur password lewat tautan di email keputusan admin. Peran dibaca dari data akun.
 
@@ -110,7 +134,7 @@ Alurnya: n8n memanggil `POST /api/automation/reminders/claim` → backend mengem
 | F3, F4 | Admin → Dosen / Mahasiswa / Registrasi Tim, termasuk impor Excel/CSV dengan pratinjau per baris |
 | F5, F6 | Admin → Aturan Registrasi; screening otomatis (flag + skor) di detail tim |
 | F7, F8 | Admin → Approval Topik (cek kata kunci terlarang), Rekap Topik Final |
-| F9, F10 | Admin → Kuota Dosen (minimum & maksimum per peran, global / per dosen; maksimum 0 = tidak menerima tim), Plotting Dosen dengan sisa kuota (dari maksimum) dan flag OVER/UNDER |
+| F9, F10 | Admin → Kuota Dosen (minimum & maksimum per peran, cakupan global / dosen kelas / dosen tertentu; maksimum 0 = tidak menerima tim). Hak akses Dosen Kelas dapat dicentang di Data Dosen atau diimpor (kolom kode_dosen + hak_akses), Plotting Dosen dengan sisa kuota (dari maksimum) dan flag OVER/UNDER |
 | F11, F12 | Admin → Progres Tim, Penilaian & Reminder |
 | F13–F16 | Admin → Master Penilaian (CLO, indikator, rubrik dokumen, rubrik lisan) |
 | F17, F20, F45 | File Pendukung |

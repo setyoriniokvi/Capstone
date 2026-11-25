@@ -41,11 +41,7 @@ class TeamController extends Controller
 
         $teams = $period ? Team::query()->where('period_id', $period->id)
             ->whereHas('lecturers', fn ($l) => $l->where('lecturer_id', $request->user()->id)->where('role', $role))
-            ->when($jenis, fn ($t) => $t->whereHas('finalTopic', fn ($f) => $f->where('source', $jenis)))
-            ->when($q !== '', fn ($t) => $t->where(fn ($w) => $w->where('name', 'like', "%{$q}%")
-                ->orWhereHas('finalTopic', fn ($f) => $f->where('title', 'like', "%{$q}%"))
-                ->orWhereHas('members', fn ($m) => $m->where('invite_status', 'diterima')
-                    ->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$q}%")->orWhere('nim', 'like', "%{$q}%")))))
+            // Cari & filter jenis topik berjalan di browser (Alpine "listFilter"): semua tim dikirim, ?q / ?jenis hanya isian awal
             ->with([
                 'finalTopic', 'members' => fn ($m) => $m->where('invite_status', 'diterima')->orderByDesc('is_leader')->with('user'),
                 'documents' => fn ($d) => $d->where('state', 'aktif')->with('currentVersion'),
@@ -84,7 +80,7 @@ class TeamController extends Controller
         ], ['feedback.required_if' => 'Tuliskan catatan revisi untuk mahasiswa.']);
 
         $document->update($data + ['feedback_by' => $request->user()->id, 'feedback_at' => now()]);
-        SystemNotice::sendTo([$document->owner], 'Feedback dokumen '.$document->typeLabel(), ucfirst($data['review_status']).($data['feedback'] ? ' — '.$data['feedback'] : ''), route('mahasiswa.documents.index'));
+        SystemNotice::sendTo([$document->owner], 'Feedback dokumen '.$document->typeLabel(), ucfirst($data['review_status']).($data['feedback'] ? ' - '.$data['feedback'] : ''), route('mahasiswa.documents.index'));
 
         return back()->with('status', 'Feedback dokumen disimpan.');
     }

@@ -1,4 +1,4 @@
-<x-layouts.app title="Dashboard">
+<x-layouts.app title="Dashboard" banner>
     @if (! $period)
         <x-page-head title="Selamat datang di Capstone" lede="Mulai dengan membuat periode Capstone, lalu atur timeline, aturan registrasi, dan impor data dosen serta mahasiswa." />
         <div class="panel">

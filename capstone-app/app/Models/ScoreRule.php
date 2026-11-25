@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToPeriod;
+use App\Support\PeriodContext;
 use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
@@ -12,10 +14,12 @@ use Throwable;
  */
 class ScoreRule extends Model
 {
+    use BelongsToPeriod;
+
     protected $fillable = ['key', 'label', 'description', 'settings', 'sort_order'];
 
-    /** Pengaturan faktor pemahaman yang sedang berlaku (dibaca sekali per proses). */
-    private static ?array $oral = null;
+    /** Pengaturan faktor pemahaman yang sedang berlaku per periode (dibaca sekali per proses). */
+    private static array $oral = [];
 
     protected function casts(): array
     {
@@ -24,14 +28,20 @@ class ScoreRule extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn () => self::$oral = null);
-        static::deleted(fn () => self::$oral = null);
+        static::saved(fn () => self::flush());
+        static::deleted(fn () => self::flush());
+    }
+
+    public static function flush(): void
+    {
+        self::$oral = [];
     }
 
     /** @return array{schemes: list<string>, default_factor: float} */
     public static function oralSettings(): array
     {
-        if (self::$oral === null) {
+        $cache = (string) PeriodContext::id();
+        if (! isset(self::$oral[$cache])) {
             try {
                 $settings = static::query()->where('key', 'oral_factor')->value('settings');
                 $settings = is_string($settings) ? json_decode($settings, true) : $settings;
@@ -39,13 +49,13 @@ class ScoreRule extends Model
                 $settings = null;
             }
             // Bawaan bila tabel belum ada: skema yang ditandai "oral" di config, faktor lain 1,00.
-            self::$oral = [
+            self::$oral[$cache] = [
                 'schemes' => $settings['schemes'] ?? array_keys(array_filter(config('capstone.schemes'), fn ($s) => $s['oral'] ?? false)),
                 'default_factor' => (float) ($settings['default_factor'] ?? 1),
             ];
         }
 
-        return self::$oral;
+        return self::$oral[$cache];
     }
 
     /** Skema yang nilai indikatornya dikalikan faktor pemahaman dari Rubrik Lisan. */
@@ -58,11 +68,5 @@ class ScoreRule extends Model
     public static function defaultFactor(): float
     {
         return self::oralSettings()['default_factor'];
-    }
-
-    /** Teks rumus yang sedang dipakai sistem (ditampilkan di kartu). */
-    public static function formulaText(): string
-    {
-        return 'Nilai indikator = (Skor ÷ 5) × Bobot × Faktor Pemahaman';
     }
 }

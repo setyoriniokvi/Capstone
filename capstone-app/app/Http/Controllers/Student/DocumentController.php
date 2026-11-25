@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Student;
 
 use App\Models\Document;
-use App\Models\DocumentVersion;
 use App\Models\Milestone;
 use App\Models\Period;
 use App\Models\Team;
@@ -30,8 +29,7 @@ class DocumentController extends StudentController
         $range = array_key_exists((string) $request->query('rentang'), self::RANGES) ? (string) $request->query('rentang') : 'semua';
 
         $milestones = $period->milestones()->where('kind', 'dokumen')->orderBy('due_at')->get()
-            ->when($range !== 'semua', fn ($c) => $c->filter(fn (Milestone $m) => $m->due_at->between(now(), now()->addDays((int) $range))))
-            ->values();
+            ->values(); // rentang deadline disaring di browser (data-filter-rentang); ?rentang hanya pilihan awal
 
         // Dokumen aktif tim per milestone (satu per milestone).
         $submissions = $team ? Document::query()->where('team_id', $team->id)->where('state', 'aktif')
@@ -43,7 +41,6 @@ class DocumentController extends StudentController
             'groups' => $milestones->groupBy(fn (Milestone $m) => $m->due_at->toDateString()),
             'submissions' => $submissions,
             'gate' => $this->gate($team),
-            'driveEnabled' => $documents->driveEnabled(),
             'approvedLogbooks' => $team?->approvedLogbookCount() ?? 0,
             'minLogbooks' => Period::minLogbooks($team?->period),
         ]);
@@ -72,7 +69,6 @@ class DocumentController extends StudentController
 
         $version = $documents->upload($team, $milestone, $request->user(), $request->file('file'), $request->input('idempotency_key'));
         $message = $version->revision_no > 1 ? 'File pengumpulan diperbarui.' : 'Dokumen tim dikumpulkan.';
-        $message .= $documents->driveEnabled() ? ' Sinkronisasi ke Google Drive berjalan di latar belakang.' : '';
 
         if ($request->expectsJson()) {
             session()->flash('status', $message);
@@ -81,14 +77,6 @@ class DocumentController extends StudentController
         }
 
         return back()->with('status', $message);
-    }
-
-    public function retry(Request $request, DocumentVersion $version, DocumentService $documents): RedirectResponse
-    {
-        $this->authorizeTeam($version->document);
-        $documents->retry($version);
-
-        return back()->with('status', 'Sinkronisasi dicoba ulang.');
     }
 
     /** Seluruh anggota tim boleh mengelola pengumpulan timnya. */

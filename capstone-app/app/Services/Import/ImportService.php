@@ -19,8 +19,8 @@ use Illuminate\Support\Str;
 class ImportService
 {
     public const TEMPLATES = [
-        'dosen' => ['nip', 'nama', 'kode_dosen', 'email', 'no_wa', 'peminatan'],
-        'mahasiswa' => ['nim', 'nama', 'email', 'no_wa', 'sks_lulus', 'mk_lulus', 'daerah_asal', 'peminatan'],
+        'dosen' => ['nip', 'nama', 'kode_dosen', 'email', 'no_wa', 'peminatan', 'hak_akses'],
+        'mahasiswa' => ['nim', 'nama', 'email', 'kelas', 'no_wa', 'sks_lulus', 'mk_lulus', 'daerah_asal', 'peminatan'],
         'tim' => ['nama_tim', 'nim_ketua', 'nim_anggota_2', 'nim_anggota_3'],
     ];
 
@@ -29,6 +29,20 @@ class ImportService
         'mahasiswa' => ['nim', 'nama', 'email'],
         'tim' => ['nama_tim', 'nim_ketua', 'nim_anggota_2'],
     ];
+
+    /**
+     * Kolom yang wajib ada di header file. Dosen cukup kode_dosen: baris tanpa email dicocokkan dengan dosen periode
+     * ini menurut kode (mis. file berisi kode_dosen + hak_akses saja untuk menandai Dosen Kelas). Mahasiswa cukup nim:
+     * mahasiswa terdaftar diperbarui menurut NIM (mis. nim + kelas); nama & email tetap wajib per baris untuk mahasiswa baru.
+     */
+    public static function headerColumns(string $type): array
+    {
+        return match ($type) {
+            'dosen' => ['kode_dosen'],
+            'mahasiswa' => ['nim'],
+            default => self::REQUIRED[$type],
+        };
+    }
 
     public function __construct(private readonly ScreeningService $screening) {}
 
@@ -68,6 +82,10 @@ class ImportService
         if ($type === 'mahasiswa' && ($d['nim'] ?? '') !== '' && User::query()->students()->where('nim', $d['nim'])->exists()) {
             return ['nim'];
         }
+        // Dosen periode ini dicocokkan menurut kode: cukup kode_dosen + kolom yang ingin diubah (mis. hak_akses).
+        if ($type === 'dosen' && ($d['email'] ?? '') === '' && $this->lecturerByCode($d)) {
+            return ['kode_dosen'];
+        }
 
         return self::REQUIRED[$type];
     }
@@ -80,8 +98,8 @@ class ImportService
         DB::transaction(function () use ($type, $valid, $period) {
             foreach ($valid as $row) {
                 match ($type) {
-                    'dosen' => $this->saveLecturer($row['data']),
-                    'mahasiswa' => $this->saveStudent($row['data']),
+                    'dosen' => $this->saveLecturer($row['data'], $period),
+                    'mahasiswa' => $this->saveStudent($row['data'], $period),
                     'tim' => $this->saveTeam($row['data'], $period),
                 };
             }
@@ -90,8 +108,53 @@ class ImportService
         return count($valid);
     }
 
+    /** Profil dosen periode yang sedang dibuka dengan kode_dosen baris ini. */
+    private function lecturerByCode(array $d): ?LecturerProfile
+    {
+        $code = Str::upper(trim($d['kode_dosen'] ?? ''));
+
+        return $code === '' ? null : LecturerProfile::query()->where('lecturer_code', $code)->first();
+    }
+
+    /**
+     * Kolom hak_akses: kata kunci dipisah titik koma / koma (dosen_kelas, pembimbing, penguji; "Dosen Kelas" juga
+     * diterima). Hak akses ditambahkan, tidak menghapus hak akses yang sudah ada.
+     *
+     * @return array{columns: list<string>, unknown: list<string>}
+     */
+    private function accessColumns(array $d): array
+    {
+        $columns = [];
+        $unknown = [];
+        foreach (preg_split('/[;,|]/', (string) ($d['hak_akses'] ?? '')) as $token) {
+            $key = Str::of($token)->trim()->lower()->replaceMatches('/[\s\-]+/', '_')->toString();
+            if ($key === '' || $key === 'dosen') {
+                continue;
+            }
+            isset(LecturerProfile::IMPORT_ACCESS[$key]) ? $columns[] = LecturerProfile::IMPORT_ACCESS[$key] : $unknown[] = trim($token);
+        }
+
+        return ['columns' => array_values(array_unique($columns)), 'unknown' => $unknown];
+    }
+
     private function validateLecturer(array $d, array &$errors, array &$seen, string &$action): void
     {
+        if ($unknown = $this->accessColumns($d)['unknown']) {
+            $errors[] = 'Hak akses tidak dikenal: '.implode(', ', $unknown).'. Gunakan dosen_kelas, pembimbing, atau penguji.';
+        }
+        if (($d['email'] ?? '') === '') {
+            if (isset($seen['kode:'.Str::upper($d['kode_dosen'] ?? '')])) {
+                $errors[] = 'Duplikat kode di dalam file.';
+            }
+            $seen['kode:'.Str::upper($d['kode_dosen'] ?? '')] = true;
+            if (($d['kode_dosen'] ?? '') !== '' && ! $this->lecturerByCode($d)) {
+                $errors[] = 'Kode dosen tidak ditemukan di periode ini. Isi nama & email untuk menambah dosen baru.';
+            }
+            $action = 'perbarui';
+
+            return;
+        }
+
         $email = Str::lower($d['email'] ?? '');
         if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'Format email tidak valid.';
@@ -119,6 +182,9 @@ class ImportService
         $email = Str::lower($d['email'] ?? '');
         if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'Format email tidak valid.';
+        }
+        if (mb_strlen(trim($d['kelas'] ?? '')) > 30) {
+            $errors[] = 'kelas maksimal 30 karakter.';
         }
         if (($d['sks_lulus'] ?? '') !== '' && ! ctype_digit($d['sks_lulus'])) {
             $errors[] = 'sks_lulus harus berupa angka.';
@@ -174,26 +240,44 @@ class ImportService
         }
     }
 
-    private function saveLecturer(array $d): void
+    /** Akun dosen/mahasiswa hasil impor terdaftar di periode yang sedang dibuka. */
+    private function saveLecturer(array $d, ?Period $period): void
     {
+        $access = array_fill_keys($this->accessColumns($d)['columns'], true);
+
+        // Tanpa email: dosen periode ini dicocokkan menurut kode; kolom kosong tidak menimpa data, hak akses ditambahkan.
+        if (($d['email'] ?? '') === '') {
+            $this->lecturerByCode($d)?->update(array_filter([
+                'nip' => ($d['nip'] ?? '') ?: null,
+                'specialization' => ($d['peminatan'] ?? '') ?: null,
+                'phone' => ($d['no_wa'] ?? '') ?: null,
+            ], fn ($v) => $v !== null) + $access);
+
+            return;
+        }
+
         $user = User::query()->updateOrCreate(['email' => Str::lower($d['email'])], [
             'name' => $d['nama'],
             'role' => 'dosen',
-            'phone' => ($d['no_wa'] ?? '') ?: null,
         ]);
-        // F1 — password awal akun baru = kode dosen; dapat diganti admin di menu Data dosen.
+        if (! $user->phone && ($d['no_wa'] ?? '') !== '') {
+            $user->forceFill(['phone' => $d['no_wa']])->save();
+        }
+        // F1 — password awal akun baru = password default dosen (12345678); dosen menggantinya lewat menu Ganti Password.
         if (! $user->password) {
-            $user->forceFill(['password' => Str::upper($d['kode_dosen'])])->save();
+            $user->forceFill(['password' => config('capstone.lecturer_default_password')])->save();
         }
 
         LecturerProfile::query()->updateOrCreate(['user_id' => $user->id], [
             'lecturer_code' => Str::upper($d['kode_dosen']),
             'nip' => ($d['nip'] ?? '') ?: null,
             'specialization' => ($d['peminatan'] ?? '') ?: null,
-        ]);
+            'phone' => ($d['no_wa'] ?? '') ?: null,
+        ] + $access);
+        $user->joinPeriod($period);
     }
 
-    private function saveStudent(array $d): void
+    private function saveStudent(array $d, ?Period $period): void
     {
         $email = Str::lower($d['email'] ?? '');
         $user = User::query()->where('nim', $d['nim'])->first()
@@ -209,11 +293,13 @@ class ImportService
             'passed_courses' => ($d['mk_lulus'] ?? '') !== '' ? array_values(array_filter(array_map(fn ($c) => Str::upper(trim($c)), preg_split('/[;,|]/', $d['mk_lulus'])))) : null,
             'origin_region' => ($d['daerah_asal'] ?? '') ?: null,
             'specialization' => ($d['peminatan'] ?? '') ?: null,
+            'class_name' => ($d['kelas'] ?? '') !== '' ? Str::upper(trim($d['kelas'])) : null,
         ], fn ($v) => $v !== null));
         $user->role = 'mahasiswa';
         // F1 — password awal akun baru = NIM; dapat diganti admin di menu Data mahasiswa.
         $user->password ??= $d['nim'];
         $user->save();
+        $user->joinPeriod($period);
     }
 
     private function saveTeam(array $d, Period $period): void

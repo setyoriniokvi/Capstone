@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\AssessmentComponent;
 use App\Models\Logbook;
 use App\Models\Period;
+use App\Support\PeriodContext;
 use App\Models\ReminderDispatch;
 use App\Models\ReminderRule;
 use App\Models\Team;
@@ -44,7 +46,7 @@ class ReminderService
     public function incompleteAssessments(Period $period, ?int $lecturerId = null): Collection
     {
         $rows = collect();
-        $components = collect(config('capstone.components'))->reject(fn ($c) => in_array('mahasiswa', $c['roles'], true));
+        $components = collect(AssessmentComponent::lecturerConfig());
 
         $teams = Team::query()->where('period_id', $period->id)->where('status', 'diterima')
             ->with(['lecturers.lecturer', 'assessments' => fn ($q) => $q->where('status', 'final')])
@@ -87,6 +89,7 @@ class ReminderService
 
                 return [
                     'type' => 'penilaian',
+                    'component' => $first['component'],
                     'ref' => "penilaian:{$period->id}:{$first['component']}:{$first['lecturer']->id}",
                     'lecturer' => $first['lecturer'],
                     'title' => "Pengisian nilai {$label}",
@@ -152,20 +155,33 @@ class ReminderService
             })->values();
     }
 
-    /** F50 / F54 — antrekan pengingat yang sudah mencapai ambang waktu, tanpa duplikat. */
+    /**
+     * F50 / F54 — antrekan pengingat yang sudah mencapai ambang waktu, tanpa duplikat. Beberapa periode boleh aktif
+     * bersamaan: setiap periode aktif memakai aturan reminder & pekerjaannya sendiri.
+     */
     public function queueDue(?CarbonInterface $now = null): int
     {
         $now ??= now();
+
+        return Period::query()->where('is_active', true)->get()
+            ->sum(fn (Period $period) => PeriodContext::using($period, fn () => $this->queueDueFor($period, $now)));
+    }
+
+    private function queueDueFor(Period $period, CarbonInterface $now): int
+    {
         $created = 0;
         $rules = ReminderRule::query()->where('is_active', true)->get();
         if ($rules->isEmpty()) {
             return 0;
         }
 
-        $jobs = $this->pendingJobs();
+        $jobs = $this->pendingJobs($period);
 
         foreach ($rules as $rule) {
-            foreach ($jobs->where('type', $rule->job_type) as $job) {
+            // Aturan penilaian berlaku untuk satu bentuk penilaian (component); jenis lain untuk semua pekerjaannya.
+            $matching = $jobs->where('type', $rule->job_type)
+                ->when($rule->component, fn ($c) => $c->where('component', $rule->component));
+            foreach ($matching as $job) {
                 $deadline = $job['deadline'];
                 if (! $deadline || $now->greaterThanOrEqualTo($deadline) || $now->lessThan($deadline->copy()->subHours($rule->hours_before))) {
                     continue;
@@ -174,7 +190,7 @@ class ReminderService
                 foreach ($rule->channels as $channel) {
                     $dispatch = ReminderDispatch::query()->firstOrCreate(
                         ['dedupe_key' => "{$job['ref']}|rule:{$rule->id}|{$channel}"],
-                        $this->dispatchAttributes($job, $channel, 'otomatis', $rule->id)
+                        $this->dispatchAttributes($job, $channel, 'otomatis', $rule->id, null, $rule->message)
                     );
                     $created += (int) $dispatch->wasRecentlyCreated;
                 }
@@ -187,7 +203,8 @@ class ReminderService
     /** F12 — reminder manual per dosen atau massal. */
     public function queueManual(Collection $lecturers, array $channels, User $admin): int
     {
-        $period = Period::active();
+        // Dikirim admin dari Dashboard Periode: pekerjaan di periode yang sedang dibuka.
+        $period = PeriodContext::period() ?? Period::active();
         $count = 0;
 
         foreach ($lecturers as $lecturer) {
@@ -220,7 +237,9 @@ class ReminderService
             }
         }
 
-        $this->pingWorkflow();
+        if (config('capstone.automation.sender') === 'n8n') {
+            $this->pingWorkflow();
+        }
 
         return $count;
     }
@@ -249,12 +268,19 @@ class ReminderService
 
         $jobsByLecturer = [];
         $claimed = collect();
+        // Pesan reminder otomatis = pesan yang ditulis admin pada aturannya
+        $messages = ReminderRule::query()->withoutGlobalScope('period')->whereIn('id', $candidates->pluck('reminder_rule_id')->filter())->pluck('message', 'id');
 
         foreach ($candidates as $dispatch) {
-            $jobs = $jobsByLecturer[$dispatch->lecturer_id] ??= $this->pendingJobs(null, $dispatch->lecturer_id);
-            $job = $dispatch->trigger === 'manual' && str_starts_with($dispatch->job_ref, 'manual:')
-                ? $this->manualJob($dispatch)
-                : $jobs->firstWhere('ref', $dispatch->job_ref);
+            // Pekerjaan diperiksa ulang di periode antrean tersebut (periode paralel).
+            $job = PeriodContext::using($dispatch->period_id, function () use ($dispatch, &$jobsByLecturer) {
+                $period = $dispatch->period_id ? Period::query()->find($dispatch->period_id) : null;
+                $jobs = $jobsByLecturer["{$dispatch->period_id}:{$dispatch->lecturer_id}"] ??= $period ? $this->pendingJobs($period, $dispatch->lecturer_id) : collect();
+
+                return $dispatch->trigger === 'manual' && str_starts_with($dispatch->job_ref, 'manual:')
+                    ? $this->manualJob($dispatch, $period)
+                    : $jobs->firstWhere('ref', $dispatch->job_ref);
+            });
 
             if (! $job || $job['items'] === []) {
                 $dispatch->update(['status' => 'dibatalkan', 'last_error' => 'Pekerjaan sudah diselesaikan sebelum pengingat dikirim.']);
@@ -270,7 +296,7 @@ class ReminderService
                 continue;
             }
 
-            $payload = $this->payload($job);
+            $payload = $this->payload($job, $messages[$dispatch->reminder_rule_id] ?? null);
             $dispatch->update(['payload' => $payload]);
             $claimed->push(['id' => $dispatch->id, 'channel' => $dispatch->channel, 'recipient' => $dispatch->recipient] + $payload);
         }
@@ -286,9 +312,8 @@ class ReminderService
             : ['status' => 'gagal', 'last_error' => mb_substr((string) $error, 0, 1000)]);
     }
 
-    private function manualJob(ReminderDispatch $dispatch): ?array
+    private function manualJob(ReminderDispatch $dispatch, ?Period $period): ?array
     {
-        $period = Period::active();
         $rows = $period ? $this->incompleteAssessments($period, $dispatch->lecturer_id)->where('done', false) : collect();
         if ($rows->isEmpty()) {
             return null;
@@ -305,11 +330,12 @@ class ReminderService
         ];
     }
 
-    private function dispatchAttributes(array $job, string $channel, string $trigger, ?int $ruleId, ?User $admin = null): array
+    private function dispatchAttributes(array $job, string $channel, string $trigger, ?int $ruleId, ?User $admin = null, ?string $template = null): array
     {
-        $recipient = $channel === 'email' ? (string) $job['lecturer']->email : $this->normalizePhone($job['lecturer']->phone);
+        $recipient = $channel === 'email' ? (string) $job['lecturer']->email : $this->normalizePhone($job['lecturer']->waNumber());
 
         return [
+            'period_id' => PeriodContext::id(),
             'job_type' => $job['type'],
             'job_ref' => $job['ref'],
             'lecturer_id' => $job['lecturer']->id,
@@ -317,7 +343,7 @@ class ReminderService
             'trigger' => $trigger,
             'channel' => $channel,
             'recipient' => $recipient,
-            'payload' => $this->payload($job),
+            'payload' => $this->payload($job, $template),
             'deadline_at' => $job['deadline'],
             'status' => $recipient === '' ? 'gagal' : 'antre',
             'last_error' => $recipient === '' ? ($channel === 'email' ? 'Email dosen kosong.' : 'Nomor WhatsApp dosen kosong.') : null,
@@ -325,19 +351,30 @@ class ReminderService
         ];
     }
 
-    /** F52 — isi pesan pengingat. */
-    public function payload(array $job): array
+    /**
+     * F52 — isi pesan pengingat. $template = pesan yang ditulis admin pada aturan reminder otomatis; variabelnya
+     * (ReminderRule::PLACEHOLDERS) diganti data dosen & pekerjaan. Tanpa template (reminder manual) dipakai pesan bawaan.
+     */
+    public function payload(array $job, ?string $template = null): array
     {
         $deadline = $job['deadline'];
         $remaining = $deadline ? $this->remaining($deadline) : null;
         $lines = collect($job['items'])->map(fn ($i) => "• {$i}")->implode("\n");
         $deadlineText = $deadline ? $deadline->timezone(config('app.timezone'))->translatedFormat('l, j F Y H:i').' WIB' : null;
 
-        $message = "Yth. {$job['lecturer']->name},\n\n"
-            ."Pengingat Capstone: {$job['title']} belum diselesaikan untuk:\n{$lines}\n\n"
-            .($deadlineText ? "Batas waktu: {$deadlineText}\nSisa waktu: {$remaining}\n\n" : '')
-            ."Buka halaman pekerjaan: {$job['url']}\n\n"
-            .'Pesan otomatis dari Capstone FRI Telkom University.';
+        $message = filled($template)
+            ? strtr($template, [
+                '{nama_dosen}' => $job['lecturer']->name,
+                '{daftar_tim}' => $lines,
+                '{deadline}' => $deadlineText ?? '-',
+                '{sisa_waktu}' => $remaining ?? '-',
+                '{tautan}' => $job['url'],
+            ])
+            : "Yth. {$job['lecturer']->name},\n\n"
+                ."Pengingat Capstone: {$job['title']} belum diselesaikan untuk:\n{$lines}\n\n"
+                .($deadlineText ? "Batas waktu: {$deadlineText}\nSisa waktu: {$remaining}\n\n" : '')
+                ."Buka halaman pekerjaan: {$job['url']}\n\n"
+                .'Pesan otomatis dari Capstone FRI Telkom University.';
 
         return [
             'lecturer_name' => $job['lecturer']->name,
@@ -348,7 +385,7 @@ class ReminderService
             'deadline_text' => $deadlineText,
             'remaining_text' => $remaining,
             'url' => $job['url'],
-            'subject' => "[Capstone] {$job['title']}".($remaining ? " — sisa {$remaining}" : ''),
+            'subject' => "[Capstone] {$job['title']}".($remaining ? " - sisa {$remaining}" : ''),
             'message' => $message,
         ];
     }

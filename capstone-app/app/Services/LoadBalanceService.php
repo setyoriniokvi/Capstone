@@ -11,7 +11,8 @@ use Illuminate\Support\Collection;
 /**
  * F9 / F10 — kuota beban dosen dan dashboard load balancing.
  * Maksimum = kuota tim yang dapat dibimbing / diuji (0 = tidak menerima tim); sisa kuota di plotting dihitung dari
- * maksimum. Minimum hanya untuk menandai dosen UNDER. Prioritas: per dosen → global.
+ * maksimum. Minimum hanya untuk menandai dosen UNDER. Prioritas: dosen tertentu → dosen kelas (hak akses Dosen Kelas
+ * di periode tersebut) → global.
  */
 class LoadBalanceService
 {
@@ -21,13 +22,15 @@ class LoadBalanceService
     public function quotaFor(User $lecturer, Period $period): array
     {
         $quotas = $this->quotas ??= LoadQuota::query()->where('period_id', $period->id)->get();
+        $isClass = (bool) $lecturer->lecturerProfile?->is_class_lecturer;
         $quota = $quotas->first(fn ($q) => $q->scope === 'dosen' && $q->lecturer_id === $lecturer->id)
+            ?? ($isClass ? $quotas->first(fn ($q) => $q->scope === 'kategori' && $q->category === 'dosen_kelas') : null)
             ?? $quotas->firstWhere('scope', 'global');
 
         return [
             'pembimbing' => ['min' => (int) $quota?->supervise_min, 'max' => (int) $quota?->supervise_max],
             'penguji' => ['min' => (int) $quota?->examine_min, 'max' => (int) $quota?->examine_max],
-            'source' => $quota?->scope ?? 'belum diatur',
+            'source' => $quota ? ($quota->scope === 'kategori' ? (string) $quota->category : $quota->scope) : 'belum diatur',
         ];
     }
 
@@ -43,7 +46,7 @@ class LoadBalanceService
             ->get()
             ->groupBy('lecturer_id');
 
-        return User::query()->lecturers()->where('is_active', true)
+        return User::query()->lecturers()->inPeriod($period, true)
             ->with('lecturerProfile')
             ->orderBy('name')
             ->get()

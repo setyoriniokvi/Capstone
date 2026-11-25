@@ -34,6 +34,20 @@
                 @if ($message = $err($field))<p class="field-error">{{ $message }}</p>@endif
             </div>
         @endforeach
+        @php $kelas = $val('class_name', $student->class_name); $classOptions = collect($classes ?? [])->push($student->class_name)->filter()->unique(); @endphp
+        <div class="min-w-0">
+            <label class="field-label" for="s-class_name-{{ $key }}">Kelas</label>
+            @if ($classOptions->isNotEmpty())
+                <select id="s-class_name-{{ $key }}" name="class_name" class="input">
+                    <option value="">— Belum ada kelas —</option>
+                    @foreach ($classOptions as $option)<option value="{{ $option }}" @selected($kelas === $option)>{{ $option }}</option>@endforeach
+                </select>
+                <p class="field-hint">Pilihan dari aturan registrasi periode.</p>
+            @else
+                <input id="s-class_name-{{ $key }}" name="class_name" class="input" value="{{ $kelas }}" maxlength="30" placeholder="mis. SI-47-01">
+            @endif
+            @if ($message = $err('class_name'))<p class="field-error">{{ $message }}</p>@endif
+        </div>
         @php $spec = $val('specialization', $student->specialization); @endphp
         <div class="min-w-0">
             <label class="field-label" for="s-specialization-{{ $key }}">Peminatan</label>
@@ -49,7 +63,7 @@
         @foreach ($courses as $course)
             @php $grade = $val("grades.{$course->id}", ($student->course_grades ?? [])[$course->code] ?? null); @endphp
             <div class="min-w-0">
-                <label class="field-label" for="s-grade-{{ $course->id }}-{{ $key }}">Indeks nilai {{ $course->code }} — {{ $course->name }}</label>
+                <label class="field-label" for="s-grade-{{ $course->id }}-{{ $key }}">Indeks nilai {{ $course->code }} - {{ $course->name }}</label>
                 <select id="s-grade-{{ $course->id }}-{{ $key }}" name="grades[{{ $course->id }}]" class="input">
                     <option value="">—</option>
                     @foreach ($grades as $option)

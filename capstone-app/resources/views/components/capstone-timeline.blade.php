@@ -18,7 +18,7 @@
         ->map(fn ($m) => ['name' => $m->name, 'label' => $m->kindLabel(), 'due' => $m->due_at, 'week' => $period->weekOfMilestone($m), 'assessment' => false])
         ->when($withAssessments, fn ($items) => $items->concat(
             $period->assessmentWindows
-                ->filter(fn ($w) => ! in_array('mahasiswa', \App\Models\AssessmentComponent::rolesOf($w->component), true))
+                ->reject(fn ($w) => \App\Models\AssessmentComponent::isPeerKey($w->component))
                 ->map(fn ($w) => ['name' => 'Deadline Penilaian '.$w->label(), 'label' => 'Penilaian dosen', 'due' => $w->due_at,
                     'week' => min($weeks, $period->weekOf($w->due_at)), 'assessment' => true])
         ))
@@ -96,7 +96,7 @@
                     @endif
                 </span>
                 <span class="mt-1.5 tabular text-[0.6875rem] sm:text-caption {{ $isNow ? 'font-semibold text-ink' : 'text-muted' }}">
-                    {{ $w }}<span class="sr-only"> — {{ $isNow ? 'minggu berjalan' : ($done ? 'sudah lewat' : 'mendatang') }}{{ $hasMilestone ? ', ada milestone' : '' }}{{ $hasAssessment ? ', ada deadline penilaian dosen' : '' }}</span>
+                    {{ $w }}<span class="sr-only"> - {{ $isNow ? 'minggu berjalan' : ($done ? 'sudah lewat' : 'mendatang') }}{{ $hasMilestone ? ', ada milestone' : '' }}{{ $hasAssessment ? ', ada deadline penilaian dosen' : '' }}</span>
                 </span>
             </li>
         @endfor

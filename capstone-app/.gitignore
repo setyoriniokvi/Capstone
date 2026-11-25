@@ -22,3 +22,4 @@ yarn-error.log
 /.vscode
 /.zed
 /capstone_apps
+/capstone_apps.sebelum-*

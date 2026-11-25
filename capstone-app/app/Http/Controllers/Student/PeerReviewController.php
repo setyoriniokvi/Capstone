@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers\Student;
 
+use App\Models\PeerAspect;
 use App\Models\PeerReview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * F28 — peer review 6 aspek kerja tim (rubrik config/peer_rubric.php, skor 1–5) terhadap rekan satu tim.
+ * F28 — peer review aspek kerja tim (rubrik diatur admin di Rubrik Peer Review, nilai 0 / 50 / 65 / 75 / 90) terhadap rekan satu tim.
  * Setiap rekan dinilai terpisah. Peer review terbuka selama periode aktif berlangsung (tidak terikat
  * Laporan Akhir maupun milestone) dan dapat dikirim ulang berkali-kali; kiriman terbaru menimpa yang lama.
  */
@@ -42,7 +44,7 @@ class PeerReviewController extends StudentController
 
         $rules = ['reviewee_id' => ['required', 'integer', 'in:'.$teammates->implode(',')]];
         foreach ($aspects as $aspect) {
-            $rules["scores.{$aspect}"] = ['required', 'integer', 'between:1,5'];
+            $rules["scores.{$aspect}"] = ['required', 'integer', Rule::in(array_values(PeerAspect::POINTS))];
         }
         $data = $request->validate($rules, [
             'reviewee_id.in' => 'Anggota tersebut bukan rekan satu tim Anda.',

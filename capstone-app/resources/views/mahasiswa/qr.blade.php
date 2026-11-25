@@ -14,7 +14,6 @@
                     </form>
                     <a download href="{{ route('mahasiswa.qr.download') }}" class="btn btn-primary w-full"><x-heroicon-o-arrow-down-tray class="h-5 w-5" />Unduh PNG</a>
                 </div>
-                <p class="field-hint mt-4">QR hanya berisi kode acak. Identitas tim diverifikasi oleh sistem.</p>
             </div>
         </section>
     @endif
